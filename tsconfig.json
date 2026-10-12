@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "types": [
+      "vitest/globals",
+      "node"
+    ]
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/account_service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/Dukka/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/product_service/tsconfig.app.json"
+    }
+  ]
+}
