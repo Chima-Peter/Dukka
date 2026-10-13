@@ -10,4 +10,5 @@ export interface ConfigType {
   RABBITMQ_PORT: number;
   KAFKA_PORT: number;
   JWT_PRIVATE_KEY_PATH: string;
+  JWT_PUBLIC_KEY_PATH: string;
 }

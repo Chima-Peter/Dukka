@@ -14,4 +14,5 @@ export const envValidationSchema = Joi.object({
   RABBITMQ_PORT: Joi.number().port().required(),
   KAFKA_PORT: Joi.number().port().required(),
   JWT_PRIVATE_KEY_PATH: Joi.string().required(),
+  JWT_PUBLIC_KEY_PATH: Joi.string().required(),
 });

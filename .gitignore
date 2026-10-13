@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+/keys
+*.pem
+
 # TypeScript build cache
 *.tsbuildinfo
 
