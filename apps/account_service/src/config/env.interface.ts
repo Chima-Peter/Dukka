@@ -2,6 +2,7 @@ export interface ConfigType {
   NODE_ENV: 'development' | 'production' | 'test';
   ACCOUNT_SERVICE_PORT: number;
   DATABASE_URL: string;
+  SHADOW_DATABASE_URL: string;
   OBSERVE_SERVICE_NAME: string;
   OBSERVE_APP_KEY: string;
   OBSERVE_APP_SECRET: string;
