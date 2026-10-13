@@ -1,8 +1,26 @@
 import { NestFactory } from '@nestjs/core';
-import { AccountServiceModule } from './account_service.module.js';
+import { ConfigService } from '@nestjs/config';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { AppModule } from './app.module.js';
+import type { ConfigType } from './config/env.interface.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AccountServiceModule);
-  await app.listen(process.env.port ?? 3000);
+  const context = await NestFactory.createApplicationContext(AppModule);
+  const configService = context.get(ConfigService<ConfigType, true>);
+  const port = configService.getOrThrow('ACCOUNT_SERVICE_PORT', { infer: true });
+  await context.close();
+
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.TCP,
+      options: {
+        host: '0.0.0.0',
+        port,
+      },
+    },
+  );
+
+  await app.listen();
 }
 await bootstrap();

@@ -1,26 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AccountServiceModule } from './../src/account_service.module.js';
+import { INestMicroservice } from '@nestjs/common';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { AppModule } from './../src/app.module.js';
 
-describe('AccountServiceController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('AppModule (e2e)', () => {
+  let app: INestMicroservice;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AccountServiceModule],
+      imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = moduleFixture.createNestMicroservice<MicroserviceOptions>({
+      transport: Transport.TCP,
+      options: {
+        host: '127.0.0.1',
+        port: 0,
+      },
+    });
+    await app.listen();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('boots the application', () => {
+    expect(app).toBeDefined();
   });
 
   afterEach(async () => {
