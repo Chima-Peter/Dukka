@@ -1,8 +1,8 @@
-import { PasswordHasher } from '@nestjs/authentication';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomerService } from '../customer/customer.service.js';
 import { AuthService } from './auth.service.js';
+import { PasswordHasher } from '../shared/index.js';
 
 describe('AuthService', () => {
   let service: AuthService;

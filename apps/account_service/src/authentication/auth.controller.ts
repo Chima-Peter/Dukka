@@ -2,7 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { ResponseMessage } from '@app/common';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
+import { CreateCustomerDto } from '../customer/dto/create-customer.dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -10,7 +10,7 @@ export class AuthController {
 
   @Post('register')
   @ResponseMessage('Customer created successfully')
-  register(@Body() data: RegisterDto) {
+  register(@Body() data: CreateCustomerDto) {
     return this.authService.register(data);
   }
 

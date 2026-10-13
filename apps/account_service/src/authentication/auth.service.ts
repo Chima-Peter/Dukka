@@ -3,12 +3,12 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PasswordHasher } from '@nestjs/authentication';
 import { JwtService } from '@nestjs/jwt';
 import { CustomerService } from '../customer/customer.service.js';
 import type { LoginDto } from './dto/login.dto.js';
-import type { RegisterDto } from './dto/register.dto.js';
+import { PasswordHasher } from '../shared/index.js';
 import type { LoginData, PublicCustomer } from './types/index.js';
+import { CreateCustomerDto } from '../customer/dto/create-customer.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +18,7 @@ export class AuthService {
     private readonly passwordHasher: PasswordHasher,
   ) {}
 
-  async register(data: RegisterDto): Promise<PublicCustomer> {
+  async register(data: CreateCustomerDto): Promise<PublicCustomer> {
     const password = await this.passwordHasher.hash(data.password);
     const customer = await this.customerService.create({
       ...data,
@@ -32,9 +32,12 @@ export class AuthService {
   async login(data: LoginDto): Promise<LoginData> {
     try {
       const customer = await this.customerService.findByEmail(data.email);
+      if (!customer) {
+        throw new UnauthorizedException('Invalid email or password');
+      }
       const isValid = await this.passwordHasher.verify(
         data.password,
-        customer?.password,
+        customer.password,
       );
       if (!customer || !isValid) {
         throw new UnauthorizedException('Invalid email or password');

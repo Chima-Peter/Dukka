@@ -1,20 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthenticationModule as NestAuthenticationModule } from '@nestjs/authentication';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAuthGuard } from '@app/common';
 import type { ConfigType } from '../config/env.interface.js';
 import { CustomerModule } from '../customer/customer.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { PasswordHasher } from '../shared/index.js';
 
 @Module({
   imports: [
     CustomerModule,
-    NestAuthenticationModule.forRoot({
-      globalGuard: false,
-    }),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService<ConfigType, true>) => {
@@ -42,7 +39,7 @@ import { AuthService } from './auth.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
+  providers: [AuthService, JwtAuthGuard, PasswordHasher],
   exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthenticationModule {}
