@@ -1,24 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestMicroservice } from '@nestjs/common';
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { INestApplication } from '@nestjs/common';
 import { AppModule } from './../src/app.module.js';
 
 describe('AppModule (e2e)', () => {
-  let app: INestMicroservice;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestMicroservice<MicroserviceOptions>({
-      transport: Transport.TCP,
-      options: {
-        host: '127.0.0.1',
-        port: 0,
-      },
-    });
-    await app.listen();
+    app = moduleFixture.createNestApplication();
+    await app.init();
   });
 
   it('boots the application', () => {
