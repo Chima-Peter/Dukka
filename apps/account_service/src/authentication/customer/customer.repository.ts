@@ -10,4 +10,8 @@ export class CustomerRepository {
   create(data: CreateCustomerDto): Promise<Customer> {
     return this.prisma.customer.create({ data });
   }
+
+  findByEmail(email: string): Promise<Customer | null> {
+    return this.prisma.customer.findUnique({ where: { email } });
+  }
 }
