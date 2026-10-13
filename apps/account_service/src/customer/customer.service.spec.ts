@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CustomerRepository } from './customer.repository';
-import { CustomerService } from './customer.service';
+import { CustomerRepository } from './customer.repository.js';
+import { CustomerService } from './customer.service.js';
 
 describe('CustomerService', () => {
   let service: CustomerService;
@@ -13,6 +13,7 @@ describe('CustomerService', () => {
           provide: CustomerRepository,
           useValue: {
             create: vi.fn(),
+            findByEmail: vi.fn(),
           },
         },
       ],

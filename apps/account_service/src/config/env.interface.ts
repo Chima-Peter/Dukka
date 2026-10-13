@@ -9,4 +9,5 @@ export interface ConfigType {
   POSTGRES_PORT: number;
   RABBITMQ_PORT: number;
   KAFKA_PORT: number;
+  JWT_PRIVATE_KEY_PATH: string;
 }
