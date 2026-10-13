@@ -14,4 +14,8 @@ export class CustomerRepository {
   async findByEmail(email: string): Promise<Customer | null> {
     return await this.prisma.customer.findUnique({ where: { email } });
   }
+
+  async updatePassword(email: string, password: string): Promise<Customer> {
+    return await this.prisma.customer.update({ where: { email }, data: { password } });
+  }
 }

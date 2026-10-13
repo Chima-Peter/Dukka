@@ -12,6 +12,10 @@ datasource db {
   provider = "postgresql"
 }
 
+enum TokenType {
+  ACCESS
+}
+
 model Customer {
   id        String   @id @default(uuid())
   name      String
@@ -19,4 +23,18 @@ model Customer {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tokens Token[]
+}
+
+model Token {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  type       TokenType
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([customerId, type])
 }

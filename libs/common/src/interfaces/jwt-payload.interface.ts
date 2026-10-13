@@ -10,4 +10,5 @@ export interface JwtPayload {
 
 export interface CustomerJwtPayload extends JwtPayload {
   type: 'customer';
+  name: string
 }

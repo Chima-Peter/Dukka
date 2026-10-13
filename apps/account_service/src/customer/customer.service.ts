@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Customer } from '../../generated/prisma/client.js';
@@ -37,6 +38,20 @@ export class CustomerService {
     try {
       return await this.customerRepository.findByEmail(email);
     } catch {
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  async updatePassword(email: string, password: string): Promise<Customer> {
+    try {
+      const customer = await this.customerRepository.updatePassword(email, password);
+      return customer;
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Customer not found');
+      }
       throw new InternalServerErrorException(
         'An unexpected error occurred. Try again later.',
       );

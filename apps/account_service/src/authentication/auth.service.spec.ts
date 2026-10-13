@@ -1,8 +1,10 @@
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { RedisService } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { AuthService } from './auth.service.js';
 import { PasswordHasher } from '../shared/index.js';
+import { TokenRepository } from './token.repository.js';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -22,6 +24,7 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: {
             signAsync: vi.fn(),
+            decode: vi.fn(),
           },
         },
         {
@@ -29,6 +32,24 @@ describe('AuthService', () => {
           useValue: {
             hash: vi.fn(),
             verify: vi.fn(),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            set: vi.fn(),
+            get: vi.fn(),
+            delete: vi.fn(),
+          },
+        },
+        {
+          provide: TokenRepository,
+          useValue: {
+            create: vi.fn(),
+            findAllByCustomerId: vi.fn(),
+            findByToken: vi.fn(),
+            deleteByToken: vi.fn(),
+            deleteAllByCustomerId: vi.fn(),
           },
         },
       ],

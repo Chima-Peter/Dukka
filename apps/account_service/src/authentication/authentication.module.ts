@@ -8,6 +8,7 @@ import { CustomerModule } from '../customer/customer.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { PasswordHasher } from '../shared/index.js';
+import { TokenRepository } from './token.repository.js';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { PasswordHasher } from '../shared/index.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, PasswordHasher],
+  providers: [AuthService, JwtAuthGuard, PasswordHasher, TokenRepository],
   exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthenticationModule {}
