@@ -1,11 +1,21 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConsoleLogger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { AppModule } from './app.module.js';
+import { AppModule, ObserveInstrument } from './app.module.js';
 import type { ConfigType } from './config/env.interface.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(
+    AppModule,
+    {
+      instrument: ObserveInstrument,
+      logger: new ConsoleLogger({
+        json: true,
+        colors: true,
+        logLevels: ['log', 'warn', 'error', 'fatal'],
+      }),
+    }
+    );
   app.useSecurityHeaders({
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: false,
