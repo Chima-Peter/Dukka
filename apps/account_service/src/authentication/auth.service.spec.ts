@@ -1,3 +1,4 @@
+import { PasswordHasher } from '@nestjs/authentication';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomerService } from '../customer/customer.service.js';
@@ -21,6 +22,13 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: {
             signAsync: vi.fn(),
+          },
+        },
+        {
+          provide: PasswordHasher,
+          useValue: {
+            hash: vi.fn(),
+            verify: vi.fn(),
           },
         },
       ],
