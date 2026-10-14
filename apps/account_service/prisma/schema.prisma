@@ -82,10 +82,24 @@ model Points {
   customer    Customer    @relation(fields: [customer_id], references: [id])
 }
 
+enum POINT_STATUS {
+  REDEEMED
+  EARNED
+}
+
+enum POINT_REASON {
+  COMPLETE_ORDER
+  PLACE_ORDER
+  GAME
+  APP_NOTIFICATION
+  SUBSCRIBED
+  REGISTERED
+}
+
 model PointsHistory {
   id    String    @id @default(uuid())
-  status    String
-  description   String
+  status    POINT_STATUS
+  description   POINT_REASON
   count     Int
 
   created_at    DateTime    @default(now())

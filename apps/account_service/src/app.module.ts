@@ -15,6 +15,7 @@ import { CustomerModule } from './customer/customer.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ShippingAddressModule } from './shipping_address/shipping_address.module.js';
 import { AppController } from './app.controller.js';
+import { PointsModule } from './points/points.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -96,6 +97,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
             },
             inject: [ConfigService],
         }),
+        PointsModule,
     ],
     providers: [
         {
