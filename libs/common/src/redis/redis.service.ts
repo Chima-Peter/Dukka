@@ -17,61 +17,67 @@ const UNLOCK_SCRIPT = `
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
-  constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
+    constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
 
-  async onModuleDestroy(): Promise<void> {
-    await this.client.quit();
-  }
-
-  async set(
-    key: string,
-    value: string,
-    ttlSeconds?: number,
-  ): Promise<'OK' | null> {
-    if (ttlSeconds !== undefined) {
-      return this.client.set(key, value, 'EX', ttlSeconds);
+    async onModuleDestroy(): Promise<void> {
+        await this.client.quit();
     }
 
-    return this.client.set(key, value);
-  }
+    async set(
+        key: string,
+        value: string,
+        ttlSeconds?: number,
+    ): Promise<'OK' | null> {
+        if (ttlSeconds !== undefined) {
+            return this.client.set(key, value, 'EX', ttlSeconds);
+        }
 
-  async get(key: string): Promise<string | null> {
-    return this.client.get(key);
-  }
+        return this.client.set(key, value);
+    }
 
-  async setObject(
-    key: string,
-    value: unknown,
-    ttlSeconds?: number,
-  ): Promise<'OK' | null> {
-    return this.set(key, JSON.stringify(value), ttlSeconds);
-  }
+    async get(key: string): Promise<string | null> {
+        return this.client.get(key);
+    }
 
-  async delete(key: string): Promise<number> {
-    return this.client.del(key);
-  }
+    async setObject(
+        key: string,
+        value: unknown,
+        ttlSeconds?: number,
+    ): Promise<'OK' | null> {
+        return this.set(key, JSON.stringify(value), ttlSeconds);
+    }
 
-  async exists(key: string): Promise<boolean> {
-    const count = await this.client.exists(key);
-    return count === 1;
-  }
+    async delete(key: string): Promise<number> {
+        return this.client.del(key);
+    }
 
-  /**
-   * Acquires a lock with a Lua `SET key token PX ttl NX` script.
-   * Returns the lock token on success, or `null` if the key is already held.
-   */
-  async lock(key: string, ttlMs: number): Promise<string | null> {
-    const token = randomBytes(16).toString('hex');
-    const result = await this.client.eval(LOCK_SCRIPT, 1, key, token, ttlMs);
+    async exists(key: string): Promise<boolean> {
+        const count = await this.client.exists(key);
+        return count === 1;
+    }
 
-    return result === 'OK' ? token : null;
-  }
+    /**
+     * Acquires a lock with a Lua `SET key token PX ttl NX` script.
+     * Returns the lock token on success, or `null` if the key is already held.
+     */
+    async lock(key: string, ttlMs: number): Promise<string | null> {
+        const token = randomBytes(16).toString('hex');
+        const result = await this.client.eval(
+            LOCK_SCRIPT,
+            1,
+            key,
+            token,
+            ttlMs,
+        );
 
-  /**
-   * Releases a lock only if `token` still owns it (Lua compare-and-delete).
-   */
-  async unlock(key: string, token: string): Promise<boolean> {
-    const result = await this.client.eval(UNLOCK_SCRIPT, 1, key, token);
-    return result === 1;
-  }
+        return result === 'OK' ? token : null;
+    }
+
+    /**
+     * Releases a lock only if `token` still owns it (Lua compare-and-delete).
+     */
+    async unlock(key: string, token: string): Promise<boolean> {
+        const result = await this.client.eval(UNLOCK_SCRIPT, 1, key, token);
+        return result === 1;
+    }
 }

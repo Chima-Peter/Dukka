@@ -5,11 +5,11 @@ const BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class PasswordHasher {
-  hash(password: string): Promise<string> {
-    return bcrypt.hash(password, BCRYPT_ROUNDS);
-  }
+    hash(password: string): Promise<string> {
+        return bcrypt.hash(password, BCRYPT_ROUNDS);
+    }
 
-  async verify(password: string, encoded: string): Promise<boolean> {
-    return bcrypt.compare(password, encoded);
-  }
+    async verify(password: string, encoded: string): Promise<boolean> {
+        return bcrypt.compare(password, encoded);
+    }
 }

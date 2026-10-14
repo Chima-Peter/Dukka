@@ -1,19 +1,19 @@
 export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data: T;
+    success: boolean;
+    message: string;
+    data: T;
 }
 
 export function successResponse<T>(
-  data: T,
-  message = 'Success',
+    data: T,
+    message = 'Success',
 ): ApiResponse<T> {
-  return { success: true, message, data };
+    return { success: true, message, data };
 }
 
 export function errorResponse(
-  message: string,
-  data: unknown = null,
+    message: string,
+    data: unknown = null,
 ): ApiResponse {
-  return { success: false, message, data };
+    return { success: false, message, data };
 }

@@ -1,5 +1,5 @@
 export type {
-  CustomerJwtPayload,
-  JwtPayload,
-  JwtSubjectType,
+    CustomerJwtPayload,
+    JwtPayload,
+    JwtSubjectType,
 } from './jwt-payload.interface.js';

@@ -1,27 +1,27 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 
 export interface SupabaseModuleOptions {
-  url: string;
-  serviceRoleKey: string;
-  buckets: string[];
+    url: string;
+    serviceRoleKey: string;
+    buckets: string[];
 }
 
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
 
 export const {
-  ConfigurableModuleClass,
-  MODULE_OPTIONS_TOKEN: SUPABASE_MODULE_OPTIONS,
-  ASYNC_OPTIONS_TYPE,
+    ConfigurableModuleClass,
+    MODULE_OPTIONS_TOKEN: SUPABASE_MODULE_OPTIONS,
+    ASYNC_OPTIONS_TYPE,
 } = new ConfigurableModuleBuilder<SupabaseModuleOptions>({
-  moduleName: 'Supabase',
+    moduleName: 'Supabase',
 })
-  .setExtras<{ isGlobal?: boolean }>(
-    { isGlobal: false },
-    (definition, extras) => ({
-      ...definition,
-      global: extras.isGlobal,
-    }),
-  )
-  .build();
+    .setExtras<{ isGlobal?: boolean }>(
+        { isGlobal: false },
+        (definition, extras) => ({
+            ...definition,
+            global: extras.isGlobal,
+        }),
+    )
+    .build();
 
 export type SupabaseModuleAsyncOptions = typeof ASYNC_OPTIONS_TYPE;

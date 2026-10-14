@@ -3,10 +3,12 @@ import { ProductServiceService } from './product_service.service.js';
 
 @Controller()
 export class ProductServiceController {
-  constructor(private readonly productServiceService: ProductServiceService) {}
+    constructor(
+        private readonly productServiceService: ProductServiceService,
+    ) {}
 
-  @Get()
-  getHello(): string {
-    return this.productServiceService.getHello();
-  }
+    @Get()
+    getHello(): string {
+        return this.productServiceService.getHello();
+    }
 }

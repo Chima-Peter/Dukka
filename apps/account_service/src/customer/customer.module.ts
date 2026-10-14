@@ -12,42 +12,48 @@ import { CustomerService } from './customer.service.js';
 import { TokenRepository } from './token.repository.js';
 
 @Module({
-  imports: [
-    JwtModule.registerAsync({
-      global: true,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService<ConfigType, true>) => {
-        const privateKeyPath = configService.getOrThrow('JWT_PRIVATE_KEY_PATH', {
-          infer: true,
-        });
-        const publicKeyPath = configService.getOrThrow('JWT_PUBLIC_KEY_PATH', {
-          infer: true,
-        });
-        const privateKey = readFileSync(privateKeyPath, 'utf8');
-        const publicKey = readFileSync(publicKeyPath, 'utf8');
+    imports: [
+        JwtModule.registerAsync({
+            global: true,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => {
+                const privateKeyPath = configService.getOrThrow(
+                    'JWT_PRIVATE_KEY_PATH',
+                    {
+                        infer: true,
+                    },
+                );
+                const publicKeyPath = configService.getOrThrow(
+                    'JWT_PUBLIC_KEY_PATH',
+                    {
+                        infer: true,
+                    },
+                );
+                const privateKey = readFileSync(privateKeyPath, 'utf8');
+                const publicKey = readFileSync(publicKeyPath, 'utf8');
 
-        return {
-          privateKey,
-          publicKey,
-          signOptions: {
-            algorithm: 'RS256',
-            expiresIn: '7d',
-          },
-          verifyOptions: {
-            algorithms: ['RS256'],
-          },
-        };
-      },
-    }),
-  ],
-  controllers: [CustomerAuthController, CustomerController],
-  providers: [
-    CustomerService,
-    CustomerRepository,
-    CustomerAuthService,
-    PasswordHasher,
-    TokenRepository,
-  ],
-  exports: [CustomerService, JwtModule],
+                return {
+                    privateKey,
+                    publicKey,
+                    signOptions: {
+                        algorithm: 'RS256',
+                        expiresIn: '7d',
+                    },
+                    verifyOptions: {
+                        algorithms: ['RS256'],
+                    },
+                };
+            },
+        }),
+    ],
+    controllers: [CustomerAuthController, CustomerController],
+    providers: [
+        CustomerService,
+        CustomerRepository,
+        CustomerAuthService,
+        PasswordHasher,
+        TokenRepository,
+    ],
+    exports: [CustomerService, JwtModule],
 })
 export class CustomerModule {}

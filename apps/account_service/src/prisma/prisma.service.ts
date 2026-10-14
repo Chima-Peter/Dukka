@@ -6,28 +6,26 @@ import type { ConfigType } from '../config/env.interface.js';
 
 @Injectable()
 export class PrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+    extends PrismaClient
+    implements OnModuleInit, OnModuleDestroy
 {
-  constructor(
-    configService: ConfigService<ConfigType, true>,
-  ) {
-    const connectionString = configService.getOrThrow('DATABASE_URL', {
-      infer: true,
-    });
-    const schema =
-      new URL(connectionString).searchParams.get('schema') ?? 'public';
+    constructor(configService: ConfigService<ConfigType, true>) {
+        const connectionString = configService.getOrThrow('DATABASE_URL', {
+            infer: true,
+        });
+        const schema =
+            new URL(connectionString).searchParams.get('schema') ?? 'public';
 
-    super({
-      adapter: new PrismaPg({ connectionString }, { schema }),
-    });
-  }
+        super({
+            adapter: new PrismaPg({ connectionString }, { schema }),
+        });
+    }
 
-  async onModuleInit() {
-    await this.$connect();
-  }
+    async onModuleInit() {
+        await this.$connect();
+    }
 
-  async onModuleDestroy() {
-    await this.$disconnect();
-  }
+    async onModuleDestroy() {
+        await this.$disconnect();
+    }
 }

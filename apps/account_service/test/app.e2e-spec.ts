@@ -3,22 +3,22 @@ import { INestApplication } from '@nestjs/common';
 import { AppModule } from './../src/app.module.js';
 
 describe('AppModule (e2e)', () => {
-  let app: INestApplication;
+    let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    beforeEach(async () => {
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+            imports: [AppModule],
+        }).compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-  });
+        app = moduleFixture.createNestApplication();
+        await app.init();
+    });
 
-  it('boots the application', () => {
-    expect(app).toBeDefined();
-  });
+    it('boots the application', () => {
+        expect(app).toBeDefined();
+    });
 
-  afterEach(async () => {
-    await app.close();
-  });
+    afterEach(async () => {
+        await app.close();
+    });
 });
