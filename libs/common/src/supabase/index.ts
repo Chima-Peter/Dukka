@@ -8,6 +8,7 @@ export { SupabaseModule } from './supabase.module.js';
 export { SupabaseService } from './supabase.service.js';
 export {
     ALLOWED_AVATAR_CONTENT_TYPES,
+    ALLOWED_PRODUCT_CONTENT_TYPES,
     AVATAR_BUCKET,
     MAX_AVATAR_BYTES,
     PRODUCT_BUCKET,

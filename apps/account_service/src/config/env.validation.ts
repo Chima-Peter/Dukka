@@ -6,7 +6,7 @@ export const envValidationSchema = Joi.object({
         .default('development'),
     ACCOUNT_SERVICE_PORT: Joi.number().port().default(3000),
     DATABASE_URL: Joi.string().required(),
-    SHADOW_DATABASE_URL: Joi.string().required(),
+    DIRECT_URL: Joi.string().required(),
     OBSERVE_SERVICE_NAME: Joi.string().required(),
     OBSERVE_APP_KEY: Joi.string().required(),
     OBSERVE_APP_SECRET: Joi.string().required(),

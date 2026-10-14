@@ -20,12 +20,7 @@ const logger = new Logger('SupabaseModule');
                     `Initializing Supabase client (buckets=${options.buckets.join(', ') || 'none'})`,
                 );
 
-                return createClient(options.url, options.serviceRoleKey, {
-                    auth: {
-                        autoRefreshToken: false,
-                        persistSession: false,
-                    },
-                });
+                return createClient(options.url, options.serviceRoleKey);
             },
         },
         SupabaseService,

@@ -10,7 +10,14 @@ export const ALLOWED_AVATAR_CONTENT_TYPES = new Set([
     'image/jpg',
     'image/png',
     'image/webp',
-    'image/gif',
+]);
+
+export const ALLOWED_PRODUCT_CONTENT_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif'
 ]);
 
 export type UploadBody =
