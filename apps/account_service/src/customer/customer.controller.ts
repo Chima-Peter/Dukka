@@ -3,24 +3,27 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import {
   CurrentCustomer,
-  JwtAuthGuard,
   ResponseMessage,
   type CustomerJwtPayload,
 } from '@app/common';
 import { CustomerAuthService } from './customer-auth.service.js';
+import { CustomerService } from './customer.service.js';
 import { ChangePasswordDto } from './dto/change_password.dto.js';
+import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 
 @Controller('customer')
 export class CustomerController {
-  constructor(private readonly customerAuthService: CustomerAuthService) {}
+  constructor(
+    private readonly customerAuthService: CustomerAuthService,
+    private readonly customerService: CustomerService,
+  ) {}
 
   @Post('change-password')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ResponseMessage(
     'Password changed successfully. Please login with your new password.',
@@ -30,5 +33,14 @@ export class CustomerController {
     @Body() data: ChangePasswordDto,
   ) {
     return this.customerAuthService.changePassword(customer.sub, data);
+  }
+
+  @Patch()
+  @ResponseMessage('Customer updated successfully')
+  update(
+    @CurrentCustomer() customer: CustomerJwtPayload,
+    @Body() data: UpdateCustomerDTO,
+  ) {
+    return this.customerService.updateCustomerDetails(customer.sub, data);
   }
 }

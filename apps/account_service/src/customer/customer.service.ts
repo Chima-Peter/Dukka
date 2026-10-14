@@ -12,6 +12,7 @@ import type { Customer } from '../../generated/prisma/client.js';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
+import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 
 @Injectable()
 export class CustomerService {
@@ -114,6 +115,37 @@ export class CustomerService {
       if (error instanceof HttpException) {
         this.logger.warn(`HTTP exception: ${error.message}`);
         throw error;
+      }
+      this.logger.error(`Internal server error: ${error}`);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  async updateCustomerDetails(customer_id: string, dto: UpdateCustomerDTO) {
+    try {
+      this.logger.log(`Updating customer details for ${customer_id}`);
+
+      const customer = await this.customerRepository.updateCustomer(
+        customer_id,
+        dto,
+      );
+
+      this.logger.log(`Customer details updated for ${customer_id}`);
+
+      const { password: _, ...data } = customer;
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`HTTP exception: ${error.message}`);
+        throw error;
+      }
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Customer not found');
       }
       this.logger.error(`Internal server error: ${error}`);
       throw new InternalServerErrorException(
