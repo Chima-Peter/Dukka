@@ -8,19 +8,29 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
+import { randomInt, timingSafeEqual } from 'node:crypto';
 import type { Customer } from '../../generated/prisma/client.js';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
+import {
+  ACCOUNT_DELETION_TOKEN_TTL_SECONDS,
+  RedisKeys,
+} from '../shared/index.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
+import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
 import {
   ALLOWED_AVATAR_CONTENT_TYPES,
   AVATAR_BUCKET,
   MAX_AVATAR_BYTES,
+  RedisService,
   SupabaseService,
+  type JwtPayload,
 } from '@app/common';
 import type { PublicCustomer } from './types/index.js';
+import { TokenRepository } from './token.repository.js';
 
 @Injectable()
 export class CustomerService {
@@ -29,6 +39,9 @@ export class CustomerService {
     private readonly customerRepository: CustomerRepository,
     private readonly supabaseService: SupabaseService,
     private readonly passwordHasher: PasswordHasher,
+    private readonly redisService: RedisService,
+    private readonly tokenRepository: TokenRepository,
+    private readonly jwtService: JwtService,
   ) {}
 
   async create(data: CreateCustomerDto): Promise<Customer> {
@@ -196,6 +209,162 @@ export class CustomerService {
         'An unexpected error occurred. Try again later.',
       );
     }
+  }
+
+  async initiateAccountDeletion(
+    customer_id: string,
+  ): Promise<{ token: string }> {
+    try {
+      this.logger.log(`Initiating account deletion for customer ${customer_id}`);
+
+      const customer = await this.findByID(customer_id);
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      const token = String(randomInt(100000, 1000000));
+      await this.redisService.set(
+        RedisKeys.accountDeletionToken(customer.email),
+        token,
+        ACCOUNT_DELETION_TOKEN_TTL_SECONDS,
+      );
+
+      this.logger.log(
+        `Account deletion token saved for customer ${customer.email}`,
+      );
+      return { token };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`HTTP exception: ${error.message}`);
+        throw error;
+      }
+      this.logger.error(`Internal server error: ${error}`);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  async verifyAccountDeletion(
+    customer_id: string,
+    data: VerifyAccountDeletionDto,
+  ): Promise<object> {
+    try {
+      this.logger.log(`Verifying account deletion for customer ${customer_id}`);
+
+      const customer = await this.findByID(customer_id);
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      const key = RedisKeys.accountDeletionToken(customer.email);
+      const storedToken = await this.redisService.get(key);
+
+      if (!storedToken) {
+        this.logger.warn(
+          `No account deletion token found for ${customer.email}`,
+        );
+        throw new UnauthorizedException('Invalid or expired deletion token');
+      }
+
+      const stored = Buffer.from(storedToken);
+      const provided = Buffer.from(data.token);
+      const isValid =
+        stored.length === provided.length &&
+        timingSafeEqual(stored, provided);
+
+      if (!isValid) {
+        this.logger.warn(
+          `Invalid account deletion token for ${customer.email}`,
+        );
+        throw new UnauthorizedException('Invalid or expired deletion token');
+      }
+
+      const activeTokens =
+        await this.tokenRepository.deleteAllByCustomerId(customer_id);
+      await Promise.all(
+        activeTokens.map((token) => this.blacklistToken(token.token)),
+      );
+
+      await this.delete(customer_id);
+      await this.redisService.delete(key);
+
+      this.logger.log(`Account deleted for customer ${customer.email}`);
+
+      return { data: null };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`HTTP exception: ${error.message}`);
+        throw error;
+      }
+      this.logger.error(`Internal server error: ${error}`);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  async delete(customer_id: string): Promise<void> {
+    try {
+      this.logger.log(`Deleting customer ${customer_id}`);
+
+      const customer = await this.findByID(customer_id);
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      if (customer.avatar) {
+        try {
+          await this.supabaseService.deleteFile(
+            [customer.avatar],
+            AVATAR_BUCKET,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to delete avatar for customer ${customer_id}: ${error}`,
+          );
+        }
+      }
+
+      await this.customerRepository.delete(customer_id);
+      this.logger.log(`Customer deleted ${customer_id}`);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`HTTP exception: ${error.message}`);
+        throw error;
+      }
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Customer not found');
+      }
+      this.logger.error(`Internal server error: ${error}`);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  private async blacklistToken(token: string): Promise<void> {
+    const payload = this.jwtService.decode<JwtPayload>(token);
+    if (!payload?.exp) {
+      return;
+    }
+
+    const remainingTtlSeconds = Math.max(
+      0,
+      payload.exp - Math.floor(Date.now() / 1000),
+    );
+    if (remainingTtlSeconds <= 0) {
+      return;
+    }
+
+    await this.redisService.set(
+      RedisKeys.blacklistedToken(token),
+      '1',
+      remainingTtlSeconds,
+    );
   }
 
   private async assertValidAvatar(

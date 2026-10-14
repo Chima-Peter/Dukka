@@ -48,3 +48,4 @@ model Token {
 
   @@index([customerId, type])
 }
+

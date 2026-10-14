@@ -47,4 +47,8 @@ export class CustomerRepository {
       },
     });
   }
+
+  async delete(customer_id: string): Promise<Customer> {
+    return await this.prisma.customer.delete({ where: { id: customer_id } });
+  }
 }
