@@ -15,6 +15,10 @@ export class CustomerRepository {
     return await this.prisma.customer.findUnique({ where: { email } });
   }
 
+  async findByID(customer_id: string): Promise<Customer | null> {
+    return await this.prisma.customer.findUnique({ where: { id: customer_id } });
+  }
+
   async updatePassword(email: string, password: string): Promise<Customer> {
     return await this.prisma.customer.update({ where: { email }, data: { password } });
   }

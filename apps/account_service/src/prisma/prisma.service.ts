@@ -12,10 +12,15 @@ export class PrismaService
   constructor(
     configService: ConfigService<ConfigType, true>,
   ) {
-    const connectionString = configService.get('DATABASE_URL', {
+    const connectionString = configService.getOrThrow('DATABASE_URL', {
       infer: true,
     });
-    super({ adapter: new PrismaPg({ connectionString }) });
+    const schema =
+      new URL(connectionString).searchParams.get('schema') ?? 'public';
+
+    super({
+      adapter: new PrismaPg({ connectionString }, { schema }),
+    });
   }
 
   async onModuleInit() {

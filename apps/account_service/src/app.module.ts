@@ -7,7 +7,7 @@ import {
   RedisModule,
   TransformResponseInterceptor,
 } from '@app/common';
-import { AuthenticationModule } from './authentication/authentication.module.js';
+import { AuthenticationModule } from './authentication/auth.module.js';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { CustomerModule } from './customer/customer.module.js';
@@ -55,7 +55,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
               slowerThanMs: 3000,
               body: true,
             },
-            //ignore: ['/health'],
+            ignore: ['/health', 'metrics'],
           },
           jobs: {
             setAttributes: (job) => ({

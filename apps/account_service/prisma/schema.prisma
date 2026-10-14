@@ -16,11 +16,21 @@ enum TokenType {
   ACCESS
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 model Customer {
   id        String   @id @default(uuid())
   name      String
+  avatar    String?
   email     String   @unique
   password  String
+  date_of_birth  DateTime?
+  gender        Gender?
+  phone_number  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

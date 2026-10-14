@@ -24,8 +24,9 @@ import {
   PASSWORD_RESET_VERIFIED_TTL_SECONDS,
 } from '../shared/redis.constants.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
+import { ChangePasswordDto } from './dto/change_password.dto.js';
 
-@Controller('auth')
+@Controller('authentication')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -55,6 +56,19 @@ export class AuthController {
     }
 
     return this.authService.logout(customer.sub, accessToken);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage(
+    'Password changed successfully. Please login with your new password.',
+  )
+  changePassword(
+    @CurrentCustomer() customer: CustomerJwtPayload,
+    @Body() data: ChangePasswordDto,
+  ) {
+    return this.authService.change_password(customer.sub, data);
   }
 
   @Post('password-reset/initiate')

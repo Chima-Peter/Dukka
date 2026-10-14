@@ -22,6 +22,7 @@ import { RedisService, type JwtPayload } from '@app/common';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { VerifyPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
+import { ChangePasswordDto } from './dto/change_password.dto.js';
 import { ACCESS_TOKEN_TTL_SECONDS } from '../shared/redis.constants.js';
 import { TokenType } from '../../generated/prisma/client.js';
 import { TokenRepository } from './token.repository.js';
@@ -244,6 +245,43 @@ export class AuthService {
       await this.redisService.delete(redis_key);
 
       this.logger.log(`Password reset for ${email}`);
+
+      return { data: null };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`HTTP exception: ${error.message}`);
+        throw error;
+      }
+
+      this.logger.error(`Internal server error: ${error}`);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred. Try again later.',
+      );
+    }
+  }
+
+  async change_password(
+    customerId: string,
+    data: ChangePasswordDto,
+  ): Promise<object> {
+    try {
+      this.logger.log(`Changing password for customer ${customerId}`);
+
+      await this.customerService.changePassword(
+        customerId,
+        data.currentPassword,
+        data.newPassword,
+      );
+
+      const activeTokens = await this.tokenRepository.deleteAllByCustomerId(
+        customerId,
+      );
+
+      await Promise.all(
+        activeTokens.map((token) => this.blacklistToken(token.token)),
+      );
+
+      this.logger.log(`Password changed for customer ${customerId}`);
 
       return { data: null };
     } catch (error) {
