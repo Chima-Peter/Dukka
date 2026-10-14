@@ -47,7 +47,8 @@ export class CustomerAuthService {
     });
 
     this.logger.log(`Customer registered ${customer.email}`);
-    const { password: _, ...publicCustomer } = customer;
+    const { password: _, createdAt: __, updatedAt: ___, ...publicCustomer } =
+      customer;
 
     return publicCustomer;
   }
@@ -71,7 +72,8 @@ export class CustomerAuthService {
         throw new UnauthorizedException('Invalid email or password');
       }
 
-      const { password: _, ...publicCustomer } = customer;
+      const { password: _, createdAt: __, updatedAt: ___, ...publicCustomer } =
+        customer;
       this.logger.log(`Customer ${data.email} password verified`);
 
       const accessToken = await this.jwtService.signAsync(

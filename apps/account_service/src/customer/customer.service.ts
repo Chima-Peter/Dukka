@@ -89,7 +89,7 @@ export class CustomerService {
     }
   }
 
-  async getMe(customer_id: string): Promise<PublicCustomer> {
+  async getMe(customer_id: string): Promise<object> {
     try {
       this.logger.log(`Fetching profile for customer ${customer_id}`);
 
@@ -98,8 +98,17 @@ export class CustomerService {
         throw new NotFoundException('Customer not found');
       }
 
-      const { password: _, ...data } = customer;
-      return data;
+      let avatar_url: string | null = null
+      if (customer.avatar)
+        this.supabaseService.getPublicURL(customer.avatar, AVATAR_BUCKET)
+
+      const { password: _, createdAt: __, updatedAt: ___, avatar: ____, ...data } = customer;
+
+      return {
+        ...data,
+        profile_url: avatar_url
+      }
+      
     } catch (error) {
       if (error instanceof HttpException) {
         this.logger.warn(`HTTP exception: ${error.message}`);
@@ -153,7 +162,7 @@ export class CustomerService {
 
       this.logger.log('User password updated');
 
-      const { password: _, ...data } = customer;
+      const { password: _, createdAt: __, updatedAt: ___, ...data } = customer;
 
       return data;
     } catch (error) {
@@ -191,7 +200,7 @@ export class CustomerService {
 
       this.logger.log(`Customer details updated for ${customer_id}`);
 
-      const { password: _, ...data } = customer;
+      const { password: _, createdAt: __, updatedAt: ___, ...data } = customer;
       return data;
     } catch (error) {
       if (error instanceof HttpException) {
