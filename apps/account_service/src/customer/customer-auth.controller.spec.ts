@@ -1,16 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller.js';
-import { AuthService } from './auth.service.js';
+import { CustomerAuthController } from './customer-auth.controller.js';
+import { CustomerAuthService } from './customer-auth.service.js';
 
-describe('AuthController', () => {
-  let controller: AuthController;
+describe('CustomerAuthController', () => {
+  let controller: CustomerAuthController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
+      controllers: [CustomerAuthController],
       providers: [
         {
-          provide: AuthService,
+          provide: CustomerAuthService,
           useValue: {
             register: vi.fn(),
             login: vi.fn(),
@@ -19,7 +19,7 @@ describe('AuthController', () => {
       ],
     }).compile();
 
-    controller = module.get<AuthController>(AuthController);
+    controller = module.get<CustomerAuthController>(CustomerAuthController);
   });
 
   it('should be defined', () => {

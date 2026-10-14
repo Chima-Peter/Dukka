@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomInt, timingSafeEqual } from 'node:crypto';
-import { CustomerService } from '../customer/customer.service.js';
+import { CustomerService } from './customer.service.js';
 import type { LoginDto } from './dto/login.dto.js';
 import {
   PasswordHasher,
@@ -17,7 +17,7 @@ import {
   RedisKeys,
 } from '../shared/index.js';
 import type { LoginData, PublicCustomer } from './types/index.js';
-import { CreateCustomerDto } from '../customer/dto/create-customer.dto.js';
+import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { RedisService, type JwtPayload } from '@app/common';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { VerifyPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
@@ -28,8 +28,8 @@ import { TokenType } from '../../generated/prisma/client.js';
 import { TokenRepository } from './token.repository.js';
 
 @Injectable()
-export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
+export class CustomerAuthService {
+  private readonly logger = new Logger(CustomerAuthService.name);
   constructor(
     private readonly customerService: CustomerService,
     private readonly jwtService: JwtService,
@@ -135,7 +135,7 @@ export class AuthService {
     }
   }
 
-  async initiate_password_reset(
+  async initiatePasswordReset(
     data: InitiatePasswordResetDto,
   ): Promise<{ token: string }> {
     try {
@@ -169,7 +169,7 @@ export class AuthService {
     }
   }
 
-  async verify_password_reset(
+  async verifyPasswordReset(
     data: VerifyPasswordResetTokenDto,
   ): Promise<{ email: string }> {
     try {
@@ -219,7 +219,7 @@ export class AuthService {
     }
   }
 
-  async reset_password(data: ResetPasswordDTO): Promise<object> {
+  async resetPassword(data: ResetPasswordDTO): Promise<object> {
     try {
       this.logger.log(`Resetting password for customer ${data.email}`);
 
@@ -260,7 +260,7 @@ export class AuthService {
     }
   }
 
-  async change_password(
+  async changePassword(
     customerId: string,
     data: ChangePasswordDto,
   ): Promise<object> {

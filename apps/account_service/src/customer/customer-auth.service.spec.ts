@@ -1,18 +1,18 @@
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '@app/common';
-import { CustomerService } from '../customer/customer.service.js';
-import { AuthService } from './auth.service.js';
+import { CustomerService } from './customer.service.js';
+import { CustomerAuthService } from './customer-auth.service.js';
 import { PasswordHasher } from '../shared/index.js';
 import { TokenRepository } from './token.repository.js';
 
-describe('AuthService', () => {
-  let service: AuthService;
+describe('CustomerAuthService', () => {
+  let service: CustomerAuthService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AuthService,
+        CustomerAuthService,
         {
           provide: CustomerService,
           useValue: {
@@ -55,7 +55,7 @@ describe('AuthService', () => {
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    service = module.get<CustomerAuthService>(CustomerAuthService);
   });
 
   it('should be defined', () => {
