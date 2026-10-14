@@ -27,8 +27,11 @@ export {
   successResponse,
 } from './response/index.js';
 export {
+  ALLOWED_AVATAR_CONTENT_TYPES,
   AVATAR_BUCKET,
+  MAX_AVATAR_BYTES,
   PRODUCT_BUCKET,
+  SUPABASE_CLIENT,
   SUPABASE_MODULE_OPTIONS,
   SupabaseModule,
   SupabaseService,

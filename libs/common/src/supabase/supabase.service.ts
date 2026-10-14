@@ -8,38 +8,17 @@ import {
 } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { lookup as mimeLookup } from 'mime-types';
-import { Readable } from 'node:stream';
 import { RedisService } from '../redis/redis.service.js';
 import {
   SUPABASE_CLIENT,
   SUPABASE_MODULE_OPTIONS,
   type SupabaseModuleOptions,
 } from './supabase.module-definition.js';
-
-export type UploadBody =
-  | Buffer
-  | Blob
-  | File
-  | ArrayBuffer
-  | FormData
-  | NodeJS.ReadableStream
-  | Readable
-  | string;
-
-export interface UploadOptions {
-  contentType?: string;
-  upsert?: boolean;
-  cacheControl?: string;
-}
-
-export interface StorageObjectInfo {
-  name: string;
-  size: number;
-  contentType: string;
-}
-
-export const AVATAR_BUCKET = 'avatar';
-export const PRODUCT_BUCKET = 'products';
+import type {
+  StorageObjectInfo,
+  UploadBody,
+  UploadOptions,
+} from './types.js';
 
 const supabaseUploadPathKey = (token: string) =>
   `supabase:upload_path:${token}`;
@@ -234,7 +213,7 @@ export class SupabaseService {
   async getObjectInfo(
     file_path: string,
     bucket: string,
-  ): Promise<StorageObjectInfo> {
+  ): Promise<StorageObjectInfo | null> {
     try {
       const bucketName = this.resolveBucket(bucket);
 
@@ -247,9 +226,7 @@ export class SupabaseService {
 
       if (error || !data) {
         this.logger.error('Error getting object info', error);
-        throw new BadRequestException(
-          'Uploaded file was not found. Please upload the document again.',
-        );
+        return null
       }
       this.logger.log(`Completed object info get path=${file_path}`);
 

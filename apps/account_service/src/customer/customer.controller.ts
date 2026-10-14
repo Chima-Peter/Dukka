@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Patch,
@@ -22,6 +23,12 @@ export class CustomerController {
     private readonly customerAuthService: CustomerAuthService,
     private readonly customerService: CustomerService,
   ) {}
+
+  @Get('me')
+  @ResponseMessage('Customer profile retrieved successfully')
+  getMe(@CurrentCustomer() customer: CustomerJwtPayload) {
+    return this.customerService.getMe(customer.sub);
+  }
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
