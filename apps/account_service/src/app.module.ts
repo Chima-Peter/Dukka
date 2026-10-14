@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import {
   AllExceptionsFilter,
+  JwtAuthGuard,
   RedisModule,
+  SupabaseModule,
   TransformResponseInterceptor,
 } from '@app/common';
 import { ConfigModule } from './config/config.module.js';
@@ -26,6 +28,21 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       inject: [ConfigService],
       useFactory: (configService: ConfigService<ConfigType, true>) => ({
         url: configService.getOrThrow('REDIS_URL', { infer: true }),
+      }),
+    }),
+    SupabaseModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<ConfigType, true>) => ({
+        url: configService.getOrThrow('SUPABASE_URL', { infer: true }),
+        serviceRoleKey: configService.getOrThrow('SUPABASE_SERVICE_ROLE_KEY', {
+          infer: true,
+        }),
+        buckets: configService
+          .getOrThrow('SUPABASE_BUCKETS', { infer: true })
+          .split(',')
+          .map((bucket) => bucket.trim())
+          .filter(Boolean),
       }),
     }),
     ObserveModule.forRootAsync({
@@ -72,6 +89,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_INTERCEPTOR,

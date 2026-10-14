@@ -1,6 +1,12 @@
-export { CurrentCustomer, Public, ResponseMessage } from './decorators/index.js';
+export {
+  CurrentCustomer,
+  IS_PUBLIC_KEY,
+  Public,
+  ResponseMessage,
+} from './decorators/index.js';
 export { AllExceptionsFilter } from './filters/index.js';
 export { JwtAuthGuard, REQUEST_USER_KEY } from './guards/index.js';
+
 export type {
   CustomerJwtPayload,
   JwtPayload,
@@ -20,3 +26,15 @@ export {
   errorResponse,
   successResponse,
 } from './response/index.js';
+export {
+  AVATAR_BUCKET,
+  PRODUCT_BUCKET,
+  SUPABASE_MODULE_OPTIONS,
+  SupabaseModule,
+  SupabaseService,
+  type StorageObjectInfo,
+  type SupabaseModuleAsyncOptions,
+  type SupabaseModuleOptions,
+  type UploadBody,
+  type UploadOptions,
+} from './supabase/index.js';

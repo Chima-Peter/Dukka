@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtAuthGuard } from '@app/common';
 import type { ConfigType } from '../config/env.interface.js';
 import { PasswordHasher } from '../shared/index.js';
 import { CustomerAuthController } from './customer-auth.controller.js';
@@ -15,6 +14,7 @@ import { TokenRepository } from './token.repository.js';
 @Module({
   imports: [
     JwtModule.registerAsync({
+      global: true,
       inject: [ConfigService],
       useFactory: (configService: ConfigService<ConfigType, true>) => {
         const privateKeyPath = configService.getOrThrow('JWT_PRIVATE_KEY_PATH', {
@@ -45,10 +45,9 @@ import { TokenRepository } from './token.repository.js';
     CustomerService,
     CustomerRepository,
     CustomerAuthService,
-    JwtAuthGuard,
     PasswordHasher,
     TokenRepository,
   ],
-  exports: [CustomerService, JwtModule, JwtAuthGuard],
+  exports: [CustomerService, JwtModule],
 })
 export class CustomerModule {}
