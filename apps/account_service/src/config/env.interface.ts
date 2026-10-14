@@ -12,4 +12,7 @@ export interface ConfigType {
   JWT_PRIVATE_KEY_PATH: string;
   JWT_PUBLIC_KEY_PATH: string;
   REDIS_URL: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPABASE_BUCKETS: string;
 }
