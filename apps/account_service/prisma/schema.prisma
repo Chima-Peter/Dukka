@@ -123,9 +123,10 @@ model Staff {
   role_id String
   role    Role   @relation(fields: [role_id], references: [id])
 
-  profile            StaffProfile?
-  qualifications     Qualification[]
-  market_assignments StaffMarketAssignment[]
+  profile                 StaffProfile?
+  qualifications          Qualification[]
+  market_assignments      StaffMarketAssignment[]
+  role_permission_audits  RolePermissionAudit[]
 }
 
 model StaffProfile {
@@ -161,12 +162,13 @@ model Role {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  hierarchy   Int
+  hierarchy   Int   @default(1)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  staff            Staff[]
-  role_permissions RolePermission[]
+  staff                  Staff[]
+  role_permissions       RolePermission[]
+  role_permission_audits RolePermissionAudit[]
 }
 
 model Permission {
@@ -218,5 +220,27 @@ model RolePermission {
 
   @@unique([role_id, permission_id])
   @@index([permission_id])
+}
+
+enum RolePermissionAuditAction {
+  ASSIGNED
+  REMOVED
+}
+
+model RolePermissionAudit {
+  id            String                    @id @default(uuid())
+  action        RolePermissionAuditAction
+  role_id       String
+  role          Role                      @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  permission_id String
+  staff_id      String
+  staff         Staff                     @relation(fields: [staff_id], references: [id], onDelete: Restrict)
+  created_at    DateTime                  @default(now())
+
+  @@index([role_id])
+  @@index([permission_id])
+  @@index([staff_id])
+  @@index([created_at])
+  @@map("role_permissions_audit")
 }
 

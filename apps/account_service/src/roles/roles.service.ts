@@ -80,6 +80,7 @@ export class RolesService {
     async assignPermission(
         role_id: string,
         data: AssignPermissionDto,
+        staff_id: string,
     ): Promise<RolePermission & { permission: Permission }> {
         try {
             this.logger.log(
@@ -88,6 +89,7 @@ export class RolesService {
             const assignment = await this.rolesRepository.assignPermission(
                 role_id,
                 data.permission_id,
+                staff_id,
             );
             this.logger.log(
                 `Permission ${data.permission_id} assigned to role ${role_id}`,
@@ -101,6 +103,7 @@ export class RolesService {
     async removePermission(
         role_id: string,
         permission_id: string,
+        staff_id: string,
     ): Promise<object> {
         try {
             this.logger.log(
@@ -109,6 +112,7 @@ export class RolesService {
             await this.rolesRepository.removePermission(
                 role_id,
                 permission_id,
+                staff_id,
             );
             this.logger.log(
                 `Permission ${permission_id} removed from role ${role_id}`,
@@ -159,7 +163,9 @@ export class RolesService {
             }
             if (error.code === 'P2003') {
                 this.logger.warn(`Foreign key constraint: ${error.message}`);
-                throw new NotFoundException('Role or permission not found');
+                throw new NotFoundException(
+                    'Role, permission, or staff not found',
+                );
             }
             if (error.code === 'P2025') {
                 throw new NotFoundException(

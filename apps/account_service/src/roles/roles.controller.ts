@@ -9,6 +9,7 @@ import {
     ParseUUIDPipe,
     Patch,
     Post,
+    Query,
 } from '@nestjs/common';
 import { ResponseMessage } from '@app/common';
 import { AssignPermissionDto } from './dto/assign-permission.dto.js';
@@ -67,9 +68,10 @@ export class RolesController {
     @ResponseMessage('Permission assigned to role successfully')
     assignPermission(
         @Param('id', ParseUUIDPipe) id: string,
+        @Query('staff_id', ParseUUIDPipe) staff_id: string,
         @Body() data: AssignPermissionDto,
     ) {
-        return this.rolesService.assignPermission(id, data);
+        return this.rolesService.assignPermission(id, data, staff_id);
     }
 
     @Delete(':id/permissions/:permissionId')
@@ -78,7 +80,8 @@ export class RolesController {
     removePermission(
         @Param('id', ParseUUIDPipe) id: string,
         @Param('permissionId', ParseUUIDPipe) permissionId: string,
+        @Query('staff_id', ParseUUIDPipe) staff_id: string,
     ) {
-        return this.rolesService.removePermission(id, permissionId);
+        return this.rolesService.removePermission(id, permissionId, staff_id);
     }
 }

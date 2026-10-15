@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type {
-    Permission,
-    Role,
-    RolePermission,
+import {
+    RolePermissionAuditAction,
+    type Permission,
+    type Role,
+    type RolePermission,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
@@ -60,24 +61,52 @@ export class RolesRepository {
     async assignPermission(
         role_id: string,
         permission_id: string,
+        staff_id: string,
     ): Promise<RolePermission & { permission: Permission }> {
-        return await this.prisma.rolePermission.create({
-            data: {
-                role: { connect: { id: role_id } },
-                permission: { connect: { id: permission_id } },
-            },
-            include: { permission: true },
+        return await this.prisma.$transaction(async (tx) => {
+            const assignment = await tx.rolePermission.create({
+                data: {
+                    role: { connect: { id: role_id } },
+                    permission: { connect: { id: permission_id } },
+                },
+                include: { permission: true },
+            });
+
+            await tx.rolePermissionAudit.create({
+                data: {
+                    action: RolePermissionAuditAction.ASSIGNED,
+                    role_id,
+                    permission_id,
+                    staff_id,
+                },
+            });
+
+            return assignment;
         });
     }
 
     async removePermission(
         role_id: string,
         permission_id: string,
+        staff_id: string,
     ): Promise<RolePermission> {
-        return await this.prisma.rolePermission.delete({
-            where: {
-                role_id_permission_id: { role_id, permission_id },
-            },
+        return await this.prisma.$transaction(async (tx) => {
+            const removed = await tx.rolePermission.delete({
+                where: {
+                    role_id_permission_id: { role_id, permission_id },
+                },
+            });
+
+            await tx.rolePermissionAudit.create({
+                data: {
+                    action: RolePermissionAuditAction.REMOVED,
+                    role_id,
+                    permission_id,
+                    staff_id,
+                },
+            });
+
+            return removed;
         });
     }
 
