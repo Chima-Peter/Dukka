@@ -12,11 +12,11 @@ describe('RolesService', () => {
                 {
                     provide: RolesRepository,
                     useValue: {
-                        create: jest.fn(),
-                        findAll: jest.fn(),
-                        findById: jest.fn(),
-                        update: jest.fn(),
-                        delete: jest.fn(),
+                        create: vi.fn(),
+                        findAll: vi.fn(),
+                        findById: vi.fn(),
+                        update: vi.fn(),
+                        delete: vi.fn(),
                     },
                 },
             ],

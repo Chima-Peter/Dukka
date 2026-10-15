@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StaffController } from './staff.controller.js';
 import { StaffService } from './staff.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', () => ({
+    ResponseMessage: () => () => undefined,
+}));
 
 describe('StaffController', () => {
     let controller: StaffController;
@@ -12,19 +17,19 @@ describe('StaffController', () => {
                 {
                     provide: StaffService,
                     useValue: {
-                        create: jest.fn(),
-                        findAll: jest.fn(),
-                        findOne: jest.fn(),
-                        update: jest.fn(),
-                        delete: jest.fn(),
-                        createProfile: jest.fn(),
-                        findProfile: jest.fn(),
-                        updateProfile: jest.fn(),
-                        deleteProfile: jest.fn(),
-                        createQualification: jest.fn(),
-                        findQualifications: jest.fn(),
-                        updateQualification: jest.fn(),
-                        deleteQualification: jest.fn(),
+                        create: vi.fn(),
+                        findAll: vi.fn(),
+                        findOne: vi.fn(),
+                        update: vi.fn(),
+                        delete: vi.fn(),
+                        createProfile: vi.fn(),
+                        findProfile: vi.fn(),
+                        updateProfile: vi.fn(),
+                        deleteProfile: vi.fn(),
+                        createQualification: vi.fn(),
+                        findQualifications: vi.fn(),
+                        updateQualification: vi.fn(),
+                        deleteQualification: vi.fn(),
                     },
                 },
             ],

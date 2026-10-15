@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RolesController } from './roles.controller.js';
 import { RolesService } from './roles.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', () => ({
+    ResponseMessage: () => () => undefined,
+}));
 
 describe('RolesController', () => {
     let controller: RolesController;
@@ -12,11 +17,16 @@ describe('RolesController', () => {
                 {
                     provide: RolesService,
                     useValue: {
-                        create: jest.fn(),
-                        findAll: jest.fn(),
-                        findOne: jest.fn(),
-                        update: jest.fn(),
-                        delete: jest.fn(),
+                        create: vi.fn(),
+                        findAll: vi.fn(),
+                        findOne: vi.fn(),
+                        update: vi.fn(),
+                        delete: vi.fn(),
+                        hasPermission: vi.fn(),
+                        assignPermissions: vi.fn(),
+                        removePermissions: vi.fn(),
+                        assignMarkets: vi.fn(),
+                        removeMarkets: vi.fn(),
                     },
                 },
             ],

@@ -43,9 +43,6 @@
       "path": "./apps/account_service/tsconfig.app.json"
     },
     {
-      "path": "./apps/Dukka/tsconfig.app.json"
-    },
-    {
       "path": "./apps/product_service/tsconfig.app.json"
     }
   ]

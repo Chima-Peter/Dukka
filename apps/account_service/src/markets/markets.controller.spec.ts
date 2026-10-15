@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsController } from './markets.controller.js';
 import { MarketsService } from './markets.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', () => ({
+    ResponseMessage: () => () => undefined,
+}));
 
 describe('MarketsController', () => {
     let controller: MarketsController;
@@ -12,11 +17,11 @@ describe('MarketsController', () => {
                 {
                     provide: MarketsService,
                     useValue: {
-                        create: jest.fn(),
-                        findAll: jest.fn(),
-                        findOne: jest.fn(),
-                        update: jest.fn(),
-                        delete: jest.fn(),
+                        create: vi.fn(),
+                        findAll: vi.fn(),
+                        findOne: vi.fn(),
+                        update: vi.fn(),
+                        delete: vi.fn(),
                     },
                 },
             ],

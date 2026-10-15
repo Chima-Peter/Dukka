@@ -17,6 +17,7 @@ import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import {
+    STAFF_REPO_ERROR,
     StaffRepository,
     type StaffPage,
     type StaffWithDetails,
@@ -31,14 +32,20 @@ export class StaffService {
         private readonly passwordHasher: PasswordHasher,
     ) {}
 
-    async create(data: CreateStaffDto): Promise<StaffWithDetails> {
+    async create(
+        data: CreateStaffDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffWithDetails> {
         try {
             this.logger.log(`Creating staff ${data.email}`);
             const password = await this.passwordHasher.hash(data.password);
-            const staff = await this.staffRepository.create({
-                ...data,
-                password,
-            });
+            const staff = await this.staffRepository.create(
+                {
+                    ...data,
+                    password,
+                },
+                performed_by_staff_id,
+            );
             this.logger.log(`Staff created ${staff.id}`);
             return staff;
         } catch (error) {
@@ -68,10 +75,18 @@ export class StaffService {
         }
     }
 
-    async update(id: string, data: UpdateStaffDto): Promise<StaffWithDetails> {
+    async update(
+        id: string,
+        data: UpdateStaffDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffWithDetails> {
         try {
             this.logger.log(`Updating staff ${id}`);
-            const staff = await this.staffRepository.update(id, data);
+            const staff = await this.staffRepository.update(
+                id,
+                data,
+                performed_by_staff_id,
+            );
             this.logger.log(`Staff updated ${id}`);
             return staff;
         } catch (error) {
@@ -79,11 +94,14 @@ export class StaffService {
         }
     }
 
-    async delete(id: string): Promise<object> {
+    async delete(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<object> {
         try {
-            this.logger.log(`Deleting staff ${id}`);
-            await this.staffRepository.delete(id);
-            this.logger.log(`Staff deleted ${id}`);
+            this.logger.log(`Deactivating staff ${id}`);
+            await this.staffRepository.delete(id, performed_by_staff_id);
+            this.logger.log(`Staff deactivated ${id}`);
             return { data: null };
         } catch (error) {
             this.handleError(error);
@@ -303,6 +321,18 @@ export class StaffService {
             throw error;
         }
 
+        if (error instanceof Error) {
+            if (error.message === STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND) {
+                throw new NotFoundException('Performing staff not found');
+            }
+            if (error.message === STAFF_REPO_ERROR.ROLE_NOT_FOUND) {
+                throw new NotFoundException('Role not found');
+            }
+            if (error.message === STAFF_REPO_ERROR.STAFF_NOT_FOUND) {
+                throw new NotFoundException('Staff not found');
+            }
+        }
+
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
@@ -313,7 +343,7 @@ export class StaffService {
             if (error.code === 'P2003') {
                 this.logger.warn(`Foreign key constraint: ${error.message}`);
                 throw new ConflictException(
-                    'Invalid role reference, or staff cannot be deleted while related audit records exist',
+                    'Invalid role reference',
                 );
             }
             if (error.code === 'P2025') {

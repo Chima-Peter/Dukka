@@ -120,13 +120,11 @@ model Staff {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
-  role_id String
-  role    Role   @relation(fields: [role_id], references: [id])
+  role_id String?
+  role    Role?  @relation(fields: [role_id], references: [id])
 
-  profile                 StaffProfile?
-  qualifications          Qualification[]
-  market_assignments      StaffMarketAssignment[]
-  role_permission_audits  RolePermissionAudit[]
+  profile          StaffProfile?
+  qualifications   Qualification[]
 }
 
 model StaffProfile {
@@ -162,13 +160,13 @@ model Role {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  hierarchy   Int   @default(1)
+  hierarchy   Int      @default(1)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  staff                  Staff[]
-  role_permissions       RolePermission[]
-  role_permission_audits RolePermissionAudit[]
+  staff            Staff[]
+  role_permissions RolePermission[]
+  role_markets     RoleMarket[]
 }
 
 model Permission {
@@ -189,21 +187,21 @@ model Market {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  staff_assignments StaffMarketAssignment[]
+  role_markets RoleMarket[]
 }
 
-model StaffMarketAssignment {
+model RoleMarket {
   id         String   @id @default(uuid())
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  staff_id String
-  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
 
   market_id String
   market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
 
-  @@unique([staff_id, market_id])
+  @@unique([role_id, market_id])
   @@index([market_id])
 }
 
@@ -222,25 +220,43 @@ model RolePermission {
   @@index([permission_id])
 }
 
-enum RolePermissionAuditAction {
-  ASSIGNED
-  REMOVED
+enum StaffAuditAction {
+  STAFF_CREATED
+  STAFF_DELETED
+  ROLE_ASSIGNED
+  ROLE_CHANGED
+  MARKET_ASSIGNED
+  MARKET_REMOVED
+  PERMISSION_ASSIGNED
+  PERMISSION_REMOVED
 }
 
-model RolePermissionAudit {
-  id            String                    @id @default(uuid())
-  action        RolePermissionAuditAction
-  role_id       String
-  role          Role                      @relation(fields: [role_id], references: [id], onDelete: Restrict)
-  permission_id String
-  staff_id      String
-  staff         Staff                     @relation(fields: [staff_id], references: [id], onDelete: Restrict)
-  created_at    DateTime                  @default(now())
+model StaffAudit {
+  id         String           @id @default(uuid())
+  action     StaffAuditAction
+  created_at DateTime         @default(now())
 
-  @@index([role_id])
-  @@index([permission_id])
+  staff_id   String?
+  staff_name String?
+
+  performed_by_staff_id   String
+  performed_by_staff_name String
+
+  role_id   String?
+  role_name String?
+
+  previous_role_id   String?
+  previous_role_name String?
+
+  market_id       String?
+  market_name     String?
+  permission_id   String?
+  permission_name String?
+
   @@index([staff_id])
+  @@index([performed_by_staff_id])
+  @@index([role_id])
   @@index([created_at])
-  @@map("role_permissions_audit")
+  @@map("staff_audit")
 }
 

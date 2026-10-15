@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import type {
-    Prisma,
-    Qualification,
-    Staff,
-    StaffProfile,
+import {
+    StaffAuditAction,
+    type Market,
+    type Permission,
+    type Prisma,
+    type Qualification,
+    type Role,
+    type RoleMarket,
+    type RolePermission,
+    type Staff,
+    type StaffProfile,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
@@ -14,9 +20,21 @@ import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 
+export const STAFF_REPO_ERROR = {
+    PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
+    ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
+    STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
+} as const;
+
+export type StaffRoleDetails = Role & {
+    role_permissions: (RolePermission & { permission: Permission })[];
+    role_markets: (RoleMarket & { market: Market })[];
+};
+
 export type StaffWithDetails = Omit<Staff, 'password'> & {
     profile: StaffProfile | null;
     qualifications: Qualification[];
+    role: StaffRoleDetails | null;
 };
 
 export type StaffPage = {
@@ -29,6 +47,18 @@ const staffDetailsInclude = {
     qualifications: {
         orderBy: { created_at: 'desc' as const },
     },
+    role: {
+        include: {
+            role_permissions: {
+                include: { permission: true },
+                orderBy: { created_at: 'desc' as const },
+            },
+            role_markets: {
+                include: { market: true },
+                orderBy: { created_at: 'desc' as const },
+            },
+        },
+    },
 };
 
 @Injectable()
@@ -37,25 +67,56 @@ export class StaffRepository {
 
     async create(
         data: Omit<CreateStaffDto, 'password'> & { password: string },
+        performed_by_staff_id: string,
     ): Promise<StaffWithDetails> {
-        const staff = await this.prisma.staff.create({
-            data: {
-                name: data.name,
-                email: data.email,
-                password: data.password,
-                role_id: data.role_id,
-                ...(data.avatar !== undefined && { avatar: data.avatar }),
-                ...(data.phone_number !== undefined && {
-                    phone_number: data.phone_number,
-                }),
-                ...(data.is_active !== undefined && {
-                    is_active: data.is_active,
-                }),
-            },
-            include: staffDetailsInclude,
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: { id: true, name: true },
+            });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
 
-        return this.omitPassword(staff);
+            const role = await tx.role.findUnique({
+                where: { id: data.role_id },
+                select: { id: true, name: true },
+            });
+            if (!role) {
+                throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
+            }
+
+            const staff = await tx.staff.create({
+                data: {
+                    name: data.name,
+                    email: data.email,
+                    password: data.password,
+                    role_id: data.role_id,
+                    ...(data.avatar !== undefined && { avatar: data.avatar }),
+                    ...(data.phone_number !== undefined && {
+                        phone_number: data.phone_number,
+                    }),
+                    ...(data.is_active !== undefined && {
+                        is_active: data.is_active,
+                    }),
+                },
+                include: staffDetailsInclude,
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.STAFF_CREATED,
+                    staff_id: staff.id,
+                    staff_name: staff.name,
+                    performed_by_staff_id: actor.id,
+                    performed_by_staff_name: actor.name,
+                    role_id: role.id,
+                    role_name: role.name,
+                },
+            });
+
+            return this.omitPassword(staff);
+        });
     }
 
     async findAll(query: FindStaffDto): Promise<StaffPage> {
@@ -84,20 +145,22 @@ export class StaffRepository {
     }
 
     private buildFindWhere(query: FindStaffDto): Prisma.StaffWhereInput {
-        return {
-            ...(query.role_id !== undefined && { role_id: query.role_id }),
+        const roleFilters: Prisma.RoleWhereInput = {
             ...(query.market_id !== undefined && {
-                market_assignments: {
+                role_markets: {
                     some: { market_id: query.market_id },
                 },
             }),
             ...(query.permission_id !== undefined && {
-                role: {
-                    role_permissions: {
-                        some: { permission_id: query.permission_id },
-                    },
+                role_permissions: {
+                    some: { permission_id: query.permission_id },
                 },
             }),
+        };
+
+        return {
+            ...(query.role_id !== undefined && { role_id: query.role_id }),
+            ...(Object.keys(roleFilters).length > 0 && { role: roleFilters }),
         };
     }
 
@@ -118,29 +181,125 @@ export class StaffRepository {
         return staff !== null;
     }
 
-    async update(id: string, data: UpdateStaffDto): Promise<StaffWithDetails> {
-        const staff = await this.prisma.staff.update({
-            where: { id },
-            data: {
-                ...(data.name !== undefined && { name: data.name }),
-                ...(data.email !== undefined && { email: data.email }),
-                ...(data.role_id !== undefined && { role_id: data.role_id }),
-                ...(data.avatar !== undefined && { avatar: data.avatar }),
-                ...(data.phone_number !== undefined && {
-                    phone_number: data.phone_number,
-                }),
-                ...(data.is_active !== undefined && {
-                    is_active: data.is_active,
-                }),
-            },
-            include: staffDetailsInclude,
-        });
+    async update(
+        id: string,
+        data: UpdateStaffDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffWithDetails> {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id },
+                include: { role: { select: { id: true, name: true } } },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+            }
 
-        return this.omitPassword(staff);
+            const roleChanging =
+                data.role_id !== undefined && data.role_id !== existing.role_id;
+
+            let newRole: { id: string; name: string } | null = null;
+            if (roleChanging) {
+                newRole = await tx.role.findUnique({
+                    where: { id: data.role_id! },
+                    select: { id: true, name: true },
+                });
+                if (!newRole) {
+                    throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
+                }
+            }
+
+            const actor =
+                performed_by_staff_id === existing.id
+                    ? { id: existing.id, name: existing.name }
+                    : await tx.staff.findUnique({
+                          where: { id: performed_by_staff_id },
+                          select: { id: true, name: true },
+                      });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            const staff = await tx.staff.update({
+                where: { id },
+                data: {
+                    ...(data.name !== undefined && { name: data.name }),
+                    ...(data.email !== undefined && { email: data.email }),
+                    ...(data.role_id !== undefined && { role_id: data.role_id }),
+                    ...(data.avatar !== undefined && { avatar: data.avatar }),
+                    ...(data.phone_number !== undefined && {
+                        phone_number: data.phone_number,
+                    }),
+                    ...(data.is_active !== undefined && {
+                        is_active: data.is_active,
+                    }),
+                },
+                include: staffDetailsInclude,
+            });
+
+            if (roleChanging && newRole) {
+                await tx.staffAudit.create({
+                    data: {
+                        action: existing.role
+                            ? StaffAuditAction.ROLE_CHANGED
+                            : StaffAuditAction.ROLE_ASSIGNED,
+                        staff_id: staff.id,
+                        staff_name: staff.name,
+                        performed_by_staff_id: actor.id,
+                        performed_by_staff_name: actor.name,
+                        role_id: newRole.id,
+                        role_name: newRole.name,
+                        previous_role_id: existing.role?.id,
+                        previous_role_name: existing.role?.name,
+                    },
+                });
+            }
+
+            return this.omitPassword(staff);
+        });
     }
 
-    async delete(id: string): Promise<void> {
-        await this.prisma.staff.delete({ where: { id } });
+    async delete(id: string, performed_by_staff_id: string): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id },
+                include: { role: { select: { id: true, name: true } } },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+            }
+
+            const actor =
+                performed_by_staff_id === existing.id
+                    ? { id: existing.id, name: existing.name }
+                    : await tx.staff.findUnique({
+                          where: { id: performed_by_staff_id },
+                          select: { id: true, name: true },
+                      });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            await tx.staff.update({
+                where: { id },
+                data: {
+                    is_active: false,
+                    role_id: null,
+                },
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.STAFF_DELETED,
+                    staff_id: existing.id,
+                    staff_name: existing.name,
+                    performed_by_staff_id: actor.id,
+                    performed_by_staff_name: actor.name,
+                    role_id: existing.role?.id,
+                    role_name: existing.role?.name,
+                },
+            });
+        });
     }
 
     async createProfile(
@@ -260,6 +419,7 @@ export class StaffRepository {
         staff: Staff & {
             profile: StaffProfile | null;
             qualifications: Qualification[];
+            role: StaffRoleDetails | null;
         },
     ): StaffWithDetails {
         const { password: _, ...rest } = staff;

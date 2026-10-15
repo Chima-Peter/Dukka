@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PermissionsController } from './permissions.controller.js';
 import { PermissionsService } from './permissions.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', () => ({
+    ResponseMessage: () => () => undefined,
+}));
 
 describe('PermissionsController', () => {
     let controller: PermissionsController;
@@ -12,7 +17,7 @@ describe('PermissionsController', () => {
                 {
                     provide: PermissionsService,
                     useValue: {
-                        findAll: jest.fn(),
+                        findAll: vi.fn(),
                     },
                 },
             ],

@@ -12,7 +12,7 @@ describe('PermissionsService', () => {
                 {
                     provide: PermissionsRepository,
                     useValue: {
-                        findAll: jest.fn(),
+                        findAll: vi.fn(),
                     },
                 },
             ],

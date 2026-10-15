@@ -27,8 +27,12 @@ export class StaffController {
 
     @Post()
     @ResponseMessage('Staff created successfully')
-    create(@Body() data: CreateStaffDto) {
-        return this.staffService.create(data);
+    create(
+        @Query('performed_by_staff_id', ParseUUIDPipe)
+        performed_by_staff_id: string,
+        @Body() data: CreateStaffDto,
+    ) {
+        return this.staffService.create(data, performed_by_staff_id);
     }
 
     @Get()
@@ -47,16 +51,22 @@ export class StaffController {
     @ResponseMessage('Staff updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
+        @Query('performed_by_staff_id', ParseUUIDPipe)
+        performed_by_staff_id: string,
         @Body() data: UpdateStaffDto,
     ) {
-        return this.staffService.update(id, data);
+        return this.staffService.update(id, data, performed_by_staff_id);
     }
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Staff deleted successfully')
-    delete(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.delete(id);
+    @ResponseMessage('Staff deactivated successfully')
+    delete(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query('performed_by_staff_id', ParseUUIDPipe)
+        performed_by_staff_id: string,
+    ) {
+        return this.staffService.delete(id, performed_by_staff_id);
     }
 
     @Post(':id/profile')
