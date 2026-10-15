@@ -1,4 +1,11 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+    IsInt,
+    IsOptional,
+    IsString,
+    MaxLength,
+    Min,
+    MinLength,
+} from 'class-validator';
 
 export class CreateRoleDto {
     @IsString()
@@ -10,4 +17,8 @@ export class CreateRoleDto {
     @IsString()
     @MaxLength(512)
     description?: string;
+
+    @IsInt()
+    @Min(0)
+    hierarchy!: number;
 }

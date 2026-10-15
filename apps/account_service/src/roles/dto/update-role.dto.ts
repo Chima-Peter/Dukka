@@ -1,4 +1,11 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+    IsInt,
+    IsOptional,
+    IsString,
+    MaxLength,
+    Min,
+    MinLength,
+} from 'class-validator';
 
 export class UpdateRoleDto {
     @IsOptional()
@@ -11,4 +18,9 @@ export class UpdateRoleDto {
     @IsString()
     @MaxLength(512)
     description?: string;
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    hierarchy?: number;
 }

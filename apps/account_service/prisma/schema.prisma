@@ -161,6 +161,7 @@ model Role {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
+  hierarchy   Int
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 

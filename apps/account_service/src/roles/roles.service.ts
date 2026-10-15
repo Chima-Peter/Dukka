@@ -7,10 +7,14 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { Role } from '../../generated/prisma/client.js';
+import type { Permission, Role, RolePermission } from '../../generated/prisma/client.js';
+import type { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
-import { RolesRepository } from './roles.repository.js';
+import {
+    RolesRepository,
+    type RoleWithPermissions,
+} from './roles.repository.js';
 
 @Injectable()
 export class RolesService {
@@ -38,7 +42,7 @@ export class RolesService {
         }
     }
 
-    async findOne(id: string): Promise<Role> {
+    async findOne(id: string): Promise<RoleWithPermissions> {
         try {
             this.logger.log(`Fetching role ${id}`);
             const role = await this.rolesRepository.findById(id);
@@ -73,6 +77,103 @@ export class RolesService {
         }
     }
 
+    async assignPermission(
+        role_id: string,
+        data: AssignPermissionDto,
+    ): Promise<RolePermission & { permission: Permission }> {
+        try {
+            this.logger.log(
+                `Assigning permission ${data.permission_id} to role ${role_id}`,
+            );
+            const assignment = await this.rolesRepository.assignPermission(
+                role_id,
+                data.permission_id,
+            );
+            this.logger.log(
+                `Permission ${data.permission_id} assigned to role ${role_id}`,
+            );
+            return assignment;
+        } catch (error) {
+            this.handlePermissionError(error);
+        }
+    }
+
+    async removePermission(
+        role_id: string,
+        permission_id: string,
+    ): Promise<object> {
+        try {
+            this.logger.log(
+                `Removing permission ${permission_id} from role ${role_id}`,
+            );
+            await this.rolesRepository.removePermission(
+                role_id,
+                permission_id,
+            );
+            this.logger.log(
+                `Permission ${permission_id} removed from role ${role_id}`,
+            );
+            return { data: null };
+        } catch (error) {
+            this.handlePermissionError(error);
+        }
+    }
+
+    async hasPermission(
+        role_id: string,
+        permission_name: string,
+    ): Promise<{ has_permission: boolean }> {
+        try {
+            this.logger.log(
+                `Checking permission ${permission_name} on role ${role_id}`,
+            );
+
+            const roleExists = await this.rolesRepository.exists(role_id);
+            if (!roleExists) {
+                throw new NotFoundException('Role not found');
+            }
+
+            const has_permission = await this.rolesRepository.hasPermission(
+                role_id,
+                permission_name,
+            );
+
+            return { has_permission };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private handlePermissionError(error: unknown): never {
+        if (error instanceof HttpException) {
+            this.logger.warn(`HTTP exception: ${error.message}`);
+            throw error;
+        }
+
+        if (error instanceof PrismaClientKnownRequestError) {
+            if (error.code === 'P2002') {
+                this.logger.warn(`Conflict error: ${error.message}`);
+                throw new ConflictException(
+                    'Permission is already assigned to this role',
+                );
+            }
+            if (error.code === 'P2003') {
+                this.logger.warn(`Foreign key constraint: ${error.message}`);
+                throw new NotFoundException('Role or permission not found');
+            }
+            if (error.code === 'P2025') {
+                throw new NotFoundException(
+                    'Permission is not assigned to this role',
+                );
+            }
+        }
+
+        this.logger.error(`Internal server error: ${error}`);
+        throw new InternalServerErrorException(
+            'An unexpected error occurred. Try again later.',
+        );
+    }
+
     private handleError(error: unknown): never {
         if (error instanceof HttpException) {
             this.logger.warn(`HTTP exception: ${error.message}`);
@@ -91,7 +192,7 @@ export class RolesService {
                     `Foreign key constraint on role delete: ${error.message}`,
                 );
                 throw new ConflictException(
-                    'Role cannot be deleted while it is still assigned to staff',
+                    'Role cannot be deleted while it is still assigned to staff or has permissions linked',
                 );
             }
             if (error.code === 'P2025') {

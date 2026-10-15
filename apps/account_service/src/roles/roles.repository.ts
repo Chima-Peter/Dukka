@@ -1,8 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import type { Role } from '../../generated/prisma/client.js';
+import type {
+    Permission,
+    Role,
+    RolePermission,
+} from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
+
+export type RoleWithPermissions = Role & {
+    role_permissions: (RolePermission & { permission: Permission })[];
+};
 
 @Injectable()
 export class RolesRepository {
@@ -14,12 +22,20 @@ export class RolesRepository {
 
     async findAll(): Promise<Role[]> {
         return await this.prisma.role.findMany({
-            orderBy: { created_at: 'desc' },
+            orderBy: [{ hierarchy: 'asc' }, { created_at: 'desc' }],
         });
     }
 
-    async findById(id: string): Promise<Role | null> {
-        return await this.prisma.role.findUnique({ where: { id } });
+    async findById(id: string): Promise<RoleWithPermissions | null> {
+        return await this.prisma.role.findUnique({
+            where: { id },
+            include: {
+                role_permissions: {
+                    include: { permission: true },
+                    orderBy: { created_at: 'desc' },
+                },
+            },
+        });
     }
 
     async update(id: string, data: UpdateRoleDto): Promise<Role> {
@@ -30,11 +46,60 @@ export class RolesRepository {
                 ...(data.description !== undefined && {
                     description: data.description,
                 }),
+                ...(data.hierarchy !== undefined && {
+                    hierarchy: data.hierarchy,
+                }),
             },
         });
     }
 
     async delete(id: string): Promise<Role> {
         return await this.prisma.role.delete({ where: { id } });
+    }
+
+    async assignPermission(
+        role_id: string,
+        permission_id: string,
+    ): Promise<RolePermission & { permission: Permission }> {
+        return await this.prisma.rolePermission.create({
+            data: {
+                role: { connect: { id: role_id } },
+                permission: { connect: { id: permission_id } },
+            },
+            include: { permission: true },
+        });
+    }
+
+    async removePermission(
+        role_id: string,
+        permission_id: string,
+    ): Promise<RolePermission> {
+        return await this.prisma.rolePermission.delete({
+            where: {
+                role_id_permission_id: { role_id, permission_id },
+            },
+        });
+    }
+
+    async exists(id: string): Promise<boolean> {
+        const role = await this.prisma.role.findUnique({
+            where: { id },
+            select: { id: true },
+        });
+        return role !== null;
+    }
+
+    async hasPermission(
+        role_id: string,
+        permission_name: string,
+    ): Promise<boolean> {
+        const assignment = await this.prisma.rolePermission.findFirst({
+            where: {
+                role_id,
+                permission: { name: permission_name },
+            },
+            select: { id: true },
+        });
+        return assignment !== null;
     }
 }
