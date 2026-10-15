@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -23,6 +24,7 @@ import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
+import type { AssignRoleDto } from './dto/assign-role.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
@@ -105,7 +107,6 @@ export class StaffService {
     async update(
         id: string,
         data: UpdateStaffDto,
-        performed_by_staff_id: string,
     ): Promise<StaffResponse> {
         try {
             this.logger.log(`Updating staff ${id}`);
@@ -119,11 +120,7 @@ export class StaffService {
                 await this.assertValidAvatar(id, data.avatar_path);
             }
 
-            const staff = await this.staffRepository.update(
-                id,
-                data,
-                performed_by_staff_id,
-            );
+            const staff = await this.staffRepository.update(id, data);
 
             if (
                 data.avatar_path &&
@@ -134,6 +131,25 @@ export class StaffService {
             }
 
             this.logger.log(`Staff updated ${id}`);
+            return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async assignRole(
+        id: string,
+        data: AssignRoleDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffResponse> {
+        try {
+            this.logger.log(`Assigning role ${data.role_id} to staff ${id}`);
+            const staff = await this.staffRepository.assignRole(
+                id,
+                data.role_id,
+                performed_by_staff_id,
+            );
+            this.logger.log(`Role assigned to staff ${id}`);
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -613,6 +629,11 @@ export class StaffService {
             }
             if (error.message === STAFF_REPO_ERROR.ROLE_NOT_FOUND) {
                 throw new NotFoundException('Role not found');
+            }
+            if (error.message === STAFF_REPO_ERROR.SELF_ROLE_ASSIGNMENT) {
+                throw new ForbiddenException(
+                    'Staff cannot assign a role to themselves',
+                );
             }
             if (error.message === STAFF_REPO_ERROR.STAFF_NOT_FOUND) {
                 throw new NotFoundException('Staff not found');

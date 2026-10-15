@@ -12,6 +12,7 @@ import {
     Query,
 } from '@nestjs/common';
 import { ResponseMessage } from '@app/common';
+import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
@@ -52,11 +53,20 @@ export class StaffController {
     @ResponseMessage('Staff updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
         @Body() data: UpdateStaffDto,
     ) {
-        return this.staffService.update(id, data, performed_by_staff_id);
+        return this.staffService.update(id, data);
+    }
+
+    @Post(':id/role')
+    @ResponseMessage('Role assigned to staff successfully')
+    assignRole(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query('performed_by_staff_id', ParseUUIDPipe)
+        performed_by_staff_id: string,
+        @Body() data: AssignRoleDto,
+    ) {
+        return this.staffService.assignRole(id, data, performed_by_staff_id);
     }
 
     @Delete(':id')

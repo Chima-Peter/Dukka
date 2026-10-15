@@ -3,7 +3,6 @@ import {
     IsEmail,
     IsOptional,
     IsString,
-    IsUUID,
     MaxLength,
     MinLength,
 } from 'class-validator';
@@ -18,10 +17,6 @@ export class UpdateStaffDto {
     @IsOptional()
     @IsEmail()
     email?: string;
-
-    @IsOptional()
-    @IsUUID()
-    role_id?: string;
 
     @IsOptional()
     @IsString()

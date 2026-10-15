@@ -35,6 +35,7 @@ describe('StaffController', () => {
                         findAll: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),
+                        assignRole: vi.fn(),
                         delete: vi.fn(),
                         getAvatarUploadURL: vi.fn(),
                         getQualificationUploadURL: vi.fn(),

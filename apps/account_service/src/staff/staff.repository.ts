@@ -23,6 +23,7 @@ import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 export const STAFF_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
+    SELF_ROLE_ASSIGNMENT: 'SELF_ROLE_ASSIGNMENT',
     STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
 } as const;
 
@@ -195,40 +196,13 @@ export class StaffRepository {
     async update(
         id: string,
         data: UpdateStaffDto,
-        performed_by_staff_id: string,
     ): Promise<StaffWithDetails> {
         return await this.prisma.$transaction(async (tx) => {
             const existing = await tx.staff.findUnique({
                 where: { id },
-                include: { role: { select: { id: true, name: true } } },
             });
             if (!existing) {
                 throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
-            }
-
-            const roleChanging =
-                data.role_id !== undefined && data.role_id !== existing.role_id;
-
-            let newRole: { id: string; name: string } | null = null;
-            if (roleChanging) {
-                newRole = await tx.role.findUnique({
-                    where: { id: data.role_id! },
-                    select: { id: true, name: true },
-                });
-                if (!newRole) {
-                    throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
-                }
-            }
-
-            const actor =
-                performed_by_staff_id === existing.id
-                    ? { id: existing.id, name: existing.name }
-                    : await tx.staff.findUnique({
-                          where: { id: performed_by_staff_id },
-                          select: { id: true, name: true },
-                      });
-            if (!actor) {
-                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
             const staff = await tx.staff.update({
@@ -236,7 +210,6 @@ export class StaffRepository {
                 data: {
                     ...(data.name !== undefined && { name: data.name }),
                     ...(data.email !== undefined && { email: data.email }),
-                    ...(data.role_id !== undefined && { role_id: data.role_id }),
                     ...(data.avatar_path !== undefined && {
                         avatar: data.avatar_path,
                     }),
@@ -250,23 +223,74 @@ export class StaffRepository {
                 include: staffDetailsInclude,
             });
 
-            if (roleChanging && newRole) {
-                await tx.staffAudit.create({
-                    data: {
-                        action: existing.role
-                            ? StaffAuditAction.ROLE_CHANGED
-                            : StaffAuditAction.ROLE_ASSIGNED,
-                        staff_id: staff.id,
-                        staff_name: staff.name,
-                        performed_by_staff_id: actor.id,
-                        performed_by_staff_name: actor.name,
-                        role_id: newRole.id,
-                        role_name: newRole.name,
-                        previous_role_id: existing.role?.id,
-                        previous_role_name: existing.role?.name,
-                    },
-                });
+            return this.omitPassword(staff);
+        });
+    }
+
+    async assignRole(
+        id: string,
+        role_id: string,
+        performed_by_staff_id: string,
+    ): Promise<StaffWithDetails> {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id },
+                include: { role: { select: { id: true, name: true } } },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
             }
+
+            if (performed_by_staff_id === existing.id) {
+                throw new Error(STAFF_REPO_ERROR.SELF_ROLE_ASSIGNMENT);
+            }
+
+            if (existing.role_id === role_id) {
+                return this.omitPassword(
+                    await tx.staff.findUniqueOrThrow({
+                        where: { id },
+                        include: staffDetailsInclude,
+                    }),
+                );
+            }
+
+            const newRole = await tx.role.findUnique({
+                where: { id: role_id },
+                select: { id: true, name: true },
+            });
+            if (!newRole) {
+                throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
+            }
+
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: { id: true, name: true },
+            });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            const staff = await tx.staff.update({
+                where: { id },
+                data: { role_id },
+                include: staffDetailsInclude,
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: existing.role
+                        ? StaffAuditAction.ROLE_CHANGED
+                        : StaffAuditAction.ROLE_ASSIGNED,
+                    staff_id: staff.id,
+                    staff_name: staff.name,
+                    performed_by_staff_id: actor.id,
+                    performed_by_staff_name: actor.name,
+                    role_id: newRole.id,
+                    role_name: newRole.name,
+                    previous_role_id: existing.role?.id,
+                    previous_role_name: existing.role?.name,
+                },
+            });
 
             return this.omitPassword(staff);
         });

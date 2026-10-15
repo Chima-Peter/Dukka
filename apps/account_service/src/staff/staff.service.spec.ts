@@ -40,6 +40,7 @@ describe('StaffService', () => {
                         findById: vi.fn(),
                         exists: vi.fn(),
                         update: vi.fn(),
+                        assignRole: vi.fn(),
                         delete: vi.fn(),
                         createProfile: vi.fn(),
                         findProfileByStaffId: vi.fn(),
