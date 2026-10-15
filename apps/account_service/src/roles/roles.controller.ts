@@ -14,6 +14,7 @@ import {
 import { ResponseMessage } from '@app/common';
 import { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import { CreateRoleDto } from './dto/create-role.dto.js';
+import { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { RolesService } from './roles.service.js';
 
@@ -65,23 +66,23 @@ export class RolesController {
     }
 
     @Post(':id/permissions')
-    @ResponseMessage('Permission assigned to role successfully')
-    assignPermission(
+    @ResponseMessage('Permissions assigned to role successfully')
+    assignPermissions(
         @Param('id', ParseUUIDPipe) id: string,
         @Query('staff_id', ParseUUIDPipe) staff_id: string,
         @Body() data: AssignPermissionDto,
     ) {
-        return this.rolesService.assignPermission(id, data, staff_id);
+        return this.rolesService.assignPermissions(id, data, staff_id);
     }
 
-    @Delete(':id/permissions/:permissionId')
+    @Delete(':id/permissions')
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Permission removed from role successfully')
-    removePermission(
+    @ResponseMessage('Permissions removed from role successfully')
+    removePermissions(
         @Param('id', ParseUUIDPipe) id: string,
-        @Param('permissionId', ParseUUIDPipe) permissionId: string,
         @Query('staff_id', ParseUUIDPipe) staff_id: string,
+        @Body() data: RemovePermissionDto,
     ) {
-        return this.rolesService.removePermission(id, permissionId, staff_id);
+        return this.rolesService.removePermissions(id, data, staff_id);
     }
 }

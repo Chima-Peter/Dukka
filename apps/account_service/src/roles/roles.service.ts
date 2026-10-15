@@ -10,6 +10,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Permission, Role, RolePermission } from '../../generated/prisma/client.js';
 import type { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
+import type { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 import {
     RolesRepository,
@@ -77,45 +78,50 @@ export class RolesService {
         }
     }
 
-    async assignPermission(
+    async assignPermissions(
         role_id: string,
         data: AssignPermissionDto,
         staff_id: string,
-    ): Promise<RolePermission & { permission: Permission }> {
+    ): Promise<(RolePermission & { permission: Permission })[]> {
         try {
             this.logger.log(
-                `Assigning permission ${data.permission_id} to role ${role_id}`,
+                `Assigning ${data.permission_ids.length} permission(s) to role ${role_id}`,
             );
-            const assignment = await this.rolesRepository.assignPermission(
+            const assignments = await this.rolesRepository.assignPermissions(
                 role_id,
-                data.permission_id,
+                data.permission_ids,
                 staff_id,
             );
             this.logger.log(
-                `Permission ${data.permission_id} assigned to role ${role_id}`,
+                `Assigned ${assignments.length} permission(s) to role ${role_id}`,
             );
-            return assignment;
+            return assignments;
         } catch (error) {
             this.handlePermissionError(error);
         }
     }
 
-    async removePermission(
+    async removePermissions(
         role_id: string,
-        permission_id: string,
+        data: RemovePermissionDto,
         staff_id: string,
     ): Promise<object> {
         try {
             this.logger.log(
-                `Removing permission ${permission_id} from role ${role_id}`,
+                `Removing ${data.permission_ids.length} permission(s) from role ${role_id}`,
             );
-            await this.rolesRepository.removePermission(
+            const removed = await this.rolesRepository.removePermissions(
                 role_id,
-                permission_id,
+                data.permission_ids,
                 staff_id,
             );
+            if (removed === 0) {
+                throw new NotFoundException(
+                    'None of the permissions are assigned to this role',
+                );
+            }
             this.logger.log(
-                `Permission ${permission_id} removed from role ${role_id}`,
+                `Removed ${removed} permission(s) from role ${role_id}`,
             );
             return { data: null };
         } catch (error) {

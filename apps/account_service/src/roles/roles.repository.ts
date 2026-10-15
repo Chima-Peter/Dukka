@@ -58,55 +58,66 @@ export class RolesRepository {
         return await this.prisma.role.delete({ where: { id } });
     }
 
-    async assignPermission(
+    async assignPermissions(
         role_id: string,
-        permission_id: string,
+        permission_ids: string[],
         staff_id: string,
-    ): Promise<RolePermission & { permission: Permission }> {
+    ): Promise<(RolePermission & { permission: Permission })[]> {
         return await this.prisma.$transaction(async (tx) => {
-            const assignment = await tx.rolePermission.create({
-                data: {
-                    role: { connect: { id: role_id } },
-                    permission: { connect: { id: permission_id } },
-                },
-                include: { permission: true },
+            await tx.rolePermission.createMany({
+                data: permission_ids.map((permission_id) => ({
+                    role_id,
+                    permission_id,
+                })),
             });
 
-            await tx.rolePermissionAudit.create({
-                data: {
+            await tx.rolePermissionAudit.createMany({
+                data: permission_ids.map((permission_id) => ({
                     action: RolePermissionAuditAction.ASSIGNED,
                     role_id,
                     permission_id,
                     staff_id,
-                },
+                })),
             });
 
-            return assignment;
+            return await tx.rolePermission.findMany({
+                where: {
+                    role_id,
+                    permission_id: { in: permission_ids },
+                },
+                include: { permission: true },
+                orderBy: { created_at: 'desc' },
+            });
         });
     }
 
-    async removePermission(
+    async removePermissions(
         role_id: string,
-        permission_id: string,
+        permission_ids: string[],
         staff_id: string,
-    ): Promise<RolePermission> {
+    ): Promise<number> {
         return await this.prisma.$transaction(async (tx) => {
-            const removed = await tx.rolePermission.delete({
+            const result = await tx.rolePermission.deleteMany({
                 where: {
-                    role_id_permission_id: { role_id, permission_id },
+                    role_id,
+                    permission_id: { in: permission_ids },
                 },
             });
 
-            await tx.rolePermissionAudit.create({
-                data: {
+            if (result.count === 0) {
+                return 0;
+            }
+
+            await tx.rolePermissionAudit.createMany({
+                data: permission_ids.map((permission_id) => ({
                     action: RolePermissionAuditAction.REMOVED,
                     role_id,
                     permission_id,
                     staff_id,
-                },
+                })),
             });
 
-            return removed;
+            return result.count;
         });
     }
 
