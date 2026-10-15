@@ -9,12 +9,14 @@ import {
     type RoleMarket,
     type RolePermission,
     type Staff,
+    type StaffAudit,
     type StaffProfile,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
+import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
@@ -42,6 +44,11 @@ export type StaffWithDetails = Omit<Staff, 'password'> & {
 
 export type StaffPage = {
     items: StaffWithDetails[];
+    next_cursor: string | null;
+};
+
+export type StaffAuditPage = {
+    items: StaffAudit[];
     next_cursor: string | null;
 };
 
@@ -191,6 +198,46 @@ export class StaffRepository {
             select: { id: true },
         });
         return staff !== null;
+    }
+
+    async findAuditsByStaffId(
+        staff_id: string,
+        query: FindStaffAuditDto,
+    ): Promise<StaffAuditPage> {
+        const limit = query.limit ?? 20;
+
+        const records = await this.prisma.staffAudit.findMany({
+            where: {
+                staff_id,
+                ...(query.from_date !== undefined ||
+                query.to_date !== undefined
+                    ? {
+                          created_at: {
+                              ...(query.from_date !== undefined && {
+                                  gte: new Date(query.from_date),
+                              }),
+                              ...(query.to_date !== undefined && {
+                                  lte: new Date(query.to_date),
+                              }),
+                          },
+                      }
+                    : {}),
+            },
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const items = hasMore ? records.slice(0, limit) : records;
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1].id : null,
+        };
     }
 
     async update(

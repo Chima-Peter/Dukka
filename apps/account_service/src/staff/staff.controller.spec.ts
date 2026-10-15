@@ -34,6 +34,7 @@ describe('StaffController', () => {
                         create: vi.fn(),
                         findAll: vi.fn(),
                         findOne: vi.fn(),
+                        findAudits: vi.fn(),
                         update: vi.fn(),
                         assignRole: vi.fn(),
                         delete: vi.fn(),

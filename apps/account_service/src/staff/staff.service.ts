@@ -25,13 +25,14 @@ import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
 import type { AssignRoleDto } from './dto/assign-role.dto.js';
+import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import {
     STAFF_REPO_ERROR,
     StaffRepository,
-    type StaffPage,
+    type StaffAuditPage,
     type StaffWithDetails,
 } from './staff.repository.js';
 
@@ -99,6 +100,22 @@ export class StaffService {
                 throw new NotFoundException('Staff not found');
             }
             return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findAudits(
+        staff_id: string,
+        query: FindStaffAuditDto,
+    ): Promise<StaffAuditPage> {
+        try {
+            this.logger.log(`Fetching audit logs for staff ${staff_id}`);
+            await this.ensureStaffExists(staff_id);
+            return await this.staffRepository.findAuditsByStaffId(
+                staff_id,
+                query,
+            );
         } catch (error) {
             this.handleError(error);
         }

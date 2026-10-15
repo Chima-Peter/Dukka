@@ -16,6 +16,7 @@ import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
+import { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import { FindStaffDto } from './dto/find-staff.dto.js';
 import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
@@ -47,6 +48,15 @@ export class StaffController {
     @ResponseMessage('Staff retrieved successfully')
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.findOne(id);
+    }
+
+    @Get(':id/audits')
+    @ResponseMessage('Staff audit logs retrieved successfully')
+    findAudits(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: FindStaffAuditDto,
+    ) {
+        return this.staffService.findAudits(id, query);
     }
 
     @Patch(':id')
