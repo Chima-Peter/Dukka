@@ -16,6 +16,10 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { ShippingAddressModule } from './shipping_address/shipping_address.module.js';
 import { AppController } from './app.controller.js';
 import { PointsModule } from './points/points.module.js';
+import { RolesModule } from './roles/roles.module.js';
+import { PermissionsModule } from './permissions/permissions.module.js';
+import { MarketsModule } from './markets/markets.module.js';
+import { StaffModule } from './staff/staff.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -98,6 +102,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
             inject: [ConfigService],
         }),
         PointsModule,
+        RolesModule,
+        PermissionsModule,
+        MarketsModule,
+        StaffModule,
     ],
     providers: [
         {

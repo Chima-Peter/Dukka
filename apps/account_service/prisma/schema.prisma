@@ -109,3 +109,113 @@ model PointsHistory {
   points    Points    @relation(fields: [points_id], references: [id], onDelete: Cascade)
 }
 
+model Staff {
+  id            String   @id @default(uuid())
+  name          String
+  avatar        String?
+  email         String   @unique
+  password      String
+  phone_number  String?
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [id])
+
+  profile            StaffProfile?
+  qualifications     Qualification[]
+  market_assignments StaffMarketAssignment[]
+}
+
+model StaffProfile {
+  id            String    @id @default(uuid())
+  job_title     String?
+  bio           String?
+  date_of_birth DateTime?
+  gender        Gender?
+  address       String?
+  hire_date     DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  staff_id String @unique
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+}
+
+model Qualification {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  document_url String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  staff_id String
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  @@index([staff_id])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  staff            Staff[]
+  role_permissions RolePermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  role_permissions RolePermission[]
+}
+
+model Market {
+  id         String   @id @default(uuid())
+  name       String
+  code       String   @unique
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  staff_assignments StaffMarketAssignment[]
+}
+
+model StaffMarketAssignment {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  staff_id String
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([staff_id, market_id])
+  @@index([market_id])
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role_id String
+  role    Role @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  permission_id String
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Restrict)
+
+  @@unique([role_id, permission_id])
+  @@index([permission_id])
+}
+
