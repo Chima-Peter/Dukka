@@ -31,9 +31,11 @@ export type StaffRoleDetails = Role & {
     role_markets: (RoleMarket & { market: Market })[];
 };
 
+export type StaffQualificationSummary = Omit<Qualification, 'document_url'>;
+
 export type StaffWithDetails = Omit<Staff, 'password'> & {
     profile: StaffProfile | null;
-    qualifications: Qualification[];
+    qualifications: StaffQualificationSummary[];
     role: StaffRoleDetails | null;
 };
 
@@ -42,10 +44,20 @@ export type StaffPage = {
     next_cursor: string | null;
 };
 
+const staffQualificationSelect = {
+    id: true,
+    title: true,
+    description: true,
+    created_at: true,
+    updated_at: true,
+    staff_id: true,
+} as const;
+
 const staffDetailsInclude = {
     profile: true,
     qualifications: {
         orderBy: { created_at: 'desc' as const },
+        select: staffQualificationSelect,
     },
     role: {
         include: {
@@ -92,7 +104,6 @@ export class StaffRepository {
                     email: data.email,
                     password: data.password,
                     role_id: data.role_id,
-                    ...(data.avatar !== undefined && { avatar: data.avatar }),
                     ...(data.phone_number !== undefined && {
                         phone_number: data.phone_number,
                     }),
@@ -226,7 +237,9 @@ export class StaffRepository {
                     ...(data.name !== undefined && { name: data.name }),
                     ...(data.email !== undefined && { email: data.email }),
                     ...(data.role_id !== undefined && { role_id: data.role_id }),
-                    ...(data.avatar !== undefined && { avatar: data.avatar }),
+                    ...(data.avatar_path !== undefined && {
+                        avatar: data.avatar_path,
+                    }),
                     ...(data.phone_number !== undefined && {
                         phone_number: data.phone_number,
                     }),
@@ -259,11 +272,22 @@ export class StaffRepository {
         });
     }
 
-    async delete(id: string, performed_by_staff_id: string): Promise<void> {
-        await this.prisma.$transaction(async (tx) => {
+    async delete(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<{
+        avatar: string | null;
+        qualification_document_paths: string[];
+    }> {
+        return await this.prisma.$transaction(async (tx) => {
             const existing = await tx.staff.findUnique({
                 where: { id },
-                include: { role: { select: { id: true, name: true } } },
+                include: {
+                    role: { select: { id: true, name: true } },
+                    qualifications: {
+                        select: { document_url: true },
+                    },
+                },
             });
             if (!existing) {
                 throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
@@ -280,11 +304,20 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
+            const qualification_document_paths = existing.qualifications
+                .map((qualification) => qualification.document_url)
+                .filter((path): path is string => path !== null);
+
+            await tx.qualification.deleteMany({
+                where: { staff_id: id },
+            });
+
             await tx.staff.update({
                 where: { id },
                 data: {
                     is_active: false,
                     role_id: null,
+                    avatar: null,
                 },
             });
 
@@ -299,6 +332,11 @@ export class StaffRepository {
                     role_name: existing.role?.name,
                 },
             });
+
+            return {
+                avatar: existing.avatar,
+                qualification_document_paths,
+            };
         });
     }
 
@@ -371,8 +409,8 @@ export class StaffRepository {
                 ...(data.description !== undefined && {
                     description: data.description,
                 }),
-                ...(data.document_url !== undefined && {
-                    document_url: data.document_url,
+                ...(data.document_path !== undefined && {
+                    document_url: data.document_path,
                 }),
             },
         });
@@ -404,21 +442,21 @@ export class StaffRepository {
                 ...(data.description !== undefined && {
                     description: data.description,
                 }),
-                ...(data.document_url !== undefined && {
-                    document_url: data.document_url,
+                ...(data.document_path !== undefined && {
+                    document_url: data.document_path,
                 }),
             },
         });
     }
 
-    async deleteQualification(id: string): Promise<void> {
-        await this.prisma.qualification.delete({ where: { id } });
+    async deleteQualification(id: string): Promise<Qualification> {
+        return await this.prisma.qualification.delete({ where: { id } });
     }
 
     private omitPassword(
         staff: Staff & {
             profile: StaffProfile | null;
-            qualifications: Qualification[];
+            qualifications: StaffQualificationSummary[];
             role: StaffRoleDetails | null;
         },
     ): StaffWithDetails {

@@ -9,9 +9,12 @@ export { SupabaseService } from './supabase.service.js';
 export {
     ALLOWED_AVATAR_CONTENT_TYPES,
     ALLOWED_PRODUCT_CONTENT_TYPES,
+    ALLOWED_QUALIFICATION_CONTENT_TYPES,
     AVATAR_BUCKET,
     MAX_AVATAR_BYTES,
+    MAX_QUALIFICATION_BYTES,
     PRODUCT_BUCKET,
+    QUALIFICATIONS_BUCKET,
     type StorageObjectInfo,
     type UploadBody,
     type UploadOptions,

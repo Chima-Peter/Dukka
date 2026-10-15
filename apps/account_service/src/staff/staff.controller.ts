@@ -19,6 +19,7 @@ import { FindStaffDto } from './dto/find-staff.dto.js';
 import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
+import { UploadFileDto } from './dto/upload-file.dto.js';
 import { StaffService } from './staff.service.js';
 
 @Controller('staff')
@@ -69,6 +70,15 @@ export class StaffController {
         return this.staffService.delete(id, performed_by_staff_id);
     }
 
+    @Post(':id/avatar/upload-url')
+    @ResponseMessage('Avatar upload URL generated successfully')
+    getAvatarUploadURL(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: UploadFileDto,
+    ) {
+        return this.staffService.getAvatarUploadURL(id, query.name);
+    }
+
     @Post(':id/profile')
     @ResponseMessage('Staff profile created successfully')
     createProfile(
@@ -98,6 +108,15 @@ export class StaffController {
     @ResponseMessage('Staff profile deleted successfully')
     deleteProfile(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.deleteProfile(id);
+    }
+
+    @Post(':id/qualifications/upload-url')
+    @ResponseMessage('Qualification upload URL generated successfully')
+    getQualificationUploadURL(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: UploadFileDto,
+    ) {
+        return this.staffService.getQualificationUploadURL(id, query.name);
     }
 
     @Post(':id/qualifications')

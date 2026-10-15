@@ -25,8 +25,9 @@ export class UpdateStaffDto {
 
     @IsOptional()
     @IsString()
+    @MinLength(10)
     @MaxLength(512)
-    avatar?: string;
+    avatar_path?: string;
 
     @IsOptional()
     @IsString()

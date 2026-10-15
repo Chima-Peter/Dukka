@@ -40,11 +40,6 @@ export class CreateStaffDto {
 
     @IsOptional()
     @IsString()
-    @MaxLength(512)
-    avatar?: string;
-
-    @IsOptional()
-    @IsString()
     @MaxLength(32)
     phone_number?: string;
 

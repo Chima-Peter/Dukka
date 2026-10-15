@@ -5,6 +5,20 @@ import { StaffService } from './staff.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     ResponseMessage: () => () => undefined,
+    AVATAR_BUCKET: 'avatar',
+    QUALIFICATIONS_BUCKET: 'qualifications',
+    MAX_AVATAR_BYTES: 5 * 1024 * 1024,
+    MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
+    ALLOWED_AVATAR_CONTENT_TYPES: new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+    ]),
+    ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set([
+        'application/pdf',
+    ]),
+    SupabaseService: class SupabaseService {},
 }));
 
 describe('StaffController', () => {
@@ -22,6 +36,8 @@ describe('StaffController', () => {
                         findOne: vi.fn(),
                         update: vi.fn(),
                         delete: vi.fn(),
+                        getAvatarUploadURL: vi.fn(),
+                        getQualificationUploadURL: vi.fn(),
                         createProfile: vi.fn(),
                         findProfile: vi.fn(),
                         updateProfile: vi.fn(),

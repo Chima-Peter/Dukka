@@ -212,6 +212,11 @@ export class CustomerService {
         try {
             this.logger.log(`Updating customer details for ${customer_id}`);
 
+            const existing = await this.customerRepository.findByID(customer_id);
+            if (!existing) {
+                throw new NotFoundException('Customer not found');
+            }
+
             if (dto.avatar_path) {
                 await this.assertValidAvatar(customer_id, dto.avatar_path);
             }
@@ -220,6 +225,23 @@ export class CustomerService {
                 customer_id,
                 dto,
             );
+
+            if (
+                dto.avatar_path &&
+                existing.avatar &&
+                existing.avatar !== dto.avatar_path
+            ) {
+                try {
+                    await this.supabaseService.deleteFile(
+                        [existing.avatar],
+                        AVATAR_BUCKET,
+                    );
+                } catch (error) {
+                    this.logger.warn(
+                        `Failed to delete previous avatar for customer ${customer_id}: ${error}`,
+                    );
+                }
+            }
 
             this.logger.log(`Customer details updated for ${customer_id}`);
 

@@ -1,7 +1,6 @@
 import {
     IsOptional,
     IsString,
-    IsUrl,
     MaxLength,
     MinLength,
 } from 'class-validator';
@@ -19,7 +18,8 @@ export class UpdateQualificationDto {
     description?: string;
 
     @IsOptional()
-    @IsUrl()
+    @IsString()
+    @MinLength(10)
     @MaxLength(1024)
-    document_url?: string;
+    document_path?: string;
 }

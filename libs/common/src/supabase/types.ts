@@ -2,8 +2,10 @@ import type { Readable } from 'node:stream';
 
 export const AVATAR_BUCKET = 'avatar';
 export const PRODUCT_BUCKET = 'products';
+export const QUALIFICATIONS_BUCKET = 'qualifications';
 
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+export const MAX_QUALIFICATION_BYTES = 5 * 1024 * 1024;
 
 export const ALLOWED_AVATAR_CONTENT_TYPES = new Set([
     'image/jpeg',
@@ -17,7 +19,11 @@ export const ALLOWED_PRODUCT_CONTENT_TYPES = new Set([
     'image/jpg',
     'image/png',
     'image/webp',
-    'image/gif'
+    'image/gif',
+]);
+
+export const ALLOWED_QUALIFICATION_CONTENT_TYPES = new Set([
+    'application/pdf',
 ]);
 
 export type UploadBody =
