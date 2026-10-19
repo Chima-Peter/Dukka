@@ -8,6 +8,11 @@ import {
     type RolePermission,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+    assertActorBelongsToMarkets,
+    assertActorHasPermissions,
+    assertCanManageHierarchies,
+} from '../shared/access-control.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 
@@ -81,7 +86,19 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true, role_id: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role_id: true,
+                    role: {
+                        select: {
+                            hierarchy: true,
+                            role_permissions: {
+                                select: { permission_id: true },
+                            },
+                        },
+                    },
+                },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -89,13 +106,22 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, hierarchy: true },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                role.hierarchy,
+            );
+            assertActorHasPermissions(
+                actor.role?.role_permissions.map((rp) => rp.permission_id) ??
+                    [],
+                permission_ids,
+            );
 
             const permissions = await tx.permission.findMany({
                 where: { id: { in: permission_ids } },
@@ -143,7 +169,19 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true, role_id: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role_id: true,
+                    role: {
+                        select: {
+                            hierarchy: true,
+                            role_permissions: {
+                                select: { permission_id: true },
+                            },
+                        },
+                    },
+                },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -151,13 +189,22 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, hierarchy: true },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                role.hierarchy,
+            );
+            assertActorHasPermissions(
+                actor.role?.role_permissions.map((rp) => rp.permission_id) ??
+                    [],
+                permission_ids,
+            );
 
             const existing = await tx.rolePermission.findMany({
                 where: {
@@ -204,7 +251,17 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true, role_id: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role_id: true,
+                    role: {
+                        select: {
+                            hierarchy: true,
+                            role_markets: { select: { market_id: true } },
+                        },
+                    },
+                },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -212,13 +269,21 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, hierarchy: true },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                role.hierarchy,
+            );
+            assertActorBelongsToMarkets(
+                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                market_ids,
+            );
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
@@ -266,7 +331,17 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true, role_id: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role_id: true,
+                    role: {
+                        select: {
+                            hierarchy: true,
+                            role_markets: { select: { market_id: true } },
+                        },
+                    },
+                },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -274,13 +349,21 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, hierarchy: true },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                role.hierarchy,
+            );
+            assertActorBelongsToMarkets(
+                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                market_ids,
+            );
 
             const existing = await tx.roleMarket.findMany({
                 where: {

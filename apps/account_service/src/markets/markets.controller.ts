@@ -10,7 +10,12 @@ import {
     Patch,
     Post,
 } from '@nestjs/common';
-import { Auth, ResponseMessage } from '@app/common';
+import {
+    Auth,
+    RequirePermission,
+    ResponseMessage,
+    StaffPermission,
+} from '@app/common';
 import { CreateMarketDto } from './dto/create-market.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
 import { MarketsService } from './markets.service.js';
@@ -21,24 +26,28 @@ export class MarketsController {
     constructor(private readonly marketsService: MarketsService) {}
 
     @Post()
+    @RequirePermission(StaffPermission.MarketsCreate)
     @ResponseMessage('Market created successfully')
     create(@Body() data: CreateMarketDto) {
         return this.marketsService.create(data);
     }
 
     @Get()
+    @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Markets retrieved successfully')
     findAll() {
         return this.marketsService.findAll();
     }
 
     @Get(':id')
+    @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Market retrieved successfully')
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.marketsService.findOne(id);
     }
 
     @Patch(':id')
+    @RequirePermission(StaffPermission.MarketsUpdate)
     @ResponseMessage('Market updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -48,6 +57,7 @@ export class MarketsController {
     }
 
     @Delete(':id')
+    @RequirePermission(StaffPermission.MarketsDelete)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market deleted successfully')
     delete(@Param('id', ParseUUIDPipe) id: string) {

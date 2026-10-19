@@ -21,6 +21,7 @@ import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { RemoveMarketDto } from './dto/remove-market.dto.js';
 import type { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
+import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import {
     ROLES_REPO_ERROR,
     RolesRepository,
@@ -229,6 +230,23 @@ export class RolesService {
         if (error.message === ROLES_REPO_ERROR.SELF_ROLE_MODIFICATION) {
             throw new ForbiddenException(
                 'Staff cannot modify permissions or markets on their own role',
+            );
+        }
+        if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
+            throw new ForbiddenException(
+                'Cannot modify a role with the same or higher hierarchy',
+            );
+        }
+        if (
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot assign or remove markets outside your markets',
+            );
+        }
+        if (error.message === ACCESS_CONTROL_ERROR.MISSING_PERMISSION) {
+            throw new ForbiddenException(
+                'Cannot assign or remove a permission you do not have',
             );
         }
         return null;

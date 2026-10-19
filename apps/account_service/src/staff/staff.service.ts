@@ -24,6 +24,7 @@ import type {
     Staff,
     StaffProfile,
 } from '../../generated/prisma/client.js';
+import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
@@ -723,6 +724,18 @@ export class StaffService {
             if (error.message === STAFF_REPO_ERROR.SELF_DELETION) {
                 throw new ForbiddenException(
                     'Staff cannot deactivate themselves',
+                );
+            }
+            if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
+                throw new ForbiddenException(
+                    'Cannot assign or change roles for someone with the same or higher hierarchy',
+                );
+            }
+            if (
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            ) {
+                throw new ForbiddenException(
+                    'Cannot assign or change roles outside your markets',
                 );
             }
             if (error.message === STAFF_REPO_ERROR.STAFF_NOT_FOUND) {

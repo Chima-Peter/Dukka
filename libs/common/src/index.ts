@@ -29,6 +29,11 @@ export type {
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';
 export {
+    STAFF_ACCOUNT_PERMISSIONS,
+    StaffPermission,
+    type StaffAccountPermissionName,
+} from './permissions/index.js';
+export {
     REDIS_CLIENT,
     REDIS_MODULE_OPTIONS,
     RedisModule,

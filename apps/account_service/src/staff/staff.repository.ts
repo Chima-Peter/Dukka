@@ -13,6 +13,10 @@ import {
     type StaffProfile,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+    assertCanManageHierarchies,
+    assertCanManageRoleMarkets,
+} from '../shared/access-control.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
@@ -307,7 +311,16 @@ export class StaffRepository {
         return await this.prisma.$transaction(async (tx) => {
             const existing = await tx.staff.findUnique({
                 where: { id },
-                include: { role: { select: { id: true, name: true } } },
+                include: {
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                            hierarchy: true,
+                            role_markets: { select: { market_id: true } },
+                        },
+                    },
+                },
             });
             if (!existing) {
                 throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
@@ -328,7 +341,12 @@ export class StaffRepository {
 
             const newRole = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true },
+                select: {
+                    id: true,
+                    name: true,
+                    hierarchy: true,
+                    role_markets: { select: { market_id: true } },
+                },
             });
             if (!newRole) {
                 throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
@@ -336,11 +354,32 @@ export class StaffRepository {
 
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role: {
+                        select: {
+                            hierarchy: true,
+                            role_markets: { select: { market_id: true } },
+                        },
+                    },
+                },
             });
             if (!actor) {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                existing.role?.hierarchy,
+                newRole.hierarchy,
+            );
+
+            assertCanManageRoleMarkets(
+                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                existing.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                newRole.role_markets.map((rm) => rm.market_id),
+            );
 
             const staff = await tx.staff.update({
                 where: { id },

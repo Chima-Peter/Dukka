@@ -5,7 +5,14 @@ import { PermissionsService } from './permissions.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
+    RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
+    StaffPermission: new Proxy(
+        {},
+        {
+            get: (_target, property) => String(property),
+        },
+    ),
     RedisService: class RedisService {},
 }));
 

@@ -13,7 +13,9 @@ import {
 import {
     Auth,
     CurrentStaff,
+    RequirePermission,
     ResponseMessage,
+    StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
 import { AssignMarketDto } from './dto/assign-market.dto.js';
@@ -30,24 +32,28 @@ export class RolesController {
     constructor(private readonly rolesService: RolesService) {}
 
     @Post()
+    @RequirePermission(StaffPermission.RolesCreate)
     @ResponseMessage('Role created successfully')
     create(@Body() data: CreateRoleDto) {
         return this.rolesService.create(data);
     }
 
     @Get()
+    @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Roles retrieved successfully')
     findAll() {
         return this.rolesService.findAll();
     }
 
     @Get(':id')
+    @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Role retrieved successfully')
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.rolesService.findOne(id);
     }
 
     @Patch(':id')
+    @RequirePermission(StaffPermission.RolesUpdate)
     @ResponseMessage('Role updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -57,6 +63,7 @@ export class RolesController {
     }
 
     @Delete(':id')
+    @RequirePermission(StaffPermission.RolesDelete)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role deleted successfully')
     delete(@Param('id', ParseUUIDPipe) id: string) {
@@ -64,6 +71,7 @@ export class RolesController {
     }
 
     @Get(':id/permissions/:permissionName/check')
+    @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Role permission check completed')
     hasPermission(
         @Param('id', ParseUUIDPipe) id: string,
@@ -73,6 +81,7 @@ export class RolesController {
     }
 
     @Post(':id/permissions')
+    @RequirePermission(StaffPermission.RolesAssignPermissions)
     @ResponseMessage('Permissions assigned to role successfully')
     assignPermissions(
         @Param('id', ParseUUIDPipe) id: string,
@@ -83,6 +92,7 @@ export class RolesController {
     }
 
     @Delete(':id/permissions')
+    @RequirePermission(StaffPermission.RolesRemovePermissions)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Permissions removed from role successfully')
     removePermissions(
@@ -94,6 +104,7 @@ export class RolesController {
     }
 
     @Post(':id/markets')
+    @RequirePermission(StaffPermission.RolesAssignMarkets)
     @ResponseMessage('Markets assigned to role successfully')
     assignMarkets(
         @Param('id', ParseUUIDPipe) id: string,
@@ -104,6 +115,7 @@ export class RolesController {
     }
 
     @Delete(':id/markets')
+    @RequirePermission(StaffPermission.RolesRemoveMarkets)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Markets removed from role successfully')
     removeMarkets(

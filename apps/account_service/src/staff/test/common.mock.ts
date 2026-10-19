@@ -4,6 +4,12 @@ export const commonMock = {
     Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
+    StaffPermission: new Proxy(
+        {},
+        {
+            get: (_target, property) => String(property),
+        },
+    ),
     RedisService: class RedisService {},
     STAFF_JWT_SERVICE: 'STAFF_JWT_SERVICE',
     REQUEST_USER_KEY: 'user',

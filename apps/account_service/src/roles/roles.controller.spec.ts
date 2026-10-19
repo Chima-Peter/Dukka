@@ -6,7 +6,14 @@ import { RolesService } from './roles.service.js';
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentStaff: () => () => undefined,
+    RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
+    StaffPermission: new Proxy(
+        {},
+        {
+            get: (_target, property) => String(property),
+        },
+    ),
 }));
 
 describe('RolesController', () => {

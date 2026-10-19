@@ -14,7 +14,9 @@ import {
 import {
     Auth,
     CurrentStaff,
+    RequirePermission,
     ResponseMessage,
+    StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
@@ -58,6 +60,7 @@ export class StaffController {
     }
 
     @Post()
+    @RequirePermission(StaffPermission.StaffCreate)
     @ResponseMessage('Staff created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -67,18 +70,21 @@ export class StaffController {
     }
 
     @Get()
+    @RequirePermission(StaffPermission.StaffRead)
     @ResponseMessage('Staff retrieved successfully')
     findAll(@Query() query: FindStaffDto) {
         return this.staffService.findAll(query);
     }
 
     @Get(':id')
+    @RequirePermission(StaffPermission.StaffRead)
     @ResponseMessage('Staff retrieved successfully')
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.staffService.findOne(id);
     }
 
     @Get(':id/audits')
+    @RequirePermission(StaffPermission.StaffReadAudits)
     @ResponseMessage('Staff audit logs retrieved successfully')
     findAudits(
         @Param('id', ParseUUIDPipe) id: string,
@@ -97,6 +103,7 @@ export class StaffController {
     }
 
     @Post(':id/role')
+    @RequirePermission(StaffPermission.StaffAssignRole)
     @ResponseMessage('Role assigned to staff successfully')
     assignRole(
         @Param('id', ParseUUIDPipe) id: string,
@@ -107,6 +114,7 @@ export class StaffController {
     }
 
     @Delete(':id')
+    @RequirePermission(StaffPermission.StaffDelete)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Staff deactivated successfully')
     delete(
