@@ -11,6 +11,7 @@ import {
     SupabaseModule,
     TransformResponseInterceptor,
 } from '@app/common';
+import { QueuesModule } from '@app/queues';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { CustomerModule } from './customer/customer.module.js';
@@ -33,6 +34,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         CustomerModule,
         ShippingAddressModule,
         RedisModule.registerAsync({
+            isGlobal: true,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                url: configService.getOrThrow('REDIS_URL', { infer: true }),
+            }),
+        }),
+        QueuesModule.registerAsync({
             isGlobal: true,
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({

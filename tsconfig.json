@@ -34,6 +34,12 @@
       ],
       "@app/utils/*": [
         "./libs/utils/src/*"
+      ],
+      "@app/queues": [
+        "./libs/queues/src/index.ts"
+      ],
+      "@app/queues/*": [
+        "./libs/queues/src/*"
       ]
     }
   },
