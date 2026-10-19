@@ -1,0 +1,33 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  You are invited to Dukka
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Staff invitation
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  {{invitedByName}} invited you to join the Dukka staff team as <strong>{{roleName}}</strong> for <strong>{{email}}</strong>.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Staff email" value=email}}
+  {{> detail-row label="Assigned role" value=roleName}}
+  {{> detail-row label="Invited by" value=invitedByName}}
+{{/details}}
+
+{{> cta-button label="Accept invitation" url=inviteUrl}}
+
+<p style="margin:0 0 16px;">
+  This link expires in <strong>24 hours</strong>. Open it to continue — the web app will use the invitation token from the URL. You only need to confirm your email and set a password.
+</p>
+
+{{#> tip title="Keep this private"}}
+  Do not share this invitation link. Anyone with it can claim this staff account until it expires or is cancelled.
+{{/tip}}
+
+<p style="margin:0;">
+  We look forward to working with you.
+</p>

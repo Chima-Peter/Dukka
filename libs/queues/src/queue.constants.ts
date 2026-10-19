@@ -30,6 +30,7 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
     CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
     STAFF_WELCOME: 'staff.welcome',
+    STAFF_INVITATION: 'staff.invitation',
     STAFF_PASSWORD_RESET: 'staff.password-reset',
     STAFF_PASSWORD_CHANGED: 'staff.password-changed',
     STAFF_DEACTIVATED: 'staff.deactivated',

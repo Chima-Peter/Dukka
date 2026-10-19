@@ -17,4 +17,5 @@ export interface ConfigType {
     SUPABASE_URL: string;
     SUPABASE_SERVICE_ROLE_KEY: string;
     SUPABASE_BUCKETS: string;
+    STAFF_APP_URL: string;
 }

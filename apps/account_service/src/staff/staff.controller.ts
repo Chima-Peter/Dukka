@@ -23,7 +23,6 @@ import { AssignStaffMarketDto } from './dto/assign-market.dto.js';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
-import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import { FindStaffDto } from './dto/find-staff.dto.js';
@@ -142,16 +141,6 @@ export class StaffController {
             qualificationId,
             data,
         );
-    }
-
-    @Post()
-    @RequirePermission(StaffPermission.StaffCreate)
-    @ResponseMessage('Staff created successfully')
-    create(
-        @CurrentStaff() staff: StaffJwtPayload,
-        @Body() data: CreateStaffDto,
-    ) {
-        return this.staffService.create(data, staff.sub);
     }
 
     @Get()

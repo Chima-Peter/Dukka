@@ -21,7 +21,6 @@ import {
     visibleHierarchyFloor,
 } from '../shared/access-control.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
-import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
@@ -116,100 +115,6 @@ const staffDetailsInclude = {
 @Injectable()
 export class StaffRepository {
     constructor(private readonly prisma: PrismaService) {}
-
-    async create(
-        data: Omit<CreateStaffDto, 'password'> & { password: string },
-        performed_by_staff_id: string,
-    ): Promise<StaffWithDetails> {
-        return await this.prisma.$transaction(async (tx) => {
-            const actor = await tx.staff.findUnique({
-                where: { id: performed_by_staff_id },
-                select: {
-                    id: true,
-                    name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
-                },
-            });
-            if (!actor) {
-                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
-            }
-
-            const role = await tx.role.findUnique({
-                where: { id: data.role_id },
-                select: { id: true, name: true, hierarchy: true },
-            });
-            if (!role) {
-                throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
-            }
-
-            const markets = await tx.market.findMany({
-                where: { id: { in: data.market_ids } },
-                select: { id: true, name: true },
-            });
-            if (markets.length !== data.market_ids.length) {
-                throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
-            }
-
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                data.market_ids,
-            );
-
-            const staff = await tx.staff.create({
-                data: {
-                    name: data.name,
-                    email: data.email,
-                    password: data.password,
-                    role_id: data.role_id,
-                    ...(data.phone_number !== undefined && {
-                        phone_number: data.phone_number,
-                    }),
-                    ...(data.is_active !== undefined && {
-                        is_active: data.is_active,
-                    }),
-                    staff_markets: {
-                        create: data.market_ids.map((market_id) => ({
-                            market_id,
-                        })),
-                    },
-                },
-                include: staffDetailsInclude,
-            });
-
-            await tx.staffAudit.create({
-                data: {
-                    action: StaffAuditAction.STAFF_CREATED,
-                    staff_id: staff.id,
-                    staff_name: staff.name,
-                    performed_by_staff_id: actor.id,
-                    performed_by_staff_name: actor.name,
-                    role_id: role.id,
-                    role_name: role.name,
-                },
-            });
-
-            for (const market of markets) {
-                await tx.staffAudit.create({
-                    data: {
-                        action: StaffAuditAction.MARKET_ASSIGNED,
-                        staff_id: staff.id,
-                        staff_name: staff.name,
-                        performed_by_staff_id: actor.id,
-                        performed_by_staff_name: actor.name,
-                        market_id: market.id,
-                        market_name: market.name,
-                    },
-                });
-            }
-
-            return this.omitPassword(staff);
-        });
-    }
 
     async findAll(
         query: FindStaffDto,

@@ -28,7 +28,6 @@ import type {
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
-import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
 import type { AssignRoleDto } from './dto/assign-role.dto.js';
@@ -70,39 +69,6 @@ export class StaffService {
         private readonly supabaseService: SupabaseService,
         private readonly mailQueueService: MailQueueService,
     ) {}
-
-    async create(
-        data: CreateStaffDto,
-        performed_by_staff_id: string,
-    ): Promise<StaffResponse> {
-        try {
-            this.logger.log(`Creating staff ${data.email}`);
-            const password = await this.passwordHasher.hash(data.password);
-            const staff = await this.staffRepository.create(
-                {
-                    ...data,
-                    password,
-                },
-                performed_by_staff_id,
-            );
-            this.logger.log(`Staff created ${staff.id}`);
-
-            await this.mailQueueService.enqueueSend({
-                to: staff.email,
-                subject: 'Your Dukka staff account',
-                template: MAIL_TEMPLATES.STAFF_WELCOME,
-                context: {
-                    name: staff.name,
-                    email: staff.email,
-                    roleName: staff.role?.name ?? null,
-                },
-            });
-
-            return this.toStaffResponse(staff);
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
 
     async findAll(
         query: FindStaffDto,

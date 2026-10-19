@@ -1,7 +1,7 @@
 export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'staff:create',
-        description: 'Create staff members',
+        description: 'Invite staff members',
     },
     {
         name: 'staff:read',

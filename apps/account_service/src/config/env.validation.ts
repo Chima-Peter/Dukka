@@ -21,4 +21,5 @@ export const envValidationSchema = Joi.object({
     SUPABASE_URL: Joi.string().uri().required(),
     SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),
     SUPABASE_BUCKETS: Joi.string().required(),
+    STAFF_APP_URL: Joi.string().uri().required(),
 });

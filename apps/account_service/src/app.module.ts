@@ -21,6 +21,7 @@ import { AppController } from './app.controller.js';
 import { PointsModule } from './points/points.module.js';
 import { RolesModule } from './roles/roles.module.js';
 import { PermissionsModule } from './permissions/permissions.module.js';
+import { InvitationsModule } from './invitations/invitations.module.js';
 import { MarketsModule } from './markets/markets.module.js';
 import { StaffModule } from './staff/staff.module.js';
 
@@ -116,6 +117,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         PermissionsModule,
         MarketsModule,
         StaffModule,
+        InvitationsModule,
     ],
     providers: [
         {

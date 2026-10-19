@@ -1,26 +1,20 @@
 import {
-    ArrayMinSize,
-    IsArray,
-    IsBoolean,
     IsEmail,
-    IsOptional,
     IsString,
     IsStrongPassword,
-    IsUUID,
     MaxLength,
     MinLength,
 } from 'class-validator';
 
-export class CreateStaffDto {
-    @IsString()
-    @MinLength(1)
-    @MaxLength(128)
-    name!: string;
-
+export class AcceptStaffInvitationDto {
     @IsEmail()
     email!: string;
 
     @IsString()
+    @MinLength(16)
+    @MaxLength(128)
+    token!: string;
+
     @IsStrongPassword(
         {
             minLength: 12,
@@ -36,21 +30,4 @@ export class CreateStaffDto {
     )
     @MaxLength(128)
     password!: string;
-
-    @IsUUID()
-    role_id!: string;
-
-    @IsArray()
-    @ArrayMinSize(1)
-    @IsUUID('4', { each: true })
-    market_ids!: string[];
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(32)
-    phone_number?: string;
-
-    @IsOptional()
-    @IsBoolean()
-    is_active?: boolean;
 }

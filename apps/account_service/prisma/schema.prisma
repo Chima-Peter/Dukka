@@ -127,6 +127,8 @@ model Staff {
   qualifications   Qualification[]
   tokens           StaffToken[]
   staff_markets    StaffMarket[]
+  invitations_sent StaffInvitation[] @relation("StaffInvitationsSent")
+  invitation       StaffInvitation?  @relation("StaffInvitationAccepted")
 }
 
 model StaffToken {
@@ -179,6 +181,7 @@ model Role {
   updated_at  DateTime @updatedAt
 
   staff            Staff[]
+  invitations      StaffInvitation[]
   role_permissions RolePermission[]
   role_markets     RoleMarket[]
 }
@@ -201,8 +204,62 @@ model Market {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  role_markets  RoleMarket[]
-  staff_markets StaffMarket[]
+  role_markets       RoleMarket[]
+  staff_markets      StaffMarket[]
+  invitation_markets StaffInvitationMarket[]
+}
+
+enum StaffInvitationStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
+model StaffInvitation {
+  id           String                @id @default(uuid())
+  email        String
+  name         String
+  phone_number String?
+  token        String                @unique
+  status       StaffInvitationStatus @default(PENDING)
+  expires_at   DateTime
+  accepted_at  DateTime?
+  cancelled_at DateTime?
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  invited_by_staff_id String
+  invited_by          Staff  @relation("StaffInvitationsSent", fields: [invited_by_staff_id], references: [id], onDelete: Restrict)
+
+  staff_id String? @unique
+  staff    Staff?  @relation("StaffInvitationAccepted", fields: [staff_id], references: [id], onDelete: SetNull)
+
+  invitation_markets StaffInvitationMarket[]
+
+  @@index([email])
+  @@index([status])
+  @@index([expires_at])
+  @@index([invited_by_staff_id])
+  @@index([role_id])
+}
+
+model StaffInvitationMarket {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  invitation_id String
+  invitation    StaffInvitation @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([invitation_id, market_id])
+  @@index([market_id])
 }
 
 model StaffMarket {
