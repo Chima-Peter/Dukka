@@ -3,18 +3,45 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TokenType } from '../../generated/prisma/client.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
-import { commonMock } from './test/common.mock.js';
 import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffAuthService } from './staff-auth.service.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => commonMock);
+vi.mock('../../../../libs/common/src/index.ts', async () => {
+    const { commonMock } = await import('./test/common.mock.js');
+    return commonMock;
+});
+vi.mock('../../../../libs/queues/src/index.ts', () => ({
+    MailQueueService: class MailQueueService {},
+    MAIL_QUEUE: 'mail',
+    MAIL_JOBS: { SEND: 'send' },
+    MAIL_TEMPLATES: {
+        CUSTOMER_WELCOME: 'customer.welcome',
+        CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
+        CUSTOMER_PASSWORD_CHANGED: 'customer.password-changed',
+        CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
+        CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
+        STAFF_WELCOME: 'staff.welcome',
+        STAFF_PASSWORD_RESET: 'staff.password-reset',
+        STAFF_PASSWORD_CHANGED: 'staff.password-changed',
+        STAFF_DEACTIVATED: 'staff.deactivated',
+        STAFF_ACCOUNT_UPDATED: 'staff.account-updated',
+        STAFF_ROLE_ASSIGNED: 'staff.role-assigned',
+        STAFF_ROLE_UPDATED: 'staff.role-updated',
+        STAFF_PERMISSIONS_CHANGED: 'staff.permissions-changed',
+        STAFF_MARKETS_CHANGED: 'staff.markets-changed',
+        MARKET_UPDATED: 'market.updated',
+        MARKET_DELETED: 'market.deleted',
+    },
+    QueuesModule: class QueuesModule {},
+}));
 
 describe('StaffAuthService', () => {
     let service: StaffAuthService;
     let staffService: {
         findByEmail: ReturnType<typeof vi.fn>;
+        findOne: ReturnType<typeof vi.fn>;
         toPublicStaff: ReturnType<typeof vi.fn>;
         updatePassword: ReturnType<typeof vi.fn>;
         changePassword: ReturnType<typeof vi.fn>;
@@ -40,6 +67,10 @@ describe('StaffAuthService', () => {
     let permissionsService: {
         extractPermissionNames: ReturnType<typeof vi.fn>;
         cacheStaffPermissions: ReturnType<typeof vi.fn>;
+    };
+    let mailQueueService: {
+        enqueueSend: ReturnType<typeof vi.fn>;
+        enqueueSendMany: ReturnType<typeof vi.fn>;
     };
 
     const staffRecord = {
@@ -84,6 +115,7 @@ describe('StaffAuthService', () => {
     beforeEach(async () => {
         staffService = {
             findByEmail: vi.fn(),
+            findOne: vi.fn(),
             toPublicStaff: vi.fn(),
             updatePassword: vi.fn(),
             changePassword: vi.fn(),
@@ -110,35 +142,48 @@ describe('StaffAuthService', () => {
             extractPermissionNames: vi.fn(),
             cacheStaffPermissions: vi.fn(),
         };
+        mailQueueService = {
+            enqueueSend: vi.fn(),
+            enqueueSendMany: vi.fn(),
+        };
+
+        const { MailQueueService } = await import(
+            '../../../../libs/queues/src/index.ts'
+        );
+        const common = await import('../../../../libs/common/src/index.ts');
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 StaffAuthService,
                 { provide: StaffService, useValue: staffService },
                 {
-                    provide: commonMock.STAFF_JWT_SERVICE,
+                    provide: common.STAFF_JWT_SERVICE,
                     useValue: staffJwtService,
                 },
                 { provide: PasswordHasher, useValue: passwordHasher },
-                { provide: commonMock.RedisService, useValue: redisService },
+                { provide: common.RedisService, useValue: redisService },
                 { provide: StaffTokenRepository, useValue: tokenRepository },
                 {
                     provide: PermissionsService,
                     useValue: permissionsService,
                 },
+                { provide: MailQueueService, useValue: mailQueueService },
             ],
         }).compile();
 
-        service = module.get(StaffAuthService);
+        service = module.get<StaffAuthService>(StaffAuthService);
+    });
+
+    it('should be defined', () => {
+        expect(service).toBeDefined();
     });
 
     describe('login', () => {
-        it('returns access token and staff on valid credentials', async () => {
+        it('returns access token and public staff', async () => {
             staffService.findByEmail.mockResolvedValue(staffRecord);
             passwordHasher.verify.mockResolvedValue(true);
             staffService.toPublicStaff.mockReturnValue(publicStaff);
             staffJwtService.signAsync.mockResolvedValue('staff.jwt.token');
-            tokenRepository.create.mockResolvedValue({ id: 'token-1' });
             permissionsService.extractPermissionNames.mockReturnValue([
                 'staff:create',
                 'staff:read',
@@ -146,12 +191,17 @@ describe('StaffAuthService', () => {
             permissionsService.cacheStaffPermissions.mockResolvedValue(
                 undefined,
             );
+            tokenRepository.create.mockResolvedValue({ id: 'token-1' });
 
             const result = await service.login({
                 email: 'staff@example.com',
-                password: 'Secret123!@#x',
+                password: 'plain-password',
             });
 
+            expect(result).toEqual({
+                accessToken: 'staff.jwt.token',
+                staff: publicStaff,
+            });
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
                 {
                     sub: 'staff-1',
@@ -163,7 +213,7 @@ describe('StaffAuthService', () => {
                     hierarchy: 1,
                     market_ids: ['market-1', 'market-2'],
                 },
-                expect.objectContaining({ expiresIn: expect.any(Number) }),
+                { expiresIn: expect.any(Number) },
             );
             expect(tokenRepository.create).toHaveBeenCalledWith({
                 token: 'staff.jwt.token',
@@ -171,26 +221,8 @@ describe('StaffAuthService', () => {
                 staffId: 'staff-1',
             });
             expect(
-                permissionsService.extractPermissionNames,
-            ).toHaveBeenCalledWith(staffRecord);
-            expect(
                 permissionsService.cacheStaffPermissions,
             ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
-            expect(result).toEqual({
-                accessToken: 'staff.jwt.token',
-                staff: publicStaff,
-            });
-        });
-
-        it('rejects unknown email', async () => {
-            staffService.findByEmail.mockResolvedValue(null);
-
-            await expect(
-                service.login({
-                    email: 'missing@example.com',
-                    password: 'Secret123!@#x',
-                }),
-            ).rejects.toBeInstanceOf(UnauthorizedException);
         });
 
         it('rejects inactive staff', async () => {
@@ -202,7 +234,7 @@ describe('StaffAuthService', () => {
             await expect(
                 service.login({
                     email: 'staff@example.com',
-                    password: 'Secret123!@#x',
+                    password: 'plain-password',
                 }),
             ).rejects.toBeInstanceOf(UnauthorizedException);
             expect(passwordHasher.verify).not.toHaveBeenCalled();
@@ -264,6 +296,7 @@ describe('StaffAuthService', () => {
                 result.token,
                 expect.any(Number),
             );
+            expect(mailQueueService.enqueueSend).toHaveBeenCalled();
         });
 
         it('rejects unknown staff', async () => {

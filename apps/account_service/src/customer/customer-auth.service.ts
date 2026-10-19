@@ -20,6 +20,7 @@ import {
 import type { LoginData, PublicCustomer } from './types/index.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { RedisService, type JwtPayload } from '@app/common';
+import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { VerifyPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
@@ -37,6 +38,7 @@ export class CustomerAuthService {
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
         private readonly tokenRepository: TokenRepository,
+        private readonly mailQueueService: MailQueueService,
     ) {}
 
     async register(data: CreateCustomerDto): Promise<PublicCustomer> {
@@ -54,6 +56,16 @@ export class CustomerAuthService {
             updatedAt: ___,
             ...publicCustomer
         } = customer;
+
+        await this.mailQueueService.enqueueSend({
+            to: customer.email,
+            subject: 'Welcome to Dukka',
+            template: MAIL_TEMPLATES.CUSTOMER_WELCOME,
+            context: {
+                name: customer.name,
+                email: customer.email,
+            },
+        });
 
         return publicCustomer;
     }
@@ -183,6 +195,19 @@ export class CustomerAuthService {
             this.logger.log(
                 `Password reset token saved for customer ${data.email}`,
             );
+
+            await this.mailQueueService.enqueueSend({
+                to: data.email,
+                subject: 'Reset your password',
+                template: MAIL_TEMPLATES.CUSTOMER_PASSWORD_RESET,
+                context: {
+                    name: customer.name,
+                    email: data.email,
+                    token,
+                    expiresInSeconds: PASSWORD_RESET_TOKEN_TTL_SECONDS,
+                },
+            });
+
             return { token };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -288,6 +313,16 @@ export class CustomerAuthService {
 
             this.logger.log(`Password reset for ${email}`);
 
+            await this.mailQueueService.enqueueSend({
+                to: email,
+                subject: 'Your password was changed',
+                template: MAIL_TEMPLATES.CUSTOMER_PASSWORD_CHANGED,
+                context: {
+                    name: customer.name,
+                    email,
+                },
+            });
+
             return { data: null };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -309,7 +344,7 @@ export class CustomerAuthService {
         try {
             this.logger.log(`Changing password for customer ${customerId}`);
 
-            await this.customerService.changePassword(
+            const customer = await this.customerService.changePassword(
                 customerId,
                 data.currentPassword,
                 data.newPassword,
@@ -323,6 +358,16 @@ export class CustomerAuthService {
             );
 
             this.logger.log(`Password changed for customer ${customerId}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: customer.email,
+                subject: 'Your password was changed',
+                template: MAIL_TEMPLATES.CUSTOMER_PASSWORD_CHANGED,
+                context: {
+                    name: customer.name,
+                    email: customer.email,
+                },
+            });
 
             return { data: null };
         } catch (error) {

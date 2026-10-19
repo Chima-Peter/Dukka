@@ -113,6 +113,21 @@ export class RolesRepository {
         return await this.prisma.role.delete({ where: { id } });
     }
 
+    async findStaffContactsByRoleId(
+        role_id: string,
+    ): Promise<{ email: string; name: string }[]> {
+        return await this.prisma.staff.findMany({
+            where: {
+                role_id,
+                is_active: true,
+            },
+            select: {
+                email: true,
+                name: true,
+            },
+        });
+    }
+
     async assignPermissions(
         role_id: string,
         permission_ids: string[],

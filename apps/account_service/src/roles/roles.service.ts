@@ -15,6 +15,7 @@ import type {
     RoleMarket,
     RolePermission,
 } from '../../generated/prisma/client.js';
+import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type { AssignMarketDto } from './dto/assign-market.dto.js';
 import type { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
@@ -32,7 +33,10 @@ import {
 export class RolesService {
     private readonly logger = new Logger(RolesService.name);
 
-    constructor(private readonly rolesRepository: RolesRepository) {}
+    constructor(
+        private readonly rolesRepository: RolesRepository,
+        private readonly mailQueueService: MailQueueService,
+    ) {}
 
     async create(data: CreateRoleDto): Promise<Role> {
         try {
@@ -82,6 +86,17 @@ export class RolesService {
             this.logger.log(`Updating role ${id}`);
             const role = await this.rolesRepository.update(id, data);
             this.logger.log(`Role updated ${id}`);
+
+            await this.notifyRoleStaff(id, {
+                subject: 'Your role was updated',
+                template: MAIL_TEMPLATES.STAFF_ROLE_UPDATED,
+                context: {
+                    roleId: role.id,
+                    roleName: role.name,
+                    hierarchy: role.hierarchy,
+                },
+            });
+
             return role;
         } catch (error) {
             this.handleError(error);
@@ -116,6 +131,19 @@ export class RolesService {
             this.logger.log(
                 `Assigned ${assignments.length} permission(s) to role ${role_id}`,
             );
+
+            await this.notifyRoleStaff(role_id, {
+                subject: 'Your role permissions were updated',
+                template: MAIL_TEMPLATES.STAFF_PERMISSIONS_CHANGED,
+                context: {
+                    roleId: role_id,
+                    action: 'assigned',
+                    permissionNames: assignments.map(
+                        (assignment) => assignment.permission.name,
+                    ),
+                },
+            });
+
             return assignments;
         } catch (error) {
             this.handlePermissionError(error);
@@ -144,6 +172,17 @@ export class RolesService {
             this.logger.log(
                 `Removed ${removed} permission(s) from role ${role_id}`,
             );
+
+            await this.notifyRoleStaff(role_id, {
+                subject: 'Your role permissions were updated',
+                template: MAIL_TEMPLATES.STAFF_PERMISSIONS_CHANGED,
+                context: {
+                    roleId: role_id,
+                    action: 'removed',
+                    permissionIds: data.permission_ids,
+                },
+            });
+
             return { data: null };
         } catch (error) {
             this.handlePermissionError(error);
@@ -167,6 +206,21 @@ export class RolesService {
             this.logger.log(
                 `Assigned ${assignments.length} market(s) to role ${role_id}`,
             );
+
+            await this.notifyRoleStaff(role_id, {
+                subject: 'Your role markets were updated',
+                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
+                context: {
+                    roleId: role_id,
+                    action: 'assigned',
+                    markets: assignments.map((assignment) => ({
+                        id: assignment.market.id,
+                        name: assignment.market.name,
+                        code: assignment.market.code,
+                    })),
+                },
+            });
+
             return assignments;
         } catch (error) {
             this.handleMarketError(error);
@@ -193,6 +247,17 @@ export class RolesService {
                 );
             }
             this.logger.log(`Removed ${removed} market(s) from role ${role_id}`);
+
+            await this.notifyRoleStaff(role_id, {
+                subject: 'Your role markets were updated',
+                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
+                context: {
+                    roleId: role_id,
+                    action: 'removed',
+                    marketIds: data.market_ids,
+                },
+            });
+
             return { data: null };
         } catch (error) {
             this.handleMarketError(error);
@@ -227,6 +292,31 @@ export class RolesService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private async notifyRoleStaff(
+        role_id: string,
+        mail: {
+            subject: string;
+            template: string;
+            context: Record<string, unknown>;
+        },
+    ): Promise<void> {
+        const contacts =
+            await this.rolesRepository.findStaffContactsByRoleId(role_id);
+
+        await this.mailQueueService.enqueueSendMany(
+            contacts.map((contact) => ({
+                to: contact.email,
+                subject: mail.subject,
+                template: mail.template,
+                context: {
+                    ...mail.context,
+                    name: contact.name,
+                    email: contact.email,
+                },
+            })),
+        );
     }
 
     private mapRepoNotFound(error: Error): never | null {

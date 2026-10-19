@@ -46,13 +46,12 @@ export function assertActorBelongsToMarkets(
 }
 
 /**
- * Actor must share a market with the target (when the target has markets)
- * and must cover every market on the role being assigned.
+ * Actor must share at least one market with the target staff
+ * (when the target already has markets).
  */
-export function assertCanManageRoleMarkets(
+export function assertCanManageStaffInMarkets(
     actor_market_ids: string[],
     target_market_ids: string[],
-    new_role_market_ids: string[],
 ): void {
     const actorMarkets = new Set(actor_market_ids);
 
@@ -66,7 +65,18 @@ export function assertCanManageRoleMarkets(
     ) {
         throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS);
     }
+}
 
+/**
+ * Actor must share a market with the target (when the target has markets)
+ * and must cover every market being assigned.
+ */
+export function assertCanManageRoleMarkets(
+    actor_market_ids: string[],
+    target_market_ids: string[],
+    new_role_market_ids: string[],
+): void {
+    assertCanManageStaffInMarkets(actor_market_ids, target_market_ids);
     assertActorBelongsToMarkets(actor_market_ids, new_role_market_ids);
 }
 

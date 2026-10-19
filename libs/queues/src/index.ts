@@ -1,4 +1,10 @@
-export { MAIL_JOBS, MAIL_QUEUE, type MailJobName } from './queue.constants.js';
+export {
+    MAIL_JOBS,
+    MAIL_QUEUE,
+    MAIL_TEMPLATES,
+    type MailJobName,
+    type MailTemplate,
+} from './queue.constants.js';
 export type { SendMailJobPayload } from './mail-queue.types.js';
 export { MailQueueService } from './mail-queue.service.js';
 export {

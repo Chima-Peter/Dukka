@@ -16,6 +16,7 @@ import {
     type JwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
+import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { TokenType } from '../../generated/prisma/client.js';
 import {
     PasswordHasher,
@@ -46,6 +47,7 @@ export class StaffAuthService {
         private readonly redisService: RedisService,
         private readonly tokenRepository: StaffTokenRepository,
         private readonly permissionsService: PermissionsService,
+        private readonly mailQueueService: MailQueueService,
     ) {}
 
     async login(data: StaffLoginDto): Promise<StaffLoginData> {
@@ -187,6 +189,19 @@ export class StaffAuthService {
             this.logger.log(
                 `Password reset token saved for staff ${data.email}`,
             );
+
+            await this.mailQueueService.enqueueSend({
+                to: data.email,
+                subject: 'Reset your staff password',
+                template: MAIL_TEMPLATES.STAFF_PASSWORD_RESET,
+                context: {
+                    name: staff.name,
+                    email: data.email,
+                    token,
+                    expiresInSeconds: PASSWORD_RESET_TOKEN_TTL_SECONDS,
+                },
+            });
+
             return { token };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -292,6 +307,16 @@ export class StaffAuthService {
 
             this.logger.log(`Password reset for ${email}`);
 
+            await this.mailQueueService.enqueueSend({
+                to: email,
+                subject: 'Your staff password was changed',
+                template: MAIL_TEMPLATES.STAFF_PASSWORD_CHANGED,
+                context: {
+                    name: staff.name,
+                    email,
+                },
+            });
+
             return { data: null };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -313,6 +338,8 @@ export class StaffAuthService {
         try {
             this.logger.log(`Changing password for staff ${staffId}`);
 
+            const staff = await this.staffService.findOne(staffId);
+
             await this.staffService.changePassword(
                 staffId,
                 data.currentPassword,
@@ -327,6 +354,16 @@ export class StaffAuthService {
             );
 
             this.logger.log(`Password changed for staff ${staffId}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your staff password was changed',
+                template: MAIL_TEMPLATES.STAFF_PASSWORD_CHANGED,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                },
+            });
 
             return { data: null };
         } catch (error) {

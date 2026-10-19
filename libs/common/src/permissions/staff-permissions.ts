@@ -16,6 +16,14 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Assign roles to staff members',
     },
     {
+        name: 'staff:assign_markets',
+        description: 'Assign markets to staff members',
+    },
+    {
+        name: 'staff:remove_markets',
+        description: 'Remove markets from staff members',
+    },
+    {
         name: 'staff:read_audits',
         description: 'View staff audit logs',
     },
@@ -86,6 +94,8 @@ export const StaffPermission = {
     StaffRead: 'staff:read',
     StaffDelete: 'staff:delete',
     StaffAssignRole: 'staff:assign_role',
+    StaffAssignMarkets: 'staff:assign_markets',
+    StaffRemoveMarkets: 'staff:remove_markets',
     StaffReadAudits: 'staff:read_audits',
     StaffTechnicalSupport: 'staff:technical_support',
     RolesCreate: 'roles:create',

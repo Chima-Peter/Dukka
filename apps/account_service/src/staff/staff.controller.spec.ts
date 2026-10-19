@@ -6,6 +6,30 @@ import { StaffController } from './staff.controller.js';
 import { StaffService } from './staff.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => commonMock);
+vi.mock('../../../../libs/queues/src/index.ts', () => ({
+    MailQueueService: class MailQueueService {},
+    MAIL_QUEUE: 'mail',
+    MAIL_JOBS: { SEND: 'send' },
+    MAIL_TEMPLATES: {
+        CUSTOMER_WELCOME: 'customer.welcome',
+        CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
+        CUSTOMER_PASSWORD_CHANGED: 'customer.password-changed',
+        CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
+        CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
+        STAFF_WELCOME: 'staff.welcome',
+        STAFF_PASSWORD_RESET: 'staff.password-reset',
+        STAFF_PASSWORD_CHANGED: 'staff.password-changed',
+        STAFF_DEACTIVATED: 'staff.deactivated',
+        STAFF_ACCOUNT_UPDATED: 'staff.account-updated',
+        STAFF_ROLE_ASSIGNED: 'staff.role-assigned',
+        STAFF_ROLE_UPDATED: 'staff.role-updated',
+        STAFF_PERMISSIONS_CHANGED: 'staff.permissions-changed',
+        STAFF_MARKETS_CHANGED: 'staff.markets-changed',
+        MARKET_UPDATED: 'market.updated',
+        MARKET_DELETED: 'market.deleted',
+    },
+    QueuesModule: class QueuesModule {},
+}));
 
 describe('StaffController', () => {
     let controller: StaffController;
@@ -45,6 +69,7 @@ describe('StaffController', () => {
                         deleteProfile: vi.fn(),
                         createQualification: vi.fn(),
                         findQualifications: vi.fn(),
+                        findQualification: vi.fn(),
                         updateQualification: vi.fn(),
                         deleteQualification: vi.fn(),
                     },
@@ -63,7 +88,7 @@ describe('StaffController', () => {
         expect(controller).toBeDefined();
     });
 
-    it('getMe returns the authenticated staff profile', async () => {
+    it('returns the authenticated staff profile', async () => {
         const profile = { id: 'staff-1', email: 'staff@example.com' };
         staffService.findOne.mockResolvedValue(profile);
 
@@ -82,31 +107,32 @@ describe('StaffController', () => {
         expect(staffService.findOne).toHaveBeenCalledWith('staff-1');
     });
 
-    it('changePassword delegates to auth service', async () => {
+    it('changes password for the authenticated staff', async () => {
         staffAuthService.changePassword.mockResolvedValue({ data: null });
 
-        await controller.changePassword(
-            {
-                sub: 'staff-1',
-                email: 'staff@example.com',
-                type: 'staff',
-                name: 'Ada',
-                role_id: null,
-                role_name: null,
-                hierarchy: null,
-                market_ids: [],
-            },
-            {
-                currentPassword: 'OldPassword1!',
-                newPassword: 'NewPassword1!x',
-            },
-        );
-
+        await expect(
+            controller.changePassword(
+                {
+                    sub: 'staff-1',
+                    email: 'staff@example.com',
+                    type: 'staff',
+                    name: 'Ada',
+                    role_id: null,
+                    role_name: null,
+                    hierarchy: null,
+                    market_ids: [],
+                },
+                {
+                    currentPassword: 'old-password',
+                    newPassword: 'NewPassword1!',
+                },
+            ),
+        ).resolves.toEqual({ data: null });
         expect(staffAuthService.changePassword).toHaveBeenCalledWith(
             'staff-1',
             {
-                currentPassword: 'OldPassword1!',
-                newPassword: 'NewPassword1!x',
+                currentPassword: 'old-password',
+                newPassword: 'NewPassword1!',
             },
         );
     });

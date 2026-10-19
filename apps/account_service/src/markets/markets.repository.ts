@@ -50,4 +50,23 @@ export class MarketsRepository {
     async delete(id: string): Promise<Market> {
         return await this.prisma.market.delete({ where: { id } });
     }
+
+    async findStaffContactsByMarketId(
+        market_id: string,
+    ): Promise<{ email: string; name: string }[]> {
+        return await this.prisma.staff.findMany({
+            where: {
+                is_active: true,
+                role: {
+                    role_markets: {
+                        some: { market_id },
+                    },
+                },
+            },
+            select: {
+                email: true,
+                name: true,
+            },
+        });
+    }
 }

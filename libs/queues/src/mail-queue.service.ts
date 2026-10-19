@@ -24,4 +24,16 @@ export class MailQueueService {
         this.logger.log(`Mail job enqueued id=${job.id} name=${job.name}`);
         return job;
     }
+
+    async enqueueSendMany(
+        payloads: SendMailJobPayload[],
+    ): Promise<Job<SendMailJobPayload>[]> {
+        if (payloads.length === 0) {
+            return [];
+        }
+
+        return Promise.all(
+            payloads.map((payload) => this.enqueueSend(payload)),
+        );
+    }
 }

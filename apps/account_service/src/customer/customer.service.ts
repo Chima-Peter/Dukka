@@ -29,6 +29,7 @@ import {
     SupabaseService,
     type JwtPayload,
 } from '@app/common';
+import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type { PublicCustomer } from './types/index.js';
 import { TokenRepository } from './token.repository.js';
 
@@ -42,6 +43,7 @@ export class CustomerService {
         private readonly redisService: RedisService,
         private readonly tokenRepository: TokenRepository,
         private readonly jwtService: JwtService,
+        private readonly mailQueueService: MailQueueService,
     ) {}
 
     async create(data: CreateCustomerDto): Promise<Customer> {
@@ -293,6 +295,19 @@ export class CustomerService {
             this.logger.log(
                 `Account deletion token saved for customer ${customer.email}`,
             );
+
+            await this.mailQueueService.enqueueSend({
+                to: customer.email,
+                subject: 'Confirm account deletion',
+                template: MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETION,
+                context: {
+                    name: customer.name,
+                    email: customer.email,
+                    token,
+                    expiresInSeconds: ACCOUNT_DELETION_TOKEN_TTL_SECONDS,
+                },
+            });
+
             return { token };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -357,6 +372,16 @@ export class CustomerService {
             await this.redisService.delete(key);
 
             this.logger.log(`Account deleted for customer ${customer.email}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: customer.email,
+                subject: 'Your account has been deleted',
+                template: MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETED,
+                context: {
+                    name: customer.name,
+                    email: customer.email,
+                },
+            });
 
             return { data: null };
         } catch (error) {

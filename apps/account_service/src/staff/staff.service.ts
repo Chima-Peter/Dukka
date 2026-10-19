@@ -19,6 +19,7 @@ import {
     QUALIFICATIONS_BUCKET,
     SupabaseService,
 } from '@app/common';
+import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type {
     Qualification,
     Staff,
@@ -65,6 +66,7 @@ export class StaffService {
         private readonly staffRepository: StaffRepository,
         private readonly passwordHasher: PasswordHasher,
         private readonly supabaseService: SupabaseService,
+        private readonly mailQueueService: MailQueueService,
     ) {}
 
     async create(
@@ -82,6 +84,18 @@ export class StaffService {
                 performed_by_staff_id,
             );
             this.logger.log(`Staff created ${staff.id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your Dukka staff account',
+                template: MAIL_TEMPLATES.STAFF_WELCOME,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                    roleName: staff.role?.name ?? null,
+                },
+            });
+
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -242,6 +256,27 @@ export class StaffService {
             }
 
             this.logger.log(`Staff updated ${id}`);
+
+            const significantChange =
+                data.email !== undefined ||
+                data.name !== undefined ||
+                data.phone_number !== undefined ||
+                data.is_active !== undefined;
+
+            if (significantChange) {
+                await this.mailQueueService.enqueueSend({
+                    to: staff.email,
+                    subject: 'Your staff account was updated',
+                    template: MAIL_TEMPLATES.STAFF_ACCOUNT_UPDATED,
+                    context: {
+                        name: staff.name,
+                        email: staff.email,
+                        isActive: staff.is_active,
+                        previousEmail: existing.email,
+                    },
+                });
+            }
+
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -261,6 +296,19 @@ export class StaffService {
                 performed_by_staff_id,
             );
             this.logger.log(`Role assigned to staff ${id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your role has been updated',
+                template: MAIL_TEMPLATES.STAFF_ROLE_ASSIGNED,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                    roleId: staff.role_id,
+                    roleName: staff.role?.name ?? null,
+                },
+            });
+
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -289,6 +337,17 @@ export class StaffService {
             }
 
             this.logger.log(`Staff deactivated ${id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: deleted.email,
+                subject: 'Your staff account was deactivated',
+                template: MAIL_TEMPLATES.STAFF_DEACTIVATED,
+                context: {
+                    name: deleted.name,
+                    email: deleted.email,
+                },
+            });
+
             return { data: null };
         } catch (error) {
             this.handleError(error);

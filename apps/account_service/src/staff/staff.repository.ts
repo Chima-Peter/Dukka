@@ -488,6 +488,8 @@ export class StaffRepository {
         id: string,
         performed_by_staff_id: string,
     ): Promise<{
+        email: string;
+        name: string;
         avatar: string | null;
         qualification_document_paths: string[];
     }> {
@@ -547,6 +549,8 @@ export class StaffRepository {
             });
 
             return {
+                email: existing.email,
+                name: existing.name,
                 avatar: existing.avatar,
                 qualification_document_paths,
             };
