@@ -4,8 +4,9 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import {
     AllExceptionsFilter,
-    JwtAuthGuard,
+    CustomerJwtAuthGuard,
     RedisModule,
+    StaffJwtAuthGuard,
     SupabaseModule,
     TransformResponseInterceptor,
 } from '@app/common';
@@ -114,7 +115,11 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         },
         {
             provide: APP_GUARD,
-            useClass: JwtAuthGuard,
+            useClass: CustomerJwtAuthGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: StaffJwtAuthGuard,
         },
         {
             provide: APP_INTERCEPTOR,

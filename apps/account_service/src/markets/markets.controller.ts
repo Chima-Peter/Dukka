@@ -10,11 +10,12 @@ import {
     Patch,
     Post,
 } from '@nestjs/common';
-import { ResponseMessage } from '@app/common';
+import { Auth, ResponseMessage } from '@app/common';
 import { CreateMarketDto } from './dto/create-market.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
 import { MarketsService } from './markets.service.js';
 
+@Auth('staff')
 @Controller('markets')
 export class MarketsController {
     constructor(private readonly marketsService: MarketsService) {}

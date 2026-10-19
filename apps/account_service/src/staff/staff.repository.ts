@@ -44,6 +44,8 @@ export type StaffWithDetails = Omit<Staff, 'password'> & {
 };
 
 export type StaffAuthRecord = Staff & {
+    profile: StaffProfile | null;
+    qualifications: StaffQualificationSummary[];
     role: StaffRoleDetails | null;
 };
 
@@ -200,20 +202,7 @@ export class StaffRepository {
     async findByEmail(email: string): Promise<StaffAuthRecord | null> {
         return await this.prisma.staff.findUnique({
             where: { email },
-            include: {
-                role: {
-                    include: {
-                        role_permissions: {
-                            include: { permission: true },
-                            orderBy: { created_at: 'desc' },
-                        },
-                        role_markets: {
-                            include: { market: true },
-                            orderBy: { created_at: 'desc' },
-                        },
-                    },
-                },
-            },
+            include: staffDetailsInclude,
         });
     }
 

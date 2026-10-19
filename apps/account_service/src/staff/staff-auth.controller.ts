@@ -8,6 +8,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentStaff,
     Public,
     ResponseMessage,
@@ -17,13 +18,13 @@ import {
     PASSWORD_RESET_TOKEN_TTL_SECONDS,
     PASSWORD_RESET_VERIFIED_TTL_SECONDS,
 } from '../shared/redis.constants.js';
-import { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import { InitiateStaffPasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { StaffLoginDto } from './dto/login.dto.js';
 import { ResetStaffPasswordDto } from './dto/reset_password.dto.js';
 import { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { StaffAuthService } from './staff-auth.service.js';
 
+@Auth('staff')
 @Controller('authentication/staff')
 export class StaffAuthController {
     constructor(private readonly staffAuthService: StaffAuthService) {}
@@ -76,18 +77,6 @@ export class StaffAuthController {
     )
     resetPassword(@Body() data: ResetStaffPasswordDto) {
         return this.staffAuthService.resetPassword(data);
-    }
-
-    @Post('change-password')
-    @HttpCode(HttpStatus.OK)
-    @ResponseMessage(
-        'Password changed successfully. Please login with your new password.',
-    )
-    changePassword(
-        @CurrentStaff() staff: StaffJwtPayload,
-        @Body() data: ChangeStaffPasswordDto,
-    ) {
-        return this.staffAuthService.changePassword(staff.sub, data);
     }
 
     private extractBearerToken(authorization?: string): string | undefined {

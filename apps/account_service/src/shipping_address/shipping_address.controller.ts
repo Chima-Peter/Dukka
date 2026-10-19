@@ -11,6 +11,7 @@ import {
     Post,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentCustomer,
     ResponseMessage,
     type CustomerJwtPayload,
@@ -19,6 +20,7 @@ import { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
 import { ShippingAddressService } from './shipping_address.service.js';
 
+@Auth('customer')
 @Controller('shipping-address')
 export class ShippingAddressController {
     constructor(

@@ -1,4 +1,6 @@
 export {
+    Auth,
+    AUTH_TYPE_KEY,
     CurrentCustomer,
     CurrentStaff,
     IS_PUBLIC_KEY,
@@ -6,11 +8,13 @@ export {
     ResponseMessage,
 } from './decorators/index.js';
 export { AllExceptionsFilter } from './filters/index.js';
-export { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 export {
+    CustomerJwtAuthGuard,
+    StaffJwtAuthGuard,
     REQUEST_USER_KEY,
     STAFF_JWT_SERVICE,
-} from './guards/auth.constants.js';
+    blacklistedTokenKey,
+} from './guards/index.js';
 
 export type {
     CustomerJwtPayload,

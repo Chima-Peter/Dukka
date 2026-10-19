@@ -8,6 +8,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentCustomer,
     Public,
     ResponseMessage,
@@ -24,6 +25,7 @@ import {
 } from '../shared/redis.constants.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
 
+@Auth('customer')
 @Controller('authentication/customer')
 export class CustomerAuthController {
     constructor(private readonly customerAuthService: CustomerAuthService) {}

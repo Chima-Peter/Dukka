@@ -121,6 +121,11 @@ export class StaffService {
         }
     }
 
+    toPublicStaff(staff: StaffAuthRecord): StaffResponse {
+        const { password: _, ...rest } = staff;
+        return this.toStaffResponse(rest);
+    }
+
     async updatePassword(email: string, password: string): Promise<Staff> {
         try {
             return await this.staffRepository.updatePassword(email, password);

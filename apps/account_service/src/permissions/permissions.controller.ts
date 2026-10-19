@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { ResponseMessage } from '@app/common';
+import { Auth, ResponseMessage } from '@app/common';
 import { PermissionsService } from './permissions.service.js';
 
+@Auth('staff')
 @Controller('permissions')
 export class PermissionsController {
     constructor(private readonly permissionsService: PermissionsService) {}

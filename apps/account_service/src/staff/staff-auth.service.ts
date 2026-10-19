@@ -31,7 +31,7 @@ import type { ResetStaffPasswordDto } from './dto/reset_password.dto.js';
 import type { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
-import type { PublicStaff, StaffLoginData } from './types/index.js';
+import type { StaffLoginData } from './types/index.js';
 
 @Injectable()
 export class StaffAuthService {
@@ -73,7 +73,7 @@ export class StaffAuthService {
 
             this.logger.log(`Staff ${data.email} password verified`);
 
-            const publicStaff = await this.toPublicStaff(staff.id);
+            const publicStaff = this.staffService.toPublicStaff(staff);
             const market_ids =
                 staff.role?.role_markets.map((rm) => rm.market_id) ?? [];
 
@@ -326,11 +326,6 @@ export class StaffAuthService {
                 'An unexpected error occurred. Try again later.',
             );
         }
-    }
-
-    private async toPublicStaff(staffId: string): Promise<PublicStaff> {
-        const staff = await this.staffService.findOne(staffId);
-        return staff;
     }
 
     private async blacklistToken(token: string): Promise<void> {

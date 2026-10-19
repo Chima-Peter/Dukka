@@ -12,11 +12,13 @@ import {
     Query,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentStaff,
     ResponseMessage,
     type StaffJwtPayload,
 } from '@app/common';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
+import { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
@@ -26,11 +28,34 @@ import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
+import { StaffAuthService } from './staff-auth.service.js';
 import { StaffService } from './staff.service.js';
 
+@Auth('staff')
 @Controller('staff')
 export class StaffController {
-    constructor(private readonly staffService: StaffService) {}
+    constructor(
+        private readonly staffService: StaffService,
+        private readonly staffAuthService: StaffAuthService,
+    ) {}
+
+    @Get('me')
+    @ResponseMessage('Staff profile retrieved successfully')
+    getMe(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.staffService.findOne(staff.sub);
+    }
+
+    @Post('change-password')
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage(
+        'Password changed successfully. Please login with your new password.',
+    )
+    changePassword(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: ChangeStaffPasswordDto,
+    ) {
+        return this.staffAuthService.changePassword(staff.sub, data);
+    }
 
     @Post()
     @ResponseMessage('Staff created successfully')

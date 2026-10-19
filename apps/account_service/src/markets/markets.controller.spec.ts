@@ -4,6 +4,7 @@ import { MarketsController } from './markets.controller.js';
 import { MarketsService } from './markets.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
+    Auth: () => () => undefined,
     ResponseMessage: () => () => undefined,
 }));
 

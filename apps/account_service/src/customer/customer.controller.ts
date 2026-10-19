@@ -8,6 +8,7 @@ import {
     Post,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentCustomer,
     ResponseMessage,
     type CustomerJwtPayload,
@@ -19,6 +20,7 @@ import { ChangePasswordDto } from './dto/change_password.dto.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
 
+@Auth('customer')
 @Controller('customer')
 export class CustomerController {
     constructor(

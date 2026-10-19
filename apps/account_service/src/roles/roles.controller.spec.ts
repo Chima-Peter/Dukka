@@ -4,6 +4,8 @@ import { RolesController } from './roles.controller.js';
 import { RolesService } from './roles.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
+    Auth: () => () => undefined,
+    CurrentStaff: () => () => undefined,
     ResponseMessage: () => () => undefined,
 }));
 

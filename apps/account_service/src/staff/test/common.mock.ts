@@ -1,0 +1,21 @@
+export const commonMock = {
+    Auth: () => () => undefined,
+    CurrentStaff: () => () => undefined,
+    Public: () => () => undefined,
+    ResponseMessage: () => () => undefined,
+    RedisService: class RedisService {},
+    STAFF_JWT_SERVICE: 'STAFF_JWT_SERVICE',
+    blacklistedTokenKey: (token: string) => `blacklisted:token:${token}`,
+    AVATAR_BUCKET: 'avatar',
+    QUALIFICATIONS_BUCKET: 'qualifications',
+    MAX_AVATAR_BYTES: 5 * 1024 * 1024,
+    MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
+    ALLOWED_AVATAR_CONTENT_TYPES: new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+    ]),
+    ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set(['application/pdf']),
+    SupabaseService: class SupabaseService {},
+};

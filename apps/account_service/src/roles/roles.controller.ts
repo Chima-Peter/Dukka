@@ -11,6 +11,7 @@ import {
     Post,
 } from '@nestjs/common';
 import {
+    Auth,
     CurrentStaff,
     ResponseMessage,
     type StaffJwtPayload,
@@ -23,6 +24,7 @@ import { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { RolesService } from './roles.service.js';
 
+@Auth('staff')
 @Controller('roles')
 export class RolesController {
     constructor(private readonly rolesService: RolesService) {}
