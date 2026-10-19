@@ -38,10 +38,16 @@ export class RolesService {
         private readonly mailQueueService: MailQueueService,
     ) {}
 
-    async create(data: CreateRoleDto): Promise<Role> {
+    async create(
+        data: CreateRoleDto,
+        performed_by_staff_id: string,
+    ): Promise<Role> {
         try {
             this.logger.log(`Creating role ${data.name}`);
-            const role = await this.rolesRepository.create(data);
+            const role = await this.rolesRepository.create(
+                data,
+                performed_by_staff_id,
+            );
             this.logger.log(`Role created ${role.id}`);
             return role;
         } catch (error) {
@@ -81,10 +87,18 @@ export class RolesService {
         }
     }
 
-    async update(id: string, data: UpdateRoleDto): Promise<Role> {
+    async update(
+        id: string,
+        data: UpdateRoleDto,
+        performed_by_staff_id: string,
+    ): Promise<Role> {
         try {
             this.logger.log(`Updating role ${id}`);
-            const role = await this.rolesRepository.update(id, data);
+            const role = await this.rolesRepository.update(
+                id,
+                data,
+                performed_by_staff_id,
+            );
             this.logger.log(`Role updated ${id}`);
 
             await this.notifyRoleStaff(id, {
@@ -103,10 +117,13 @@ export class RolesService {
         }
     }
 
-    async delete(id: string): Promise<object> {
+    async delete(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<object> {
         try {
             this.logger.log(`Deleting role ${id}`);
-            await this.rolesRepository.delete(id);
+            await this.rolesRepository.delete(id, performed_by_staff_id);
             this.logger.log(`Role deleted ${id}`);
             return { data: null };
         } catch (error) {
@@ -334,7 +351,7 @@ export class RolesService {
         }
         if (error.message === ROLES_REPO_ERROR.SELF_ROLE_MODIFICATION) {
             throw new ForbiddenException(
-                'Staff cannot modify permissions or markets on their own role',
+                'Staff cannot modify or delete their own role',
             );
         }
         if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
@@ -431,6 +448,10 @@ export class RolesService {
         if (error instanceof HttpException) {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
+        }
+
+        if (error instanceof Error) {
+            this.mapRepoNotFound(error);
         }
 
         if (error instanceof PrismaClientKnownRequestError) {

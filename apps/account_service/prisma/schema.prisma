@@ -126,6 +126,7 @@ model Staff {
   profile          StaffProfile?
   qualifications   Qualification[]
   tokens           StaffToken[]
+  staff_markets    StaffMarket[]
 }
 
 model StaffToken {
@@ -200,7 +201,23 @@ model Market {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  role_markets RoleMarket[]
+  role_markets  RoleMarket[]
+  staff_markets StaffMarket[]
+}
+
+model StaffMarket {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  staff_id String
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([staff_id, market_id])
+  @@index([market_id])
 }
 
 model RoleMarket {

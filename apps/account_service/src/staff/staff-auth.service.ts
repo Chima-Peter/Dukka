@@ -78,8 +78,7 @@ export class StaffAuthService {
             this.logger.log(`Staff ${data.email} password verified`);
 
             const publicStaff = this.staffService.toPublicStaff(staff);
-            const market_ids =
-                staff.role?.role_markets.map((rm) => rm.market_id) ?? [];
+            const market_ids = staff.staff_markets.map((sm) => sm.market_id);
 
             const payload: Omit<StaffJwtPayload, 'iat' | 'exp'> = {
                 sub: staff.id,

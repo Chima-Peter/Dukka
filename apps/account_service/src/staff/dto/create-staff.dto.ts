@@ -1,4 +1,6 @@
 import {
+    ArrayMinSize,
+    IsArray,
     IsBoolean,
     IsEmail,
     IsOptional,
@@ -37,6 +39,11 @@ export class CreateStaffDto {
 
     @IsUUID()
     role_id!: string;
+
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsUUID('4', { each: true })
+    market_ids!: string[];
 
     @IsOptional()
     @IsString()

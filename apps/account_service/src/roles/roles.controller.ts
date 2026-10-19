@@ -34,8 +34,11 @@ export class RolesController {
     @Post()
     @RequirePermission(StaffPermission.RolesCreate)
     @ResponseMessage('Role created successfully')
-    create(@Body() data: CreateRoleDto) {
-        return this.rolesService.create(data);
+    create(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreateRoleDto,
+    ) {
+        return this.rolesService.create(data, staff.sub);
     }
 
     @Get()
@@ -64,17 +67,21 @@ export class RolesController {
     @ResponseMessage('Role updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: UpdateRoleDto,
     ) {
-        return this.rolesService.update(id, data);
+        return this.rolesService.update(id, data, staff.sub);
     }
 
     @Delete(':id')
     @RequirePermission(StaffPermission.RolesDelete)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role deleted successfully')
-    delete(@Param('id', ParseUUIDPipe) id: string) {
-        return this.rolesService.delete(id);
+    delete(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
+    ) {
+        return this.rolesService.delete(id, staff.sub);
     }
 
     @Get(':id/permissions/:permissionName/check')

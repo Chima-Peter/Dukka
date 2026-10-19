@@ -19,6 +19,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { AssignStaffMarketDto } from './dto/assign-market.dto.js';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
@@ -26,6 +27,7 @@ import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import { FindStaffDto } from './dto/find-staff.dto.js';
+import { RemoveStaffMarketDto } from './dto/remove-market.dto.js';
 import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
@@ -214,6 +216,29 @@ export class StaffController {
         @Body() data: AssignRoleDto,
     ) {
         return this.staffService.assignRole(id, data, staff.sub);
+    }
+
+    @Post(':id/markets')
+    @RequirePermission(StaffPermission.StaffAssignMarkets)
+    @ResponseMessage('Markets assigned to staff successfully')
+    assignMarkets(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: AssignStaffMarketDto,
+    ) {
+        return this.staffService.assignMarkets(id, data, staff.sub);
+    }
+
+    @Delete(':id/markets')
+    @RequirePermission(StaffPermission.StaffRemoveMarkets)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Markets removed from staff successfully')
+    removeMarkets(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: RemoveStaffMarketDto,
+    ) {
+        return this.staffService.removeMarkets(id, data, staff.sub);
     }
 
     @Delete(':id')

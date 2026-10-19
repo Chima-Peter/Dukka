@@ -36,6 +36,8 @@ import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
+import type { AssignStaffMarketDto } from './dto/assign-market.dto.js';
+import type { RemoveStaffMarketDto } from './dto/remove-market.dto.js';
 import {
     STAFF_REPO_ERROR,
     StaffRepository,
@@ -306,6 +308,83 @@ export class StaffService {
                     email: staff.email,
                     roleId: staff.role_id,
                     roleName: staff.role?.name ?? null,
+                },
+            });
+
+            return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async assignMarkets(
+        id: string,
+        data: AssignStaffMarketDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffResponse> {
+        try {
+            this.logger.log(
+                `Assigning ${data.market_ids.length} market(s) to staff ${id}`,
+            );
+            const staff = await this.staffRepository.assignMarkets(
+                id,
+                data.market_ids,
+                performed_by_staff_id,
+            );
+            this.logger.log(`Markets assigned to staff ${id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your markets were updated',
+                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                    action: 'assigned',
+                    markets: staff.staff_markets.map((assignment) => ({
+                        id: assignment.market.id,
+                        name: assignment.market.name,
+                        code: assignment.market.code,
+                    })),
+                },
+            });
+
+            return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async removeMarkets(
+        id: string,
+        data: RemoveStaffMarketDto,
+        performed_by_staff_id: string,
+    ): Promise<StaffResponse> {
+        try {
+            this.logger.log(
+                `Removing ${data.market_ids.length} market(s) from staff ${id}`,
+            );
+            const { staff, removed } = await this.staffRepository.removeMarkets(
+                id,
+                data.market_ids,
+                performed_by_staff_id,
+            );
+            if (removed === 0) {
+                throw new NotFoundException(
+                    'None of the markets are assigned to this staff member',
+                );
+            }
+            this.logger.log(`Removed ${removed} market(s) from staff ${id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your markets were updated',
+                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                    action: 'removed',
+                    marketIds: data.market_ids,
                 },
             });
 
@@ -846,6 +925,14 @@ export class StaffService {
             if (error.message === STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND) {
                 throw new NotFoundException('Performing staff not found');
             }
+            if (error.message === STAFF_REPO_ERROR.MARKETS_NOT_FOUND) {
+                throw new NotFoundException('One or more markets not found');
+            }
+            if (error.message === STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION) {
+                throw new ForbiddenException(
+                    'Staff cannot modify their own markets',
+                );
+            }
             if (error.message === STAFF_REPO_ERROR.ROLE_NOT_FOUND) {
                 throw new NotFoundException('Role not found');
             }
@@ -861,14 +948,14 @@ export class StaffService {
             }
             if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
                 throw new ForbiddenException(
-                    'Cannot assign or change roles for someone with the same or higher hierarchy',
+                    'Cannot manage someone with the same or higher hierarchy',
                 );
             }
             if (
                 error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
             ) {
                 throw new ForbiddenException(
-                    'Cannot assign or change roles outside your markets',
+                    'Cannot manage staff or markets outside your markets',
                 );
             }
             if (error.message === STAFF_REPO_ERROR.STAFF_NOT_FOUND) {

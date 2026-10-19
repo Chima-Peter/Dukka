@@ -83,12 +83,16 @@ describe('StaffAuthService', () => {
         role: {
             name: 'Admin',
             hierarchy: 1,
-            role_markets: [{ market_id: 'market-1' }, { market_id: 'market-2' }],
+            role_markets: [],
             role_permissions: [
                 { permission: { name: 'staff:create' } },
                 { permission: { name: 'staff:read' } },
             ],
         },
+        staff_markets: [
+            { market_id: 'market-1' },
+            { market_id: 'market-2' },
+        ],
         phone_number: null,
         avatar: null,
         profile: null,

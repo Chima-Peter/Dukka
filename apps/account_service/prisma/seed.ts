@@ -155,7 +155,20 @@ async function seedSuperAdminStaff(role_id: string) {
         },
     });
 
-    console.log(`Seeded super admin staff ${staff.email}`);
+    const markets = await prisma.market.findMany({
+        select: { id: true },
+    });
+    await prisma.staffMarket.createMany({
+        data: markets.map((market) => ({
+            staff_id: staff.id,
+            market_id: market.id,
+        })),
+        skipDuplicates: true,
+    });
+
+    console.log(
+        `Seeded super admin staff ${staff.email} with ${markets.length} market(s)`,
+    );
 }
 
 async function main() {

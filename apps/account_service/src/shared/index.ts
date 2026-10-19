@@ -4,6 +4,7 @@ export {
     assertActorHasPermissions,
     assertCanManageHierarchies,
     assertCanManageRoleMarkets,
+    assertCanManageStaffInMarkets,
     visibleHierarchyFloor,
 } from './access-control.js';
 

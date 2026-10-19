@@ -10,12 +10,14 @@ import {
     type RolePermission,
     type Staff,
     type StaffAudit,
+    type StaffMarket,
     type StaffProfile,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+    assertActorBelongsToMarkets,
     assertCanManageHierarchies,
-    assertCanManageRoleMarkets,
+    assertCanManageStaffInMarkets,
     visibleHierarchyFloor,
 } from '../shared/access-control.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
@@ -30,7 +32,9 @@ import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 export const STAFF_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
+    MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
     SELF_ROLE_ASSIGNMENT: 'SELF_ROLE_ASSIGNMENT',
+    SELF_MARKET_MODIFICATION: 'SELF_MARKET_MODIFICATION',
     SELF_DELETION: 'SELF_DELETION',
     STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
 } as const;
@@ -42,16 +46,20 @@ export type StaffRoleDetails = Role & {
 
 export type StaffQualificationSummary = Omit<Qualification, 'document_url'>;
 
+export type StaffMarketDetails = StaffMarket & { market: Market };
+
 export type StaffWithDetails = Omit<Staff, 'password'> & {
     profile: StaffProfile | null;
     qualifications: StaffQualificationSummary[];
     role: StaffRoleDetails | null;
+    staff_markets: StaffMarketDetails[];
 };
 
 export type StaffAuthRecord = Staff & {
     profile: StaffProfile | null;
     qualifications: StaffQualificationSummary[];
     role: StaffRoleDetails | null;
+    staff_markets: StaffMarketDetails[];
 };
 
 export type StaffSummary = {
@@ -87,6 +95,10 @@ const staffDetailsInclude = {
         orderBy: { created_at: 'desc' as const },
         select: staffQualificationSelect,
     },
+    staff_markets: {
+        include: { market: true },
+        orderBy: { created_at: 'desc' as const },
+    },
     role: {
         include: {
             role_permissions: {
@@ -112,7 +124,12 @@ export class StaffRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
             });
             if (!actor) {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -120,11 +137,28 @@ export class StaffRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: data.role_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, hierarchy: true },
             });
             if (!role) {
                 throw new Error(STAFF_REPO_ERROR.ROLE_NOT_FOUND);
             }
+
+            const markets = await tx.market.findMany({
+                where: { id: { in: data.market_ids } },
+                select: { id: true, name: true },
+            });
+            if (markets.length !== data.market_ids.length) {
+                throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
+            }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                role.hierarchy,
+            );
+            assertActorBelongsToMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                data.market_ids,
+            );
 
             const staff = await tx.staff.create({
                 data: {
@@ -138,6 +172,11 @@ export class StaffRepository {
                     ...(data.is_active !== undefined && {
                         is_active: data.is_active,
                     }),
+                    staff_markets: {
+                        create: data.market_ids.map((market_id) => ({
+                            market_id,
+                        })),
+                    },
                 },
                 include: staffDetailsInclude,
             });
@@ -153,6 +192,20 @@ export class StaffRepository {
                     role_name: role.name,
                 },
             });
+
+            for (const market of markets) {
+                await tx.staffAudit.create({
+                    data: {
+                        action: StaffAuditAction.MARKET_ASSIGNED,
+                        staff_id: staff.id,
+                        staff_name: staff.name,
+                        performed_by_staff_id: actor.id,
+                        performed_by_staff_name: actor.name,
+                        market_id: market.id,
+                        market_name: market.name,
+                    },
+                });
+            }
 
             return this.omitPassword(staff);
         });
@@ -233,11 +286,11 @@ export class StaffRepository {
     ): Prisma.StaffWhereInput {
         return {
             ...(query.role_id !== undefined && { role_id: query.role_id }),
+            staff_markets: {
+                some: { market_id: { in: market_ids } },
+            },
             role: {
                 hierarchy: { gte: visibleHierarchyFloor(hierarchy) },
-                role_markets: {
-                    some: { market_id: { in: market_ids } },
-                },
                 ...(query.permission_id !== undefined && {
                     role_permissions: {
                         some: { permission_id: query.permission_id },
@@ -268,10 +321,8 @@ export class StaffRepository {
         const staff = await this.prisma.staff.findFirst({
             where: {
                 id,
-                role: {
-                    role_markets: {
-                        some: { market_id: { in: market_ids } },
-                    },
+                staff_markets: {
+                    some: { market_id: { in: market_ids } },
                 },
             },
             include: staffDetailsInclude,
@@ -389,12 +440,12 @@ export class StaffRepository {
             const existing = await tx.staff.findUnique({
                 where: { id },
                 include: {
+                    staff_markets: { select: { market_id: true } },
                     role: {
                         select: {
                             id: true,
                             name: true,
                             hierarchy: true,
-                            role_markets: { select: { market_id: true } },
                         },
                     },
                 },
@@ -422,7 +473,6 @@ export class StaffRepository {
                     id: true,
                     name: true,
                     hierarchy: true,
-                    role_markets: { select: { market_id: true } },
                 },
             });
             if (!newRole) {
@@ -434,10 +484,10 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
+                    staff_markets: { select: { market_id: true } },
                     role: {
                         select: {
                             hierarchy: true,
-                            role_markets: { select: { market_id: true } },
                         },
                     },
                 },
@@ -452,10 +502,9 @@ export class StaffRepository {
                 newRole.hierarchy,
             );
 
-            assertCanManageRoleMarkets(
-                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
-                existing.role?.role_markets.map((rm) => rm.market_id) ?? [],
-                newRole.role_markets.map((rm) => rm.market_id),
+            assertCanManageStaffInMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                existing.staff_markets.map((sm) => sm.market_id),
             );
 
             const staff = await tx.staff.update({
@@ -484,6 +533,180 @@ export class StaffRepository {
         });
     }
 
+    async assignMarkets(
+        staff_id: string,
+        market_ids: string[],
+        performed_by_staff_id: string,
+    ): Promise<StaffWithDetails> {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id: staff_id },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+            }
+
+            if (performed_by_staff_id === existing.id) {
+                throw new Error(STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION);
+            }
+
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
+            });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            const markets = await tx.market.findMany({
+                where: { id: { in: market_ids } },
+                select: { id: true, name: true },
+            });
+            if (markets.length !== market_ids.length) {
+                throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
+            }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                existing.role?.hierarchy,
+            );
+            assertCanManageStaffInMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                existing.staff_markets.map((sm) => sm.market_id),
+            );
+            assertActorBelongsToMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                market_ids,
+            );
+
+            await tx.staffMarket.createMany({
+                data: market_ids.map((market_id) => ({
+                    staff_id,
+                    market_id,
+                })),
+                skipDuplicates: true,
+            });
+
+            for (const market of markets) {
+                await tx.staffAudit.create({
+                    data: {
+                        action: StaffAuditAction.MARKET_ASSIGNED,
+                        staff_id: existing.id,
+                        staff_name: existing.name,
+                        performed_by_staff_id: actor.id,
+                        performed_by_staff_name: actor.name,
+                        market_id: market.id,
+                        market_name: market.name,
+                    },
+                });
+            }
+
+            return this.omitPassword(
+                await tx.staff.findUniqueOrThrow({
+                    where: { id: staff_id },
+                    include: staffDetailsInclude,
+                }),
+            );
+        });
+    }
+
+    async removeMarkets(
+        staff_id: string,
+        market_ids: string[],
+        performed_by_staff_id: string,
+    ): Promise<{ staff: StaffWithDetails; removed: number }> {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id: staff_id },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+            }
+
+            if (performed_by_staff_id === existing.id) {
+                throw new Error(STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION);
+            }
+
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
+            });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                existing.role?.hierarchy,
+            );
+            assertCanManageStaffInMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                existing.staff_markets.map((sm) => sm.market_id),
+            );
+            assertActorBelongsToMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                market_ids,
+            );
+
+            const markets = await tx.market.findMany({
+                where: { id: { in: market_ids } },
+                select: { id: true, name: true },
+            });
+
+            const result = await tx.staffMarket.deleteMany({
+                where: {
+                    staff_id,
+                    market_id: { in: market_ids },
+                },
+            });
+
+            for (const market of markets) {
+                await tx.staffAudit.create({
+                    data: {
+                        action: StaffAuditAction.MARKET_REMOVED,
+                        staff_id: existing.id,
+                        staff_name: existing.name,
+                        performed_by_staff_id: actor.id,
+                        performed_by_staff_name: actor.name,
+                        market_id: market.id,
+                        market_name: market.name,
+                    },
+                });
+            }
+
+            const staff = this.omitPassword(
+                await tx.staff.findUniqueOrThrow({
+                    where: { id: staff_id },
+                    include: staffDetailsInclude,
+                }),
+            );
+
+            return { staff, removed: result.count };
+        });
+    }
+
     async delete(
         id: string,
         performed_by_staff_id: string,
@@ -497,7 +720,8 @@ export class StaffRepository {
             const existing = await tx.staff.findUnique({
                 where: { id },
                 include: {
-                    role: { select: { id: true, name: true } },
+                    role: { select: { id: true, name: true, hierarchy: true } },
+                    staff_markets: { select: { market_id: true } },
                     qualifications: {
                         select: { document_url: true },
                     },
@@ -513,17 +737,35 @@ export class StaffRepository {
 
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: { select: { hierarchy: true } },
+                },
             });
             if (!actor) {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                existing.role?.hierarchy,
+            );
+            assertCanManageStaffInMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                existing.staff_markets.map((sm) => sm.market_id),
+            );
 
             const qualification_document_paths = existing.qualifications
                 .map((qualification) => qualification.document_url)
                 .filter((path): path is string => path !== null);
 
             await tx.qualification.deleteMany({
+                where: { staff_id: id },
+            });
+
+            await tx.staffMarket.deleteMany({
                 where: { staff_id: id },
             });
 
@@ -675,6 +917,7 @@ export class StaffRepository {
             profile: StaffProfile | null;
             qualifications: StaffQualificationSummary[];
             role: StaffRoleDetails | null;
+            staff_markets: StaffMarketDetails[];
         },
     ): StaffWithDetails {
         const { password: _, ...rest } = staff;

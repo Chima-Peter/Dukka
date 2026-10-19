@@ -34,7 +34,20 @@ export type RoleWithDetails = Role & {
 export class RolesRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async create(data: CreateRoleDto): Promise<Role> {
+    async create(
+        data: CreateRoleDto,
+        performed_by_staff_id: string,
+    ): Promise<Role> {
+        const actor = await this.prisma.staff.findUnique({
+            where: { id: performed_by_staff_id },
+            select: { role: { select: { hierarchy: true } } },
+        });
+        if (!actor) {
+            throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+        }
+
+        assertCanManageHierarchies(actor.role?.hierarchy, data.hierarchy);
+
         return await this.prisma.role.create({ data });
     }
 
@@ -94,7 +107,37 @@ export class RolesRepository {
         });
     }
 
-    async update(id: string, data: UpdateRoleDto): Promise<Role> {
+    async update(
+        id: string,
+        data: UpdateRoleDto,
+        performed_by_staff_id: string,
+    ): Promise<Role> {
+        const actor = await this.prisma.staff.findUnique({
+            where: { id: performed_by_staff_id },
+            select: {
+                role_id: true,
+                role: { select: { hierarchy: true } },
+            },
+        });
+        if (!actor) {
+            throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+        }
+
+        const existing = await this.prisma.role.findUnique({
+            where: { id },
+            select: { id: true, hierarchy: true },
+        });
+        if (!existing) {
+            throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
+        }
+
+        this.assertNotOwnRole(actor.role_id, existing.id);
+        assertCanManageHierarchies(
+            actor.role?.hierarchy,
+            existing.hierarchy,
+            data.hierarchy,
+        );
+
         return await this.prisma.role.update({
             where: { id },
             data: {
@@ -109,7 +152,35 @@ export class RolesRepository {
         });
     }
 
-    async delete(id: string): Promise<Role> {
+    async delete(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<Role> {
+        const actor = await this.prisma.staff.findUnique({
+            where: { id: performed_by_staff_id },
+            select: {
+                role_id: true,
+                role: { select: { hierarchy: true } },
+            },
+        });
+        if (!actor) {
+            throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+        }
+
+        const existing = await this.prisma.role.findUnique({
+            where: { id },
+            select: { id: true, hierarchy: true },
+        });
+        if (!existing) {
+            throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
+        }
+
+        this.assertNotOwnRole(actor.role_id, existing.id);
+        assertCanManageHierarchies(
+            actor.role?.hierarchy,
+            existing.hierarchy,
+        );
+
         return await this.prisma.role.delete({ where: { id } });
     }
 
@@ -305,10 +376,10 @@ export class RolesRepository {
                     id: true,
                     name: true,
                     role_id: true,
+                    staff_markets: { select: { market_id: true } },
                     role: {
                         select: {
                             hierarchy: true,
-                            role_markets: { select: { market_id: true } },
                         },
                     },
                 },
@@ -331,7 +402,7 @@ export class RolesRepository {
                 role.hierarchy,
             );
             assertActorBelongsToMarkets(
-                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                actor.staff_markets.map((sm) => sm.market_id),
                 market_ids,
             );
 
@@ -385,10 +456,10 @@ export class RolesRepository {
                     id: true,
                     name: true,
                     role_id: true,
+                    staff_markets: { select: { market_id: true } },
                     role: {
                         select: {
                             hierarchy: true,
-                            role_markets: { select: { market_id: true } },
                         },
                     },
                 },
@@ -411,7 +482,7 @@ export class RolesRepository {
                 role.hierarchy,
             );
             assertActorBelongsToMarkets(
-                actor.role?.role_markets.map((rm) => rm.market_id) ?? [],
+                actor.staff_markets.map((sm) => sm.market_id),
                 market_ids,
             );
 
