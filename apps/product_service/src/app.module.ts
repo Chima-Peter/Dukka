@@ -3,9 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import {
+    ACCOUNT_HTTP_CLIENT,
     AllExceptionsFilter,
     CustomerJwtAuthGuard,
     HttpClientModule,
+    NestHttpClientModule,
     RedisModule,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
@@ -25,13 +27,29 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     imports: [
         ConfigModule,
         PrismaModule,
-        HttpClientModule.forRootAsync({
+        HttpClientModule.registerAsync({
+            isGlobal: true,
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({
                 headers: {
                     'user-agent': `dukka/${configService.getOrThrow('OBSERVE_SERVICE_NAME', { infer: true })}`,
                 },
             }),
+        }),
+        NestHttpClientModule.registerAsync({
+            name: ACCOUNT_HTTP_CLIENT,
+            isGlobal: true,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => {
+                const baseUrl = configService
+                    .getOrThrow('ACCOUNT_SERVICE_URL', { infer: true })
+                    .replace(/\/$/, '');
+
+                return {
+                    baseUrl: `${baseUrl}/api/v1/accounts`,
+                    retry: false,
+                };
+            },
         }),
         RedisModule.registerAsync({
             isGlobal: true,

@@ -35,7 +35,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         PrismaModule,
         CustomerModule,
         ShippingAddressModule,
-        HttpClientModule.forRootAsync({
+        HttpClientModule.registerAsync({
+            isGlobal: true,
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({
                 headers: {
