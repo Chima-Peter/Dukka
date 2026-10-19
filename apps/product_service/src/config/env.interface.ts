@@ -11,6 +11,7 @@ export interface ConfigType {
     KAFKA_PORT: number;
     JWT_PUBLIC_KEY_PATH: string;
     STAFF_JWT_PUBLIC_KEY_PATH: string;
+    ACCOUNT_SERVICE_URL: string;
     REDIS_URL: string;
     SUPABASE_URL: string;
     SUPABASE_SERVICE_ROLE_KEY: string;

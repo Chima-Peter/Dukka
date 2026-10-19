@@ -5,6 +5,7 @@ import { PermissionsService } from './permissions.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
+    CurrentStaff: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     StaffPermission: new Proxy(
@@ -27,6 +28,7 @@ describe('PermissionsController', () => {
                     provide: PermissionsService,
                     useValue: {
                         findAll: vi.fn(),
+                        getStaffPermissions: vi.fn(),
                     },
                 },
             ],

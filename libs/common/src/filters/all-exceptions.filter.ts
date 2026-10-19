@@ -5,6 +5,7 @@ import {
     HttpException,
     HttpStatus,
 } from '@nestjs/common';
+import { HttpClientError, toHttpException } from '@nestjs/http-client';
 import type { Response } from 'express';
 import { errorResponse } from '../response/index.js';
 
@@ -12,6 +13,10 @@ import { errorResponse } from '../response/index.js';
 export class AllExceptionsFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost) {
         const response = host.switchToHttp().getResponse<Response>();
+
+        if (exception instanceof HttpClientError) {
+            exception = toHttpException(exception);
+        }
 
         if (exception instanceof HttpException) {
             const statusCode = exception.getStatus();

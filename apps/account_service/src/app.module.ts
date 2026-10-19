@@ -5,6 +5,7 @@ import { createObserveModule } from '@nestjs/observe';
 import {
     AllExceptionsFilter,
     CustomerJwtAuthGuard,
+    HttpClientModule,
     RedisModule,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
@@ -34,6 +35,14 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         PrismaModule,
         CustomerModule,
         ShippingAddressModule,
+        HttpClientModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                headers: {
+                    'user-agent': `dukka/${configService.getOrThrow('OBSERVE_SERVICE_NAME', { infer: true })}`,
+                },
+            }),
+        }),
         RedisModule.registerAsync({
             isGlobal: true,
             inject: [ConfigService],

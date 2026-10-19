@@ -20,6 +20,7 @@ import {
     STAFF_PERMISSIONS_SERVICE,
     type StaffPermissionsReader,
 } from './auth.constants.js';
+import { extractBearerToken } from './jwt-auth.utils.js';
 
 @Injectable()
 export class StaffPermissionsGuard implements CanActivate {
@@ -48,8 +49,12 @@ export class StaffPermissionsGuard implements CanActivate {
             throw new UnauthorizedException('Missing authentication token');
         }
 
+        const accessToken = extractBearerToken(request);
         const permissions =
-            await this.staffPermissionsService.getStaffPermissions(staff.sub);
+            await this.staffPermissionsService.getStaffPermissions(
+                staff.sub,
+                accessToken,
+            );
         const hasPermission = requiredPermissions.every((permission) =>
             permissions.includes(permission),
         );
