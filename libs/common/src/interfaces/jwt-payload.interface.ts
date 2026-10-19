@@ -17,6 +17,7 @@ export interface StaffJwtPayload extends JwtPayloadBase {
     name: string;
     role_id: string | null;
     role_name: string | null;
+    hierarchy: number | null;
     market_ids: string[];
 }
 

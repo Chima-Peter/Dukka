@@ -5,6 +5,7 @@ import { MarketsService } from './markets.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
+    CurrentStaff: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     StaffPermission: new Proxy(

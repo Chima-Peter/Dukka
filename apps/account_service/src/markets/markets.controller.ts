@@ -12,9 +12,11 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentStaff,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type StaffJwtPayload,
 } from '@app/common';
 import { CreateMarketDto } from './dto/create-market.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -35,15 +37,18 @@ export class MarketsController {
     @Get()
     @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Markets retrieved successfully')
-    findAll() {
-        return this.marketsService.findAll();
+    findAll(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.marketsService.findAll(staff.market_ids);
     }
 
     @Get(':id')
     @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Market retrieved successfully')
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.findOne(id);
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.marketsService.findOne(id, staff.market_ids);
     }
 
     @Patch(':id')

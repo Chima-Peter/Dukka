@@ -12,6 +12,7 @@ import {
     assertActorBelongsToMarkets,
     assertActorHasPermissions,
     assertCanManageHierarchies,
+    visibleHierarchyFloor,
 } from '../shared/access-control.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
@@ -37,15 +38,49 @@ export class RolesRepository {
         return await this.prisma.role.create({ data });
     }
 
-    async findAll(): Promise<Role[]> {
+    async findAll(
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<Role[]> {
+        if (market_ids.length === 0 || hierarchy === null) {
+            return [];
+        }
+
         return await this.prisma.role.findMany({
+            where: {
+                hierarchy: { gte: visibleHierarchyFloor(hierarchy) },
+                role_markets: {
+                    some: { market_id: { in: market_ids } },
+                },
+            },
             orderBy: [{ hierarchy: 'asc' }, { created_at: 'desc' }],
         });
     }
 
-    async findById(id: string): Promise<RoleWithDetails | null> {
-        return await this.prisma.role.findUnique({
-            where: { id },
+    async findById(
+        id: string,
+        scope?: { market_ids: string[]; hierarchy: number | null },
+    ): Promise<RoleWithDetails | null> {
+        if (
+            scope !== undefined &&
+            (scope.market_ids.length === 0 || scope.hierarchy === null)
+        ) {
+            return null;
+        }
+
+        return await this.prisma.role.findFirst({
+            where: {
+                id,
+                ...(scope !== undefined &&
+                    scope.hierarchy !== null && {
+                        hierarchy: {
+                            gte: visibleHierarchyFloor(scope.hierarchy),
+                        },
+                        role_markets: {
+                            some: { market_id: { in: scope.market_ids } },
+                        },
+                    }),
+            },
             include: {
                 role_permissions: {
                     include: { permission: true },

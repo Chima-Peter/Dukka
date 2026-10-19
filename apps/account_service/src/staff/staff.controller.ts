@@ -47,6 +47,15 @@ export class StaffController {
         return this.staffService.findOne(staff.sub);
     }
 
+    @Patch('me')
+    @ResponseMessage('Staff updated successfully')
+    updateMe(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: UpdateStaffDto,
+    ) {
+        return this.staffService.update(staff.sub, data);
+    }
+
     @Post('change-password')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage(
@@ -57,6 +66,80 @@ export class StaffController {
         @Body() data: ChangeStaffPasswordDto,
     ) {
         return this.staffAuthService.changePassword(staff.sub, data);
+    }
+
+    @Post('me/avatar/upload-url')
+    @ResponseMessage('Avatar upload URL generated successfully')
+    getAvatarUploadURL(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: UploadFileDto,
+    ) {
+        return this.staffService.getAvatarUploadURL(staff.sub, query.name);
+    }
+
+    @Post('me/profile')
+    @ResponseMessage('Staff profile created successfully')
+    createProfile(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreateStaffProfileDto,
+    ) {
+        return this.staffService.createProfile(staff.sub, data);
+    }
+
+    @Get('me/profile')
+    @ResponseMessage('Staff profile retrieved successfully')
+    findProfile(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.staffService.findProfile(staff.sub);
+    }
+
+    @Patch('me/profile')
+    @ResponseMessage('Staff profile updated successfully')
+    updateProfile(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: UpdateStaffProfileDto,
+    ) {
+        return this.staffService.updateProfile(staff.sub, data);
+    }
+
+    @Post('me/qualifications/upload-url')
+    @ResponseMessage('Qualification upload URL generated successfully')
+    getQualificationUploadURL(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: UploadFileDto,
+    ) {
+        return this.staffService.getQualificationUploadURL(
+            staff.sub,
+            query.name,
+        );
+    }
+
+    @Post('me/qualifications')
+    @ResponseMessage('Qualification created successfully')
+    createQualification(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreateQualificationDto,
+    ) {
+        return this.staffService.createQualification(staff.sub, data);
+    }
+
+    @Get('me/qualifications')
+    @ResponseMessage('Qualifications retrieved successfully')
+    findQualifications(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.staffService.findQualifications(staff.sub);
+    }
+
+    @Patch('me/qualifications/:qualificationId')
+    @ResponseMessage('Qualification updated successfully')
+    updateQualification(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('qualificationId', ParseUUIDPipe) qualificationId: string,
+        @Body() data: UpdateQualificationDto,
+    ) {
+        return this.staffService.updateQualification(
+            staff.sub,
+            qualificationId,
+            data,
+        );
     }
 
     @Post()
@@ -72,34 +155,54 @@ export class StaffController {
     @Get()
     @RequirePermission(StaffPermission.StaffRead)
     @ResponseMessage('Staff retrieved successfully')
-    findAll(@Query() query: FindStaffDto) {
-        return this.staffService.findAll(query);
+    findAll(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindStaffDto,
+    ) {
+        return this.staffService.findAll(
+            query,
+            staff.market_ids,
+            staff.hierarchy,
+        );
     }
 
     @Get(':id')
     @RequirePermission(StaffPermission.StaffRead)
     @ResponseMessage('Staff retrieved successfully')
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.findOne(id);
-    }
-
-    @Get(':id/audits')
-    @RequirePermission(StaffPermission.StaffReadAudits)
-    @ResponseMessage('Staff audit logs retrieved successfully')
-    findAudits(
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
-        @Query() query: FindStaffAuditDto,
     ) {
-        return this.staffService.findAudits(id, query);
+        return this.staffService.findOne(id, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+        });
     }
 
     @Patch(':id')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateStaffDto,
     ) {
         return this.staffService.update(id, data);
+    }
+
+    @Get(':id/audits')
+    @RequirePermission(StaffPermission.StaffReadAudits)
+    @ResponseMessage('Staff audit logs retrieved successfully')
+    findAudits(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: FindStaffAuditDto,
+    ) {
+        return this.staffService.findAudits(
+            id,
+            query,
+            staff.market_ids,
+            staff.hierarchy,
+        );
     }
 
     @Post(':id/role')
@@ -125,8 +228,9 @@ export class StaffController {
     }
 
     @Post(':id/avatar/upload-url')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Avatar upload URL generated successfully')
-    getAvatarUploadURL(
+    getStaffAvatarUploadURL(
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: UploadFileDto,
     ) {
@@ -134,8 +238,9 @@ export class StaffController {
     }
 
     @Post(':id/profile')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff profile created successfully')
-    createProfile(
+    createStaffProfile(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: CreateStaffProfileDto,
     ) {
@@ -143,14 +248,22 @@ export class StaffController {
     }
 
     @Get(':id/profile')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff profile retrieved successfully')
-    findProfile(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.findProfile(id);
+    findStaffProfile(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.staffService.findProfile(id, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+        });
     }
 
     @Patch(':id/profile')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff profile updated successfully')
-    updateProfile(
+    updateStaffProfile(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateStaffProfileDto,
     ) {
@@ -158,8 +271,9 @@ export class StaffController {
     }
 
     @Post(':id/qualifications/upload-url')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualification upload URL generated successfully')
-    getQualificationUploadURL(
+    getStaffQualificationUploadURL(
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: UploadFileDto,
     ) {
@@ -167,8 +281,9 @@ export class StaffController {
     }
 
     @Post(':id/qualifications')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualification created successfully')
-    createQualification(
+    createStaffQualification(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: CreateQualificationDto,
     ) {
@@ -176,14 +291,22 @@ export class StaffController {
     }
 
     @Get(':id/qualifications')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualifications retrieved successfully')
-    findQualifications(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.findQualifications(id);
+    findStaffQualifications(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.staffService.findQualifications(id, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+        });
     }
 
     @Patch(':id/qualifications/:qualificationId')
+    @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualification updated successfully')
-    updateQualification(
+    updateStaffQualification(
         @Param('id', ParseUUIDPipe) id: string,
         @Param('qualificationId', ParseUUIDPipe) qualificationId: string,
         @Body() data: UpdateQualificationDto,

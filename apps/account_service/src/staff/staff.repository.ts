@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
     assertCanManageHierarchies,
     assertCanManageRoleMarkets,
+    visibleHierarchyFloor,
 } from '../shared/access-control.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
@@ -53,8 +54,16 @@ export type StaffAuthRecord = Staff & {
     role: StaffRoleDetails | null;
 };
 
+export type StaffSummary = {
+    id: string;
+    name: string;
+    email: string;
+    avatar: string | null;
+    role_name: string | null;
+};
+
 export type StaffPage = {
-    items: StaffWithDetails[];
+    items: StaffSummary[];
     next_cursor: string | null;
 };
 
@@ -149,9 +158,25 @@ export class StaffRepository {
         });
     }
 
-    async findAll(query: FindStaffDto): Promise<StaffPage> {
+    async findAll(
+        query: FindStaffDto,
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<StaffPage> {
+        const scopedMarketIds = this.resolveMarketScope(
+            market_ids,
+            query.market_id,
+        );
+        if (scopedMarketIds.length === 0 || hierarchy === null) {
+            return { items: [], next_cursor: null };
+        }
+
         const limit = query.limit ?? 20;
-        const where = this.buildFindWhere(query);
+        const where = this.buildFindWhere(
+            query,
+            scopedMarketIds,
+            hierarchy,
+        );
 
         const records = await this.prisma.staff.findMany({
             where,
@@ -161,12 +186,24 @@ export class StaffRepository {
                 cursor: { id: query.cursor },
                 skip: 1,
             }),
-            include: staffDetailsInclude,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+                role: { select: { name: true } },
+            },
         });
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map((item) => this.omitPassword(item));
+        const items = page.map((item) => ({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            avatar: item.avatar,
+            role_name: item.role?.name ?? null,
+        }));
 
         return {
             items,
@@ -174,29 +211,69 @@ export class StaffRepository {
         };
     }
 
-    private buildFindWhere(query: FindStaffDto): Prisma.StaffWhereInput {
-        const roleFilters: Prisma.RoleWhereInput = {
-            ...(query.market_id !== undefined && {
-                role_markets: {
-                    some: { market_id: query.market_id },
-                },
-            }),
-            ...(query.permission_id !== undefined && {
-                role_permissions: {
-                    some: { permission_id: query.permission_id },
-                },
-            }),
-        };
+    private resolveMarketScope(
+        actor_market_ids: string[],
+        requested_market_id?: string,
+    ): string[] {
+        if (actor_market_ids.length === 0) {
+            return [];
+        }
+        if (requested_market_id === undefined) {
+            return actor_market_ids;
+        }
+        return actor_market_ids.includes(requested_market_id)
+            ? [requested_market_id]
+            : [];
+    }
 
+    private buildFindWhere(
+        query: FindStaffDto,
+        market_ids: string[],
+        hierarchy: number,
+    ): Prisma.StaffWhereInput {
         return {
             ...(query.role_id !== undefined && { role_id: query.role_id }),
-            ...(Object.keys(roleFilters).length > 0 && { role: roleFilters }),
+            role: {
+                hierarchy: { gte: visibleHierarchyFloor(hierarchy) },
+                role_markets: {
+                    some: { market_id: { in: market_ids } },
+                },
+                ...(query.permission_id !== undefined && {
+                    role_permissions: {
+                        some: { permission_id: query.permission_id },
+                    },
+                }),
+            },
         };
     }
 
     async findById(id: string): Promise<StaffWithDetails | null> {
         const staff = await this.prisma.staff.findUnique({
             where: { id },
+            include: staffDetailsInclude,
+        });
+
+        return staff ? this.omitPassword(staff) : null;
+    }
+
+    async findByIdInScope(
+        id: string,
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<StaffWithDetails | null> {
+        if (market_ids.length === 0 || hierarchy === null) {
+            return null;
+        }
+
+        const staff = await this.prisma.staff.findFirst({
+            where: {
+                id,
+                role: {
+                    role_markets: {
+                        some: { market_id: { in: market_ids } },
+                    },
+                },
+            },
             include: staffDetailsInclude,
         });
 

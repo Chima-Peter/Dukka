@@ -75,6 +75,7 @@ describe('StaffController', () => {
                 name: 'Ada',
                 role_id: null,
                 role_name: null,
+                hierarchy: null,
                 market_ids: [],
             }),
         ).resolves.toEqual(profile);
@@ -92,6 +93,7 @@ describe('StaffController', () => {
                 name: 'Ada',
                 role_id: null,
                 role_name: null,
+                hierarchy: null,
                 market_ids: [],
             },
             {

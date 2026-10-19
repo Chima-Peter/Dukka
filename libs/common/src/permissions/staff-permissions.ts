@@ -20,6 +20,11 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'View staff audit logs',
     },
     {
+        name: 'staff:technical_support',
+        description:
+            "Manage another staff member's profile, avatar, and qualifications",
+    },
+    {
         name: 'roles:create',
         description: 'Create roles',
     },
@@ -82,6 +87,7 @@ export const StaffPermission = {
     StaffDelete: 'staff:delete',
     StaffAssignRole: 'staff:assign_role',
     StaffReadAudits: 'staff:read_audits',
+    StaffTechnicalSupport: 'staff:technical_support',
     RolesCreate: 'roles:create',
     RolesRead: 'roles:read',
     RolesUpdate: 'roles:update',

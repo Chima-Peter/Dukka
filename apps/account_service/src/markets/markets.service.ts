@@ -29,19 +29,22 @@ export class MarketsService {
         }
     }
 
-    async findAll(): Promise<Market[]> {
+    async findAll(market_ids: string[]): Promise<Market[]> {
         try {
             this.logger.log('Fetching markets');
-            return await this.marketsRepository.findAll();
+            return await this.marketsRepository.findAll(market_ids);
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async findOne(id: string): Promise<Market> {
+    async findOne(id: string, market_ids: string[]): Promise<Market> {
         try {
             this.logger.log(`Fetching market ${id}`);
-            const market = await this.marketsRepository.findById(id);
+            const market = await this.marketsRepository.findById(
+                id,
+                market_ids,
+            );
             if (!market) {
                 throw new NotFoundException('Market not found');
             }

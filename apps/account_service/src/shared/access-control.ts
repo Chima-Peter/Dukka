@@ -6,6 +6,14 @@ export const ACCESS_CONTROL_ERROR = {
 
 /**
  * Lower hierarchy number = higher privilege.
+ * GET visibility: same level, all lower levels, and one step above.
+ */
+export function visibleHierarchyFloor(actor_hierarchy: number): number {
+    return actor_hierarchy - 1;
+}
+
+/**
+ * Lower hierarchy number = higher privilege.
  * Actor may only manage targets strictly below their own level.
  */
 export function assertCanManageHierarchies(

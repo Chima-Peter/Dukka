@@ -40,11 +40,16 @@ import {
     StaffRepository,
     type StaffAuditPage,
     type StaffAuthRecord,
+    type StaffSummary,
     type StaffWithDetails,
 } from './staff.repository.js';
 
 export type StaffResponse = Omit<StaffWithDetails, 'avatar'> & {
     /** Public Supabase URL built from the stored avatar path. */
+    avatar: string | null;
+};
+
+export type StaffSummaryResponse = Omit<StaffSummary, 'avatar'> & {
     avatar: string | null;
 };
 
@@ -83,15 +88,23 @@ export class StaffService {
         }
     }
 
-    async findAll(query: FindStaffDto): Promise<{
-        items: StaffResponse[];
+    async findAll(
+        query: FindStaffDto,
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<{
+        items: StaffSummaryResponse[];
         next_cursor: string | null;
     }> {
         try {
             this.logger.log('Fetching staff');
-            const page = await this.staffRepository.findAll(query);
+            const page = await this.staffRepository.findAll(
+                query,
+                market_ids,
+                hierarchy,
+            );
             return {
-                items: page.items.map((item) => this.toStaffResponse(item)),
+                items: page.items.map((item) => this.toStaffSummaryResponse(item)),
                 next_cursor: page.next_cursor,
             };
         } catch (error) {
@@ -99,10 +112,20 @@ export class StaffService {
         }
     }
 
-    async findOne(id: string): Promise<StaffResponse> {
+    async findOne(
+        id: string,
+        scope?: { market_ids: string[]; hierarchy: number | null },
+    ): Promise<StaffResponse> {
         try {
             this.logger.log(`Fetching staff ${id}`);
-            const staff = await this.staffRepository.findById(id);
+            const staff =
+                scope === undefined
+                    ? await this.staffRepository.findById(id)
+                    : await this.staffRepository.findByIdInScope(
+                          id,
+                          scope.market_ids,
+                          scope.hierarchy,
+                      );
             if (!staff) {
                 throw new NotFoundException('Staff not found');
             }
@@ -177,10 +200,12 @@ export class StaffService {
     async findAudits(
         staff_id: string,
         query: FindStaffAuditDto,
+        market_ids: string[],
+        hierarchy: number | null,
     ): Promise<StaffAuditPage> {
         try {
             this.logger.log(`Fetching audit logs for staff ${staff_id}`);
-            await this.ensureStaffExists(staff_id);
+            await this.ensureStaffInScope(staff_id, market_ids, hierarchy);
             return await this.staffRepository.findAuditsByStaffId(
                 staff_id,
                 query,
@@ -320,10 +345,21 @@ export class StaffService {
         }
     }
 
-    async findProfile(staff_id: string): Promise<StaffProfile> {
+    async findProfile(
+        staff_id: string,
+        scope?: { market_ids: string[]; hierarchy: number | null },
+    ): Promise<StaffProfile> {
         try {
             this.logger.log(`Fetching profile for staff ${staff_id}`);
-            await this.ensureStaffExists(staff_id);
+            if (scope === undefined) {
+                await this.ensureStaffExists(staff_id);
+            } else {
+                await this.ensureStaffInScope(
+                    staff_id,
+                    scope.market_ids,
+                    scope.hierarchy,
+                );
+            }
             const profile =
                 await this.staffRepository.findProfileByStaffId(staff_id);
             if (!profile) {
@@ -393,10 +429,19 @@ export class StaffService {
 
     async findQualifications(
         staff_id: string,
+        scope?: { market_ids: string[]; hierarchy: number | null },
     ): Promise<QualificationResponse[]> {
         try {
             this.logger.log(`Fetching qualifications for staff ${staff_id}`);
-            await this.ensureStaffExists(staff_id);
+            if (scope === undefined) {
+                await this.ensureStaffExists(staff_id);
+            } else {
+                await this.ensureStaffInScope(
+                    staff_id,
+                    scope.market_ids,
+                    scope.hierarchy,
+                );
+            }
             const qualifications =
                 await this.staffRepository.findQualificationsByStaffId(
                     staff_id,
@@ -494,6 +539,20 @@ export class StaffService {
         };
     }
 
+    private toStaffSummaryResponse(
+        staff: StaffSummary,
+    ): StaffSummaryResponse {
+        return {
+            id: staff.id,
+            name: staff.name,
+            email: staff.email,
+            role_name: staff.role_name,
+            avatar: staff.avatar
+                ? this.supabaseService.getPublicURL(staff.avatar, AVATAR_BUCKET)
+                : null,
+        };
+    }
+
     private async toQualificationResponse(
         qualification: Qualification,
     ): Promise<QualificationResponse> {
@@ -514,6 +573,21 @@ export class StaffService {
     private async ensureStaffExists(staff_id: string): Promise<void> {
         const exists = await this.staffRepository.exists(staff_id);
         if (!exists) {
+            throw new NotFoundException('Staff not found');
+        }
+    }
+
+    private async ensureStaffInScope(
+        staff_id: string,
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<void> {
+        const staff = await this.staffRepository.findByIdInScope(
+            staff_id,
+            market_ids,
+            hierarchy,
+        );
+        if (!staff) {
             throw new NotFoundException('Staff not found');
         }
     }

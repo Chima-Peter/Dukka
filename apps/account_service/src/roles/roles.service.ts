@@ -45,19 +45,29 @@ export class RolesService {
         }
     }
 
-    async findAll(): Promise<Role[]> {
+    async findAll(
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<Role[]> {
         try {
             this.logger.log('Fetching roles');
-            return await this.rolesRepository.findAll();
+            return await this.rolesRepository.findAll(market_ids, hierarchy);
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async findOne(id: string): Promise<RoleWithDetails> {
+    async findOne(
+        id: string,
+        market_ids: string[],
+        hierarchy: number | null,
+    ): Promise<RoleWithDetails> {
         try {
             this.logger.log(`Fetching role ${id}`);
-            const role = await this.rolesRepository.findById(id);
+            const role = await this.rolesRepository.findById(id, {
+                market_ids,
+                hierarchy,
+            });
             if (!role) {
                 throw new NotFoundException('Role not found');
             }
@@ -192,14 +202,19 @@ export class RolesService {
     async hasPermission(
         role_id: string,
         permission_name: string,
+        market_ids: string[],
+        hierarchy: number | null,
     ): Promise<{ has_permission: boolean }> {
         try {
             this.logger.log(
                 `Checking permission ${permission_name} on role ${role_id}`,
             );
 
-            const roleExists = await this.rolesRepository.exists(role_id);
-            if (!roleExists) {
+            const role = await this.rolesRepository.findById(role_id, {
+                market_ids,
+                hierarchy,
+            });
+            if (!role) {
                 throw new NotFoundException('Role not found');
             }
 

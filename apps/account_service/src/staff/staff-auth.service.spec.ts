@@ -51,6 +51,7 @@ describe('StaffAuthService', () => {
         role_id: 'role-1',
         role: {
             name: 'Admin',
+            hierarchy: 1,
             role_markets: [{ market_id: 'market-1' }, { market_id: 'market-2' }],
             role_permissions: [
                 { permission: { name: 'staff:create' } },
@@ -159,6 +160,7 @@ describe('StaffAuthService', () => {
                     name: 'Ada Staff',
                     role_id: 'role-1',
                     role_name: 'Admin',
+                    hierarchy: 1,
                     market_ids: ['market-1', 'market-2'],
                 },
                 expect.objectContaining({ expiresIn: expect.any(Number) }),

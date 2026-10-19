@@ -12,13 +12,25 @@ export class MarketsRepository {
         return await this.prisma.market.create({ data });
     }
 
-    async findAll(): Promise<Market[]> {
+    async findAll(market_ids: string[]): Promise<Market[]> {
+        if (market_ids.length === 0) {
+            return [];
+        }
+
         return await this.prisma.market.findMany({
+            where: { id: { in: market_ids } },
             orderBy: { created_at: 'desc' },
         });
     }
 
-    async findById(id: string): Promise<Market | null> {
+    async findById(
+        id: string,
+        market_ids: string[],
+    ): Promise<Market | null> {
+        if (market_ids.length === 0 || !market_ids.includes(id)) {
+            return null;
+        }
+
         return await this.prisma.market.findUnique({ where: { id } });
     }
 

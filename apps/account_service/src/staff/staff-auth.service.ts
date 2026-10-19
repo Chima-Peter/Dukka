@@ -86,6 +86,7 @@ export class StaffAuthService {
                 name: staff.name,
                 role_id: staff.role_id,
                 role_name: staff.role?.name ?? null,
+                hierarchy: staff.role?.hierarchy ?? null,
                 market_ids,
             };
 

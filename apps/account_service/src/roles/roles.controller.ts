@@ -41,15 +41,22 @@ export class RolesController {
     @Get()
     @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Roles retrieved successfully')
-    findAll() {
-        return this.rolesService.findAll();
+    findAll(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.rolesService.findAll(staff.market_ids, staff.hierarchy);
     }
 
     @Get(':id')
     @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Role retrieved successfully')
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.rolesService.findOne(id);
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.rolesService.findOne(
+            id,
+            staff.market_ids,
+            staff.hierarchy,
+        );
     }
 
     @Patch(':id')
@@ -74,10 +81,16 @@ export class RolesController {
     @RequirePermission(StaffPermission.RolesRead)
     @ResponseMessage('Role permission check completed')
     hasPermission(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('permissionName') permissionName: string,
     ) {
-        return this.rolesService.hasPermission(id, permissionName);
+        return this.rolesService.hasPermission(
+            id,
+            permissionName,
+            staff.market_ids,
+            staff.hierarchy,
+        );
     }
 
     @Post(':id/permissions')
