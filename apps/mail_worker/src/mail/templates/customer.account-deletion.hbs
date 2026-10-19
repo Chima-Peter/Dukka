@@ -1,5 +1,27 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">We received a request to delete the account for <strong>{{email}}</strong>.</p>
-<p style="margin:0 0 16px;">Your confirmation token is:</p>
-<p style="margin:0 0 16px;font-size:18px;font-weight:700;letter-spacing:0.04em;">{{token}}</p>
-<p style="margin:0;">This token expires in {{expiresInSeconds}} seconds. If you did not request deletion, you can ignore this email.</p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Confirm account deletion
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Action required
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  We received a request to permanently delete the Dukka account for <strong>{{email}}</strong>. To continue, confirm with the verification code below.
+</p>
+
+{{> code-box label="Deletion confirmation code" value=token}}
+
+<p style="margin:0 0 16px;">
+  This code expires in <strong>{{expiresInSeconds}} seconds</strong>. Once confirmed, your account and associated data will be scheduled for deletion according to our policies.
+</p>
+
+{{#> tip title="Changed your mind?"}}
+  If you did not request deletion, ignore this email and your account will remain active. We recommend reviewing your security settings if this request was unexpected.
+{{/tip}}
+
+<p style="margin:0;">
+  We are sorry to see you consider leaving — your confirmation keeps the process intentional and secure.
+</p>

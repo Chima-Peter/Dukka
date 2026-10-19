@@ -1,19 +1,48 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Permissions for one of your roles were {{action}}.</p>
-<p style="margin:0 0 8px;">Role id: <strong>{{roleId}}</strong></p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Role permissions were {{action}}
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Access update
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Permissions for one of the roles on your Dukka staff account were <strong>{{action}}</strong>. This can expand, reduce, or refine what you can do in the portal.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Role id" value=roleId}}
+  {{> detail-row label="Action" value=action}}
+{{/details}}
+
 {{#if permissionNames}}
-<p style="margin:0 0 8px;">Permissions:</p>
-<ul style="margin:0;padding-left:20px;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Permissions
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
   {{#each permissionNames}}
-  <li>{{this}}</li>
+  <li style="margin:0 0 6px;">{{this}}</li>
   {{/each}}
 </ul>
 {{/if}}
+
 {{#if permissionIds}}
-<p style="margin:0 0 8px;">Permission ids:</p>
-<ul style="margin:0;padding-left:20px;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Permission ids
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
   {{#each permissionIds}}
-  <li>{{this}}</li>
+  <li style="margin:0 0 6px;">{{this}}</li>
   {{/each}}
 </ul>
 {{/if}}
+
+{{#> tip title="Refresh your session"}}
+  Sign out and back in if permissions do not appear updated immediately. Reach out to an administrator if something looks incorrect.
+{{/tip}}
+
+<p style="margin:0;">
+  Your access should now match the latest role configuration.
+</p>

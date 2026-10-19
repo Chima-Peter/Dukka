@@ -1,6 +1,28 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your Dukka staff account has been created for <strong>{{email}}</strong>.</p>
-{{#if roleName}}
-<p style="margin:0 0 16px;">Assigned role: <strong>{{roleName}}</strong>.</p>
-{{/if}}
-<p style="margin:0;">Sign in with the credentials provided by your administrator.</p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Welcome to the Dukka team
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Staff account created
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your Dukka staff account has been created for <strong>{{email}}</strong>. You now have access to the tools and workspaces assigned to your role.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Staff email" value=email}}
+  {{#if roleName}}
+  {{> detail-row label="Assigned role" value=roleName}}
+  {{/if}}
+{{/details}}
+
+{{#> tip title="Next steps"}}
+  Sign in with the credentials provided by your administrator. If you have not received credentials yet, ask your admin to share them or reset your password from the staff portal.
+{{/tip}}
+
+<p style="margin:0;">
+  We are glad to have you on board — let’s build great experiences together.
+</p>

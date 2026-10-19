@@ -1,5 +1,31 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">A market you can access was updated.</p>
-<p style="margin:0 0 8px;">Name: <strong>{{marketName}}</strong></p>
-<p style="margin:0 0 8px;">Code: <strong>{{marketCode}}</strong></p>
-<p style="margin:0;">Active: <strong>{{#if isActive}}yes{{else}}no{{/if}}</strong></p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  A market you access was updated
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Market change
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  A market available to your Dukka staff account was updated. Review the current details so you stay aligned with the latest configuration.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Name" value=marketName}}
+  {{> detail-row label="Code" value=marketCode}}
+  {{#if isActive}}
+  {{> detail-row label="Active" value="Yes"}}
+  {{else}}
+  {{> detail-row label="Active" value="No"}}
+  {{/if}}
+{{/details}}
+
+{{#> tip title="Heads up"}}
+  If this market was deactivated, some related workflows may pause until it is reactivated. Check with your administrator if you rely on this market daily.
+{{/tip}}
+
+<p style="margin:0;">
+  We notify you whenever markets you can access change.
+</p>

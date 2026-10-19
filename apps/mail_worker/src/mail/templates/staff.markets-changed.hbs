@@ -1,21 +1,49 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your market access was {{action}}.</p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your market access was {{action}}
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Market assignment
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your market access on Dukka was <strong>{{action}}</strong>. Use the summary below to see which markets are now part of your workspace.
+</p>
+
 {{#if markets}}
-<p style="margin:0 0 8px;">Markets:</p>
-<ul style="margin:0;padding-left:20px;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Markets
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
   {{#each markets}}
-  <li>{{name}} ({{code}})</li>
+  <li style="margin:0 0 6px;"><strong>{{name}}</strong> <span style="color:#6b6b6b;">({{code}})</span></li>
   {{/each}}
 </ul>
 {{/if}}
+
 {{#if marketIds}}
-<p style="margin:0 0 8px;">Market ids:</p>
-<ul style="margin:0;padding-left:20px;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Market ids
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
   {{#each marketIds}}
-  <li>{{this}}</li>
+  <li style="margin:0 0 6px;">{{this}}</li>
   {{/each}}
 </ul>
 {{/if}}
+
 {{#if roleId}}
-<p style="margin:16px 0 0;">Related role id: <strong>{{roleId}}</strong></p>
+{{#> details}}
+  {{> detail-row label="Related role id" value=roleId}}
+{{/details}}
 {{/if}}
+
+{{#> tip title="Why this matters"}}
+  Market access controls which operational areas you can view and manage. If a market you need is missing, ask an administrator to adjust your assignment.
+{{/tip}}
+
+<p style="margin:0;">
+  Your workspace reflects the latest market assignments.
+</p>

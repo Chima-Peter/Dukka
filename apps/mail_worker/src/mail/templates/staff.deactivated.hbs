@@ -1,3 +1,26 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your Dukka staff account for <strong>{{email}}</strong> has been deactivated.</p>
-<p style="margin:0;">You no longer have access. Contact an administrator if you believe this is a mistake.</p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Staff access deactivated
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Account notice
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your Dukka staff account for <strong>{{email}}</strong> has been deactivated. You no longer have access to the staff portal or assigned market tools.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Staff email" value=email}}
+  {{> detail-row label="Status" value="Deactivated"}}
+{{/details}}
+
+{{#> tip title="Believe this is a mistake?"}}
+  Contact a Dukka administrator and ask them to review your account status. Only an administrator can restore access.
+{{/tip}}
+
+<p style="margin:0;">
+  Thank you for the work you contributed while your account was active.
+</p>

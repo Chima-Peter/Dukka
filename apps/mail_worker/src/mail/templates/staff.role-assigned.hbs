@@ -1,7 +1,30 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your staff role has been updated for <strong>{{email}}</strong>.</p>
-{{#if roleName}}
-<p style="margin:0;">New role: <strong>{{roleName}}</strong>.</p>
-{{else}}
-<p style="margin:0;">Role id: <strong>{{roleId}}</strong>.</p>
-{{/if}}
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your staff role was updated
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Permissions update
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your staff role on Dukka has been updated for <strong>{{email}}</strong>. Your available actions in the portal may have changed based on this assignment.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Staff email" value=email}}
+  {{#if roleName}}
+  {{> detail-row label="New role" value=roleName}}
+  {{else}}
+  {{> detail-row label="Role id" value=roleId}}
+  {{/if}}
+{{/details}}
+
+{{#> tip title="What to do next"}}
+  Sign in again if you are already in a session so your permissions refresh. If something you need is missing, ask an administrator to review your role.
+{{/tip}}
+
+<p style="margin:0;">
+  Stay productive — your updated role is ready whenever you are.
+</p>

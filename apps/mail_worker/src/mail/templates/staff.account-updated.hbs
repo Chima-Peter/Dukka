@@ -1,7 +1,33 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your staff account was updated.</p>
-<p style="margin:0 0 8px;">Email: <strong>{{email}}</strong></p>
-{{#if previousEmail}}
-<p style="margin:0 0 8px;">Previous email: <strong>{{previousEmail}}</strong></p>
-{{/if}}
-<p style="margin:0;">Active: <strong>{{#if isActive}}yes{{else}}no{{/if}}</strong></p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your staff account was updated
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Profile changes
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  An administrator updated your Dukka staff account. Review the details below so your records stay accurate.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Email" value=email}}
+  {{#if previousEmail}}
+  {{> detail-row label="Previous email" value=previousEmail}}
+  {{/if}}
+  {{#if isActive}}
+  {{> detail-row label="Status" value="Active"}}
+  {{else}}
+  {{> detail-row label="Status" value="Inactive"}}
+  {{/if}}
+{{/details}}
+
+{{#> tip title="What this means"}}
+  If your email changed, use the new address the next time you sign in. If your account was set to inactive, you may lose portal access until an administrator reactivates it.
+{{/tip}}
+
+<p style="margin:0;">
+  Questions about this update? Reach out to your administrator.
+</p>

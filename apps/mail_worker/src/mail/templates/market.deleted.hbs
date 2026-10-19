@@ -1,4 +1,26 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">A market you could access was deleted.</p>
-<p style="margin:0 0 8px;">Name: <strong>{{marketName}}</strong></p>
-<p style="margin:0;">Code: <strong>{{marketCode}}</strong></p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  A market you could access was deleted
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Market removed
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  A market that was previously available to your Dukka staff account has been deleted. You will no longer see it in your workspace.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Name" value=marketName}}
+  {{> detail-row label="Code" value=marketCode}}
+{{/details}}
+
+{{#> tip title="Need this market back?"}}
+  Only an administrator can recreate or restore market access. Reach out if this deletion affects work you are responsible for.
+{{/tip}}
+
+<p style="margin:0;">
+  Your remaining market assignments are unchanged unless you receive another notice.
+</p>

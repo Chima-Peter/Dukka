@@ -1,4 +1,26 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">A role assigned to you was updated.</p>
-<p style="margin:0 0 8px;">Role: <strong>{{roleName}}</strong></p>
-<p style="margin:0;">Hierarchy: <strong>{{hierarchy}}</strong></p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  A role assigned to you changed
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Role configuration
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  A role assigned to your Dukka staff account was updated. Review the details below — your day-to-day access may look different after this change.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Role" value=roleName}}
+  {{> detail-row label="Hierarchy" value=hierarchy}}
+{{/details}}
+
+{{#> tip title="Need clarification?"}}
+  If this role change affects work you are responsible for, check with your administrator so expectations and access stay aligned.
+{{/tip}}
+
+<p style="margin:0;">
+  We will keep you informed whenever roles that affect you are adjusted.
+</p>

@@ -1,3 +1,26 @@
-<p style="margin:0 0 16px;">Hi {{name}},</p>
-<p style="margin:0 0 16px;">Your Dukka account for <strong>{{email}}</strong> has been deleted.</p>
-<p style="margin:0;">We're sorry to see you go. You can create a new account anytime.</p>
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your account has been deleted
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Farewell for now
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your Dukka account for <strong>{{email}}</strong> has been deleted as requested. Access to this account is no longer available, and associated personal data will be handled according to our retention policy.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Account" value=email}}
+  {{> detail-row label="Status" value="Deleted"}}
+{{/details}}
+
+{{#> tip title="Want to come back?"}}
+  You are always welcome to create a new Dukka account anytime. If you deleted by mistake or need help recovering access, reach out to support as soon as possible.
+{{/tip}}
+
+<p style="margin:0;">
+  Thank you for being part of Dukka. We hope to see you again.
+</p>
