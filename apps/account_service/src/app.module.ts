@@ -7,6 +7,7 @@ import {
     CustomerJwtAuthGuard,
     RedisModule,
     StaffJwtAuthGuard,
+    StaffPermissionsGuard,
     SupabaseModule,
     TransformResponseInterceptor,
 } from '@app/common';
@@ -120,6 +121,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         {
             provide: APP_GUARD,
             useClass: StaffJwtAuthGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: StaffPermissionsGuard,
         },
         {
             provide: APP_INTERCEPTOR,

@@ -29,6 +29,7 @@ import type { InitiateStaffPasswordResetDto } from './dto/initiate_password_rese
 import type { StaffLoginDto } from './dto/login.dto.js';
 import type { ResetStaffPasswordDto } from './dto/reset_password.dto.js';
 import type { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
+import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
 import type { StaffLoginData } from './types/index.js';
@@ -44,6 +45,7 @@ export class StaffAuthService {
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
         private readonly tokenRepository: StaffTokenRepository,
+        private readonly permissionsService: PermissionsService,
     ) {}
 
     async login(data: StaffLoginDto): Promise<StaffLoginData> {
@@ -98,6 +100,17 @@ export class StaffAuthService {
                 type: TokenType.ACCESS,
                 staffId: staff.id,
             });
+
+            const permissions =
+                this.permissionsService.extractPermissionNames(staff);
+            await this.permissionsService.cacheStaffPermissions(
+                staff.id,
+                permissions,
+            );
+
+            this.logger.log(
+                `Cached ${permissions.length} permission(s) for staff ${data.email}`,
+            );
 
             return { accessToken, staff: publicStaff };
         } catch (error) {

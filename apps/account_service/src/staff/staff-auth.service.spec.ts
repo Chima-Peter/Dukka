@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TokenType } from '../../generated/prisma/client.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { commonMock } from './test/common.mock.js';
+import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffAuthService } from './staff-auth.service.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
@@ -36,6 +37,10 @@ describe('StaffAuthService', () => {
         deleteByToken: ReturnType<typeof vi.fn>;
         deleteAllByStaffId: ReturnType<typeof vi.fn>;
     };
+    let permissionsService: {
+        extractPermissionNames: ReturnType<typeof vi.fn>;
+        cacheStaffPermissions: ReturnType<typeof vi.fn>;
+    };
 
     const staffRecord = {
         id: 'staff-1',
@@ -47,7 +52,10 @@ describe('StaffAuthService', () => {
         role: {
             name: 'Admin',
             role_markets: [{ market_id: 'market-1' }, { market_id: 'market-2' }],
-            role_permissions: [],
+            role_permissions: [
+                { permission: { name: 'staff:create' } },
+                { permission: { name: 'staff:read' } },
+            ],
         },
         phone_number: null,
         avatar: null,
@@ -97,6 +105,10 @@ describe('StaffAuthService', () => {
             deleteByToken: vi.fn(),
             deleteAllByStaffId: vi.fn(),
         };
+        permissionsService = {
+            extractPermissionNames: vi.fn(),
+            cacheStaffPermissions: vi.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -109,6 +121,10 @@ describe('StaffAuthService', () => {
                 { provide: PasswordHasher, useValue: passwordHasher },
                 { provide: commonMock.RedisService, useValue: redisService },
                 { provide: StaffTokenRepository, useValue: tokenRepository },
+                {
+                    provide: PermissionsService,
+                    useValue: permissionsService,
+                },
             ],
         }).compile();
 
@@ -122,6 +138,13 @@ describe('StaffAuthService', () => {
             staffService.toPublicStaff.mockReturnValue(publicStaff);
             staffJwtService.signAsync.mockResolvedValue('staff.jwt.token');
             tokenRepository.create.mockResolvedValue({ id: 'token-1' });
+            permissionsService.extractPermissionNames.mockReturnValue([
+                'staff:create',
+                'staff:read',
+            ]);
+            permissionsService.cacheStaffPermissions.mockResolvedValue(
+                undefined,
+            );
 
             const result = await service.login({
                 email: 'staff@example.com',
@@ -145,6 +168,12 @@ describe('StaffAuthService', () => {
                 type: TokenType.ACCESS,
                 staffId: 'staff-1',
             });
+            expect(
+                permissionsService.extractPermissionNames,
+            ).toHaveBeenCalledWith(staffRecord);
+            expect(
+                permissionsService.cacheStaffPermissions,
+            ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
             expect(result).toEqual({
                 accessToken: 'staff.jwt.token',
                 staff: publicStaff,

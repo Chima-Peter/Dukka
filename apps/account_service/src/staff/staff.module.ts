@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { STAFF_JWT_SERVICE } from '@app/common';
 import type { ConfigType } from '../config/env.interface.js';
+import { PermissionsModule } from '../permissions/permissions.module.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { StaffAuthController } from './staff-auth.controller.js';
 import { StaffAuthService } from './staff-auth.service.js';
@@ -14,6 +15,7 @@ import { StaffTokenRepository } from './token.repository.js';
 
 @Global()
 @Module({
+    imports: [PermissionsModule],
     controllers: [StaffAuthController, StaffController],
     providers: [
         StaffService,

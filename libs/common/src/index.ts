@@ -5,15 +5,20 @@ export {
     CurrentStaff,
     IS_PUBLIC_KEY,
     Public,
+    REQUIRE_PERMISSION_KEY,
+    RequirePermission,
     ResponseMessage,
 } from './decorators/index.js';
 export { AllExceptionsFilter } from './filters/index.js';
 export {
     CustomerJwtAuthGuard,
     StaffJwtAuthGuard,
+    StaffPermissionsGuard,
     REQUEST_USER_KEY,
     STAFF_JWT_SERVICE,
+    STAFF_PERMISSIONS_SERVICE,
     blacklistedTokenKey,
+    type StaffPermissionsReader,
 } from './guards/index.js';
 
 export type {
