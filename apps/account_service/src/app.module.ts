@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
+import { HttpClientModule } from '@nestjs/http-client';
 import {
     AllExceptionsFilter,
     CustomerJwtAuthGuard,
-    HttpClientModule,
     RedisModule,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
@@ -35,10 +35,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         PrismaModule,
         CustomerModule,
         ShippingAddressModule,
-        HttpClientModule.registerAsync({
-            isGlobal: true,
+        HttpClientModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                timeout: '10s',
                 headers: {
                     'user-agent': `dukka/${configService.getOrThrow('OBSERVE_SERVICE_NAME', { infer: true })}`,
                 },

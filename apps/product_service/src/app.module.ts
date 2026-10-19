@@ -2,12 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
+import { HttpClientModule } from '@nestjs/http-client';
 import {
-    ACCOUNT_HTTP_CLIENT,
     AllExceptionsFilter,
     CustomerJwtAuthGuard,
-    HttpClientModule,
-    NestHttpClientModule,
     RedisModule,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
@@ -15,6 +13,7 @@ import {
     TransformResponseInterceptor,
 } from '@app/common';
 import { AuthModule } from './auth/auth.module.js';
+import { ACCOUNT_HTTP_CLIENT } from './shared/account-http.constants.js';
 import { AppController } from './app.controller.js';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
@@ -27,16 +26,16 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     imports: [
         ConfigModule,
         PrismaModule,
-        HttpClientModule.registerAsync({
-            isGlobal: true,
+        HttpClientModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                timeout: '10s',
                 headers: {
                     'user-agent': `dukka/${configService.getOrThrow('OBSERVE_SERVICE_NAME', { infer: true })}`,
                 },
             }),
         }),
-        NestHttpClientModule.registerAsync({
+        HttpClientModule.registerAsync({
             name: ACCOUNT_HTTP_CLIENT,
             isGlobal: true,
             inject: [ConfigService],

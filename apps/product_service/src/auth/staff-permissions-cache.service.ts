@@ -3,14 +3,13 @@ import {
     InternalServerErrorException,
     UnauthorizedException,
 } from '@nestjs/common';
+import { InjectHttpClient, type HttpClient } from '@nestjs/http-client';
 import {
-    ACCOUNT_HTTP_CLIENT,
-    InjectHttpClient,
     RedisService,
     type ApiResponse,
-    type HttpClient,
     type StaffPermissionsReader,
 } from '@app/common';
+import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 
 /** Same key account_service writes when caching staff permissions. */
 const staffPermissionsKey = (staffId: string) =>
