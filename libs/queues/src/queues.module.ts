@@ -1,7 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { MailQueueService } from './mail-queue.service.js';
-import { MAIL_QUEUE } from './queue.constants.js';
+import { MAIL_JOB_OPTIONS, MAIL_QUEUE } from './queue.constants.js';
 import {
     ConfigurableModuleClass,
     type QueuesModuleAsyncOptions,
@@ -37,7 +37,10 @@ export class QueuesModule extends ConfigurableModuleClass {
             imports: [
                 ...(dynamicModule.imports ?? []),
                 BullModule.forRoot(toBullRootOptions(options)),
-                BullModule.registerQueue({ name: MAIL_QUEUE }),
+                BullModule.registerQueue({
+                    name: MAIL_QUEUE,
+                    defaultJobOptions: MAIL_JOB_OPTIONS,
+                }),
             ],
             providers: [...(dynamicModule.providers ?? []), MailQueueService],
             exports: [
@@ -71,7 +74,10 @@ export class QueuesModule extends ConfigurableModuleClass {
                         return toBullRootOptions(moduleOptions);
                     },
                 }),
-                BullModule.registerQueue({ name: MAIL_QUEUE }),
+                BullModule.registerQueue({
+                    name: MAIL_QUEUE,
+                    defaultJobOptions: MAIL_JOB_OPTIONS,
+                }),
             ],
             providers: [...(dynamicModule.providers ?? []), MailQueueService],
             exports: [

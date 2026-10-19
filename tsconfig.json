@@ -50,6 +50,9 @@
     },
     {
       "path": "./apps/product_service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/mail_worker/tsconfig.app.json"
     }
   ]
 }

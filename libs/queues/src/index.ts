@@ -1,4 +1,5 @@
 export {
+    MAIL_JOB_OPTIONS,
     MAIL_JOBS,
     MAIL_QUEUE,
     MAIL_TEMPLATES,

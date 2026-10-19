@@ -6,6 +6,23 @@ export const MAIL_JOBS = {
 
 export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
 
+/**
+ * Mail jobs retry up to 5 attempts with exponential backoff from 5s
+ * (5s → 10s → 20s → 40s). Failed jobs are capped by age and count so
+ * the longest-staying failures are dropped first when the set is trimmed.
+ */
+export const MAIL_JOB_OPTIONS = {
+    attempts: 5,
+    backoff: {
+        type: 'exponential' as const,
+        delay: 5_000,
+    },
+    removeOnFail: {
+        age: 24 * 60 * 60,
+        count: 1_000,
+    },
+};
+
 export const MAIL_TEMPLATES = {
     CUSTOMER_WELCOME: 'customer.welcome',
     CUSTOMER_PASSWORD_RESET: 'customer.password-reset',

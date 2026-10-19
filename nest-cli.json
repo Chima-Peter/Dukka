@@ -37,6 +37,17 @@
         "tsConfigPath": "apps/product_service/tsconfig.app.json"
       }
     },
+    "mail_worker": {
+      "type": "application",
+      "root": "apps/mail_worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/mail_worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/mail_worker/tsconfig.app.json",
+        "assets": ["mail/templates/**/*"],
+        "watchAssets": true
+      }
+    },
     "utils": {
       "type": "library",
       "root": "libs/utils",
