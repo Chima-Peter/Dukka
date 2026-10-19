@@ -1,0 +1,19 @@
+<p style="margin:0 0 16px;">Hi {{name}},</p>
+<p style="margin:0 0 16px;">Permissions for one of your roles were {{action}}.</p>
+<p style="margin:0 0 8px;">Role id: <strong>{{roleId}}</strong></p>
+{{#if permissionNames}}
+<p style="margin:0 0 8px;">Permissions:</p>
+<ul style="margin:0;padding-left:20px;">
+  {{#each permissionNames}}
+  <li>{{this}}</li>
+  {{/each}}
+</ul>
+{{/if}}
+{{#if permissionIds}}
+<p style="margin:0 0 8px;">Permission ids:</p>
+<ul style="margin:0;padding-left:20px;">
+  {{#each permissionIds}}
+  <li>{{this}}</li>
+  {{/each}}
+</ul>
+{{/if}}

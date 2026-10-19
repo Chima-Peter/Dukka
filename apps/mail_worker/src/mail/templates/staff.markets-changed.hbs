@@ -1,0 +1,21 @@
+<p style="margin:0 0 16px;">Hi {{name}},</p>
+<p style="margin:0 0 16px;">Your market access was {{action}}.</p>
+{{#if markets}}
+<p style="margin:0 0 8px;">Markets:</p>
+<ul style="margin:0;padding-left:20px;">
+  {{#each markets}}
+  <li>{{name}} ({{code}})</li>
+  {{/each}}
+</ul>
+{{/if}}
+{{#if marketIds}}
+<p style="margin:0 0 8px;">Market ids:</p>
+<ul style="margin:0;padding-left:20px;">
+  {{#each marketIds}}
+  <li>{{this}}</li>
+  {{/each}}
+</ul>
+{{/if}}
+{{#if roleId}}
+<p style="margin:16px 0 0;">Related role id: <strong>{{roleId}}</strong></p>
+{{/if}}

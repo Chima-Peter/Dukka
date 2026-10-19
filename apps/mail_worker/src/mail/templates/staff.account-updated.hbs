@@ -1,0 +1,7 @@
+<p style="margin:0 0 16px;">Hi {{name}},</p>
+<p style="margin:0 0 16px;">Your staff account was updated.</p>
+<p style="margin:0 0 8px;">Email: <strong>{{email}}</strong></p>
+{{#if previousEmail}}
+<p style="margin:0 0 8px;">Previous email: <strong>{{previousEmail}}</strong></p>
+{{/if}}
+<p style="margin:0;">Active: <strong>{{#if isActive}}yes{{else}}no{{/if}}</strong></p>
