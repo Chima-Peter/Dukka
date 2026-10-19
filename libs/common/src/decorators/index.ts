@@ -1,4 +1,5 @@
 export { CurrentCustomer } from './current-customer.decorator.js';
+export { CurrentStaff } from './current-staff.decorator.js';
 export { IS_PUBLIC_KEY, Public } from './public.decorator.js';
 
 export {

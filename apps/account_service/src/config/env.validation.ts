@@ -15,6 +15,8 @@ export const envValidationSchema = Joi.object({
     KAFKA_PORT: Joi.number().port().required(),
     JWT_PRIVATE_KEY_PATH: Joi.string().required(),
     JWT_PUBLIC_KEY_PATH: Joi.string().required(),
+    STAFF_JWT_PRIVATE_KEY_PATH: Joi.string().required(),
+    STAFF_JWT_PUBLIC_KEY_PATH: Joi.string().required(),
     REDIS_URL: Joi.string().uri().default('redis://127.0.0.1:6379'),
     SUPABASE_URL: Joi.string().uri().required(),
     SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),

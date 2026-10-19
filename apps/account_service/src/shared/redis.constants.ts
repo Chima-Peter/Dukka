@@ -7,6 +7,10 @@ export const RedisKeys = {
     passwordResetToken: (email: string) => `password_reset:token:${email}`,
     passwordResetVerified: (email: string) =>
         `password_reset:verified:${email}`,
+    staffPasswordResetToken: (email: string) =>
+        `staff_password_reset:token:${email}`,
+    staffPasswordResetVerified: (email: string) =>
+        `staff_password_reset:verified:${email}`,
     accountDeletionToken: (email: string) => `account_deletion:token:${email}`,
     blacklistedToken: (token: string) => `blacklisted:token:${token}`,
 } as const;

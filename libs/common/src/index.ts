@@ -1,16 +1,22 @@
 export {
     CurrentCustomer,
+    CurrentStaff,
     IS_PUBLIC_KEY,
     Public,
     ResponseMessage,
 } from './decorators/index.js';
 export { AllExceptionsFilter } from './filters/index.js';
-export { JwtAuthGuard, REQUEST_USER_KEY } from './guards/index.js';
+export { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+export {
+    REQUEST_USER_KEY,
+    STAFF_JWT_SERVICE,
+} from './guards/auth.constants.js';
 
 export type {
     CustomerJwtPayload,
     JwtPayload,
     JwtSubjectType,
+    StaffJwtPayload,
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';
 export {

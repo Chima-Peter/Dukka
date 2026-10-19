@@ -9,9 +9,12 @@ import {
     ParseUUIDPipe,
     Patch,
     Post,
-    Query,
 } from '@nestjs/common';
-import { ResponseMessage } from '@app/common';
+import {
+    CurrentStaff,
+    ResponseMessage,
+    type StaffJwtPayload,
+} from '@app/common';
 import { AssignMarketDto } from './dto/assign-market.dto.js';
 import { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import { CreateRoleDto } from './dto/create-role.dto.js';
@@ -71,15 +74,10 @@ export class RolesController {
     @ResponseMessage('Permissions assigned to role successfully')
     assignPermissions(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: AssignPermissionDto,
     ) {
-        return this.rolesService.assignPermissions(
-            id,
-            data,
-            performed_by_staff_id,
-        );
+        return this.rolesService.assignPermissions(id, data, staff.sub);
     }
 
     @Delete(':id/permissions')
@@ -87,30 +85,20 @@ export class RolesController {
     @ResponseMessage('Permissions removed from role successfully')
     removePermissions(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: RemovePermissionDto,
     ) {
-        return this.rolesService.removePermissions(
-            id,
-            data,
-            performed_by_staff_id,
-        );
+        return this.rolesService.removePermissions(id, data, staff.sub);
     }
 
     @Post(':id/markets')
     @ResponseMessage('Markets assigned to role successfully')
     assignMarkets(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: AssignMarketDto,
     ) {
-        return this.rolesService.assignMarkets(
-            id,
-            data,
-            performed_by_staff_id,
-        );
+        return this.rolesService.assignMarkets(id, data, staff.sub);
     }
 
     @Delete(':id/markets')
@@ -118,14 +106,9 @@ export class RolesController {
     @ResponseMessage('Markets removed from role successfully')
     removeMarkets(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: RemoveMarketDto,
     ) {
-        return this.rolesService.removeMarkets(
-            id,
-            data,
-            performed_by_staff_id,
-        );
+        return this.rolesService.removeMarkets(id, data, staff.sub);
     }
 }

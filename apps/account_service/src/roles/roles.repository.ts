@@ -16,6 +16,7 @@ export const ROLES_REPO_ERROR = {
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
     PERMISSIONS_NOT_FOUND: 'PERMISSIONS_NOT_FOUND',
     MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
+    SELF_ROLE_MODIFICATION: 'SELF_ROLE_MODIFICATION',
 } as const;
 
 export type RoleWithDetails = Role & {
@@ -80,7 +81,7 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, role_id: true },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -93,6 +94,8 @@ export class RolesRepository {
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
+
+            this.assertNotOwnRole(actor.role_id, role.id);
 
             const permissions = await tx.permission.findMany({
                 where: { id: { in: permission_ids } },
@@ -140,7 +143,7 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, role_id: true },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -153,6 +156,8 @@ export class RolesRepository {
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
+
+            this.assertNotOwnRole(actor.role_id, role.id);
 
             const existing = await tx.rolePermission.findMany({
                 where: {
@@ -199,7 +204,7 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, role_id: true },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -212,6 +217,8 @@ export class RolesRepository {
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
+
+            this.assertNotOwnRole(actor.role_id, role.id);
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
@@ -259,7 +266,7 @@ export class RolesRepository {
         return await this.prisma.$transaction(async (tx) => {
             const actor = await tx.staff.findUnique({
                 where: { id: performed_by_staff_id },
-                select: { id: true, name: true },
+                select: { id: true, name: true, role_id: true },
             });
             if (!actor) {
                 throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
@@ -272,6 +279,8 @@ export class RolesRepository {
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
             }
+
+            this.assertNotOwnRole(actor.role_id, role.id);
 
             const existing = await tx.roleMarket.findMany({
                 where: {
@@ -316,6 +325,15 @@ export class RolesRepository {
             select: { id: true },
         });
         return role !== null;
+    }
+
+    private assertNotOwnRole(
+        actor_role_id: string | null,
+        role_id: string,
+    ): void {
+        if (actor_role_id === role_id) {
+            throw new Error(ROLES_REPO_ERROR.SELF_ROLE_MODIFICATION);
+        }
     }
 
     async hasPermission(

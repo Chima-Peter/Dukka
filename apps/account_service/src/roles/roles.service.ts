@@ -1,5 +1,6 @@
 import {
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -224,6 +225,11 @@ export class RolesService {
         }
         if (error.message === ROLES_REPO_ERROR.MARKETS_NOT_FOUND) {
             throw new NotFoundException('One or more markets not found');
+        }
+        if (error.message === ROLES_REPO_ERROR.SELF_ROLE_MODIFICATION) {
+            throw new ForbiddenException(
+                'Staff cannot modify permissions or markets on their own role',
+            );
         }
         return null;
     }

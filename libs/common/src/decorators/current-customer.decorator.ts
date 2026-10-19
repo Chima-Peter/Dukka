@@ -4,7 +4,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { REQUEST_USER_KEY } from '../guards/jwt-auth.guard.js';
+import { REQUEST_USER_KEY } from '../guards/auth.constants.js';
 import type {
     CustomerJwtPayload,
     JwtPayload,

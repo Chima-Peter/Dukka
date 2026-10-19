@@ -7,6 +7,7 @@ import {
     InternalServerErrorException,
     Logger,
     NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
@@ -18,7 +19,11 @@ import {
     QUALIFICATIONS_BUCKET,
     SupabaseService,
 } from '@app/common';
-import type { Qualification, StaffProfile } from '../../generated/prisma/client.js';
+import type {
+    Qualification,
+    Staff,
+    StaffProfile,
+} from '../../generated/prisma/client.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffDto } from './dto/create-staff.dto.js';
@@ -33,6 +38,7 @@ import {
     STAFF_REPO_ERROR,
     StaffRepository,
     type StaffAuditPage,
+    type StaffAuthRecord,
     type StaffWithDetails,
 } from './staff.repository.js';
 
@@ -100,6 +106,63 @@ export class StaffService {
                 throw new NotFoundException('Staff not found');
             }
             return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findByEmail(email: string): Promise<StaffAuthRecord | null> {
+        try {
+            return await this.staffRepository.findByEmail(email);
+        } catch {
+            throw new InternalServerErrorException(
+                'An unexpected error occurred. Try again later.',
+            );
+        }
+    }
+
+    async updatePassword(email: string, password: string): Promise<Staff> {
+        try {
+            return await this.staffRepository.updatePassword(email, password);
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2025'
+            ) {
+                throw new NotFoundException('Staff not found');
+            }
+            throw new InternalServerErrorException(
+                'An unexpected error occurred. Try again later.',
+            );
+        }
+    }
+
+    async changePassword(
+        staff_id: string,
+        current_password: string,
+        new_password: string,
+    ): Promise<void> {
+        try {
+            this.logger.log(`Changing password for staff ${staff_id}`);
+
+            const staff =
+                await this.staffRepository.findByIdWithPassword(staff_id);
+            if (!staff) {
+                throw new NotFoundException('Invalid user');
+            }
+
+            const isValid = await this.passwordHasher.verify(
+                current_password,
+                staff.password,
+            );
+            if (!isValid) {
+                throw new UnauthorizedException('Invalid password');
+            }
+
+            const hashedPassword = await this.passwordHasher.hash(new_password);
+            await this.updatePassword(staff.email, hashedPassword);
+
+            this.logger.log(`Password updated for staff ${staff_id}`);
         } catch (error) {
             this.handleError(error);
         }
@@ -650,6 +713,11 @@ export class StaffService {
             if (error.message === STAFF_REPO_ERROR.SELF_ROLE_ASSIGNMENT) {
                 throw new ForbiddenException(
                     'Staff cannot assign a role to themselves',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.SELF_DELETION) {
+                throw new ForbiddenException(
+                    'Staff cannot deactivate themselves',
                 );
             }
             if (error.message === STAFF_REPO_ERROR.STAFF_NOT_FOUND) {

@@ -26,6 +26,7 @@ export const STAFF_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
     SELF_ROLE_ASSIGNMENT: 'SELF_ROLE_ASSIGNMENT',
+    SELF_DELETION: 'SELF_DELETION',
     STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
 } as const;
 
@@ -39,6 +40,10 @@ export type StaffQualificationSummary = Omit<Qualification, 'document_url'>;
 export type StaffWithDetails = Omit<Staff, 'password'> & {
     profile: StaffProfile | null;
     qualifications: StaffQualificationSummary[];
+    role: StaffRoleDetails | null;
+};
+
+export type StaffAuthRecord = Staff & {
     role: StaffRoleDetails | null;
 };
 
@@ -190,6 +195,37 @@ export class StaffRepository {
         });
 
         return staff ? this.omitPassword(staff) : null;
+    }
+
+    async findByEmail(email: string): Promise<StaffAuthRecord | null> {
+        return await this.prisma.staff.findUnique({
+            where: { email },
+            include: {
+                role: {
+                    include: {
+                        role_permissions: {
+                            include: { permission: true },
+                            orderBy: { created_at: 'desc' },
+                        },
+                        role_markets: {
+                            include: { market: true },
+                            orderBy: { created_at: 'desc' },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    async findByIdWithPassword(id: string): Promise<Staff | null> {
+        return await this.prisma.staff.findUnique({ where: { id } });
+    }
+
+    async updatePassword(email: string, password: string): Promise<Staff> {
+        return await this.prisma.staff.update({
+            where: { email },
+            data: { password },
+        });
     }
 
     async exists(id: string): Promise<boolean> {
@@ -364,13 +400,14 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
             }
 
-            const actor =
-                performed_by_staff_id === existing.id
-                    ? { id: existing.id, name: existing.name }
-                    : await tx.staff.findUnique({
-                          where: { id: performed_by_staff_id },
-                          select: { id: true, name: true },
-                      });
+            if (performed_by_staff_id === existing.id) {
+                throw new Error(STAFF_REPO_ERROR.SELF_DELETION);
+            }
+
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: { id: true, name: true },
+            });
             if (!actor) {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }

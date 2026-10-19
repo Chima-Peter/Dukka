@@ -1,14 +1,23 @@
-export type JwtSubjectType = 'customer';
+export type JwtSubjectType = 'customer' | 'staff';
 
-export interface JwtPayload {
+interface JwtPayloadBase {
     sub: string;
     email: string;
-    type: JwtSubjectType;
     iat?: number;
     exp?: number;
 }
 
-export interface CustomerJwtPayload extends JwtPayload {
+export interface CustomerJwtPayload extends JwtPayloadBase {
     type: 'customer';
     name: string;
 }
+
+export interface StaffJwtPayload extends JwtPayloadBase {
+    type: 'staff';
+    name: string;
+    role_id: string | null;
+    role_name: string | null;
+    market_ids: string[];
+}
+
+export type JwtPayload = CustomerJwtPayload | StaffJwtPayload;

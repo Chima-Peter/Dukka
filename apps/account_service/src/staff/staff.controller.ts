@@ -11,7 +11,11 @@ import {
     Post,
     Query,
 } from '@nestjs/common';
-import { ResponseMessage } from '@app/common';
+import {
+    CurrentStaff,
+    ResponseMessage,
+    type StaffJwtPayload,
+} from '@app/common';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
@@ -31,11 +35,10 @@ export class StaffController {
     @Post()
     @ResponseMessage('Staff created successfully')
     create(
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: CreateStaffDto,
     ) {
-        return this.staffService.create(data, performed_by_staff_id);
+        return this.staffService.create(data, staff.sub);
     }
 
     @Get()
@@ -72,11 +75,10 @@ export class StaffController {
     @ResponseMessage('Role assigned to staff successfully')
     assignRole(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: AssignRoleDto,
     ) {
-        return this.staffService.assignRole(id, data, performed_by_staff_id);
+        return this.staffService.assignRole(id, data, staff.sub);
     }
 
     @Delete(':id')
@@ -84,10 +86,9 @@ export class StaffController {
     @ResponseMessage('Staff deactivated successfully')
     delete(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query('performed_by_staff_id', ParseUUIDPipe)
-        performed_by_staff_id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
     ) {
-        return this.staffService.delete(id, performed_by_staff_id);
+        return this.staffService.delete(id, staff.sub);
     }
 
     @Post(':id/avatar/upload-url')
@@ -121,13 +122,6 @@ export class StaffController {
         @Body() data: UpdateStaffProfileDto,
     ) {
         return this.staffService.updateProfile(id, data);
-    }
-
-    @Delete(':id/profile')
-    @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Staff profile deleted successfully')
-    deleteProfile(@Param('id', ParseUUIDPipe) id: string) {
-        return this.staffService.deleteProfile(id);
     }
 
     @Post(':id/qualifications/upload-url')
@@ -166,15 +160,5 @@ export class StaffController {
             qualificationId,
             data,
         );
-    }
-
-    @Delete(':id/qualifications/:qualificationId')
-    @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Qualification deleted successfully')
-    deleteQualification(
-        @Param('id', ParseUUIDPipe) id: string,
-        @Param('qualificationId', ParseUUIDPipe) qualificationId: string,
-    ) {
-        return this.staffService.deleteQualification(id, qualificationId);
     }
 }

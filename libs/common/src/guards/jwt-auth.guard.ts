@@ -4,20 +4,28 @@ import {
     Injectable,
     UnauthorizedException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import type { JwtPayload } from '../interfaces/jwt-payload.interface.js';
-
-export const REQUEST_USER_KEY = 'user';
+import { REQUEST_USER_KEY, STAFF_JWT_SERVICE } from './auth.constants.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+    private readonly jwtService: JwtService;
+    private readonly reflector: Reflector;
+    private readonly moduleRef: ModuleRef;
+
     constructor(
-        private readonly jwtService: JwtService,
-        private readonly reflector: Reflector,
-    ) {}
+        jwtService: JwtService,
+        reflector: Reflector,
+        moduleRef: ModuleRef,
+    ) {
+        this.jwtService = jwtService;
+        this.reflector = reflector;
+        this.moduleRef = moduleRef;
+    }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const isPublic = this.reflector.getAllAndOverride<boolean>(
@@ -36,12 +44,7 @@ export class JwtAuthGuard implements CanActivate {
         }
 
         try {
-            const payload = await this.jwtService.verifyAsync<JwtPayload>(
-                token,
-                {
-                    algorithms: ['RS256'],
-                },
-            );
+            const payload = await this.verifyToken(token);
 
             (request as Request & { [REQUEST_USER_KEY]: JwtPayload })[
                 REQUEST_USER_KEY
@@ -50,6 +53,35 @@ export class JwtAuthGuard implements CanActivate {
             return true;
         } catch {
             throw new UnauthorizedException('Invalid or expired token');
+        }
+    }
+
+    private async verifyToken(token: string): Promise<JwtPayload> {
+        const decoded = this.jwtService.decode<JwtPayload>(token);
+
+        if (decoded?.type === 'staff') {
+            const staffJwtService = this.getStaffJwtService();
+            if (!staffJwtService) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            return staffJwtService.verifyAsync<JwtPayload>(token, {
+                algorithms: ['RS256'],
+            });
+        }
+
+        return this.jwtService.verifyAsync<JwtPayload>(token, {
+            algorithms: ['RS256'],
+        });
+    }
+
+    private getStaffJwtService(): JwtService | undefined {
+        try {
+            return this.moduleRef.get<JwtService>(STAFF_JWT_SERVICE, {
+                strict: false,
+            });
+        } catch {
+            return undefined;
         }
     }
 
