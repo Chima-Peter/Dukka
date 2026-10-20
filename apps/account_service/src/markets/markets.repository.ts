@@ -86,10 +86,18 @@ export class MarketsRepository {
                 ...(data.currency_id !== undefined && {
                     currency_id: data.currency_id,
                 }),
-                ...(data.is_active !== undefined && {
-                    is_active: data.is_active,
-                }),
             },
+            include: marketWithCurrency,
+        });
+    }
+
+    async setActive(
+        id: string,
+        is_active: boolean,
+    ): Promise<MarketWithCurrency> {
+        return await this.prisma.market.update({
+            where: { id },
+            data: { is_active },
             include: marketWithCurrency,
         });
     }

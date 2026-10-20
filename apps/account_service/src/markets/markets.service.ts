@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     HttpException,
     Injectable,
@@ -101,29 +102,37 @@ export class MarketsService {
     ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Updating market ${id}`);
+            const existing = await this.requireMarket(id);
+            if (!existing.is_active) {
+                throw new BadRequestException('Market is inactive');
+            }
             const market = await this.marketsRepository.update(id, data);
             this.logger.log(`Market updated ${id}`);
 
-            await this.notifyMarketStaff(id, {
-                subject: 'A market you access was updated',
-                template: MAIL_TEMPLATES.MARKET_UPDATED,
-                context: {
-                    marketId: market.id,
-                    marketName: market.name,
-                    marketCode: market.code,
-                    isActive: market.is_active,
-                },
-            });
-
+            await this.notifyMarketStaff(market, 'A market you access was updated');
             return market;
         } catch (error) {
             this.handleError(error);
         }
     }
 
+    async activate(id: string): Promise<MarketWithCurrency> {
+        return this.setActive(id, true);
+    }
+
+    async deactivate(id: string): Promise<MarketWithCurrency> {
+        return this.setActive(id, false);
+    }
+
     async delete(id: string): Promise<object> {
         try {
             this.logger.log(`Deleting market ${id}`);
+            const existing = await this.requireMarket(id);
+            if (existing.is_active) {
+                throw new BadRequestException(
+                    'Deactivate the market before deleting it',
+                );
+            }
             const contacts =
                 await this.marketsRepository.findStaffContactsByMarketId(id);
             const market = await this.marketsRepository.delete(id);
@@ -150,28 +159,71 @@ export class MarketsService {
         }
     }
 
+    private async setActive(
+        id: string,
+        is_active: boolean,
+    ): Promise<MarketWithCurrency> {
+        try {
+            const action = is_active ? 'Activating' : 'Deactivating';
+            this.logger.log(`${action} market ${id}`);
+            const existing = await this.requireMarket(id);
+            if (existing.is_active === is_active) {
+                throw new BadRequestException(
+                    is_active
+                        ? 'Market is already active'
+                        : 'Market is already inactive',
+                );
+            }
+            const market = await this.marketsRepository.setActive(
+                id,
+                is_active,
+            );
+            this.logger.log(
+                `Market ${is_active ? 'activated' : 'deactivated'} ${id}`,
+            );
+            await this.notifyMarketStaff(
+                market,
+                is_active
+                    ? 'A market you access was activated'
+                    : 'A market you access was deactivated',
+            );
+            return market;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private async requireMarket(
+        id: string,
+    ): Promise<{ id: string; is_active: boolean }> {
+        const [market] = await this.marketsRepository.findExistingByIds([id]);
+        if (!market) {
+            throw new NotFoundException('Market not found');
+        }
+        return market;
+    }
+
     private async notifyMarketStaff(
-        market_id: string,
-        mail: {
-            subject: string;
-            template: string;
-            context: Record<string, unknown>;
-        },
+        market: MarketWithCurrency,
+        subject: string,
     ): Promise<void> {
         const contacts =
             await this.marketsRepository.findStaffContactsByMarketId(
-                market_id,
+                market.id,
             );
 
         await this.mailQueueService.enqueueSendMany(
             contacts.map((contact) => ({
                 to: contact.email,
-                subject: mail.subject,
-                template: mail.template,
+                subject,
+                template: MAIL_TEMPLATES.MARKET_UPDATED,
                 context: {
-                    ...mail.context,
                     name: contact.name,
                     email: contact.email,
+                    marketId: market.id,
+                    marketName: market.name,
+                    marketCode: market.code,
+                    isActive: market.is_active,
                 },
             })),
         );

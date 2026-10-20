@@ -14,6 +14,7 @@ import {
     assertCanManageHierarchies,
     visibleHierarchyFloor,
 } from '../shared/access-control.js';
+import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 
@@ -408,11 +409,12 @@ export class RolesRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
-                select: { id: true, name: true },
+                select: { id: true, name: true, is_active: true },
             });
             if (markets.length !== market_ids.length) {
                 throw new Error(ROLES_REPO_ERROR.MARKETS_NOT_FOUND);
             }
+            assertMarketsActive(markets);
 
             await tx.roleMarket.createMany({
                 data: market_ids.map((market_id) => ({

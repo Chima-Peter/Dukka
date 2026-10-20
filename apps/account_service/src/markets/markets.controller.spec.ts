@@ -57,6 +57,8 @@ describe('MarketsController', () => {
                         findAll: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),
+                        activate: vi.fn(),
+                        deactivate: vi.fn(),
                         delete: vi.fn(),
                     },
                 },

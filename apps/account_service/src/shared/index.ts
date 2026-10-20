@@ -8,6 +8,7 @@ export {
     visibleHierarchyFloor,
 } from './access-control.js';
 
+export { assertMarketsActive } from './assert-markets-active.js';
 export { PasswordHasher } from './password-hasher.service.js';
 export {
     ACCOUNT_DELETION_TOKEN_TTL_SECONDS,

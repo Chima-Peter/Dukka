@@ -20,6 +20,7 @@ import {
     assertCanManageStaffInMarkets,
     visibleHierarchyFloor,
 } from '../shared/access-control.js';
+import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
@@ -566,11 +567,12 @@ export class StaffRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
-                select: { id: true, name: true },
+                select: { id: true, name: true, is_active: true },
             });
             if (markets.length !== market_ids.length) {
                 throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
             }
+            assertMarketsActive(markets);
 
             assertCanManageHierarchies(
                 actor.role?.hierarchy,

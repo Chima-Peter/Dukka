@@ -16,6 +16,7 @@ import {
     assertCanManageHierarchies,
 } from '../shared/access-control.js';
 import { STAFF_INVITATION_TTL_SECONDS } from '../shared/invitation.constants.js';
+import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { FindStaffInvitationsDto } from './dto/find-staff-invitations.dto.js';
 import type { InviteStaffDto } from './dto/invite-staff.dto.js';
 
@@ -123,11 +124,12 @@ export class InvitationsRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: data.market_ids } },
-                select: { id: true },
+                select: { id: true, is_active: true },
             });
             if (markets.length !== data.market_ids.length) {
                 throw new Error(INVITATION_REPO_ERROR.MARKETS_NOT_FOUND);
             }
+            assertMarketsActive(markets);
 
             assertCanManageHierarchies(
                 actor.role?.hierarchy,

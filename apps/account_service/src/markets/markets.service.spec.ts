@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsRepository } from './markets.repository.js';
@@ -32,28 +33,39 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
 
 describe('MarketsService', () => {
     let service: MarketsService;
+    let marketsRepository: {
+        create: ReturnType<typeof vi.fn>;
+        findAll: ReturnType<typeof vi.fn>;
+        findExistingByIds: ReturnType<typeof vi.fn>;
+        findById: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
+        setActive: ReturnType<typeof vi.fn>;
+        delete: ReturnType<typeof vi.fn>;
+        findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
+    };
 
     beforeEach(async () => {
         const { MailQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
         );
 
+        marketsRepository = {
+            create: vi.fn(),
+            findAll: vi.fn(),
+            findExistingByIds: vi.fn(),
+            findById: vi.fn(),
+            update: vi.fn(),
+            setActive: vi.fn(),
+            delete: vi.fn(),
+            findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 MarketsService,
                 {
                     provide: MarketsRepository,
-                    useValue: {
-                        create: vi.fn(),
-                        findAll: vi.fn(),
-                        findExistingByIds: vi.fn(),
-                        findById: vi.fn(),
-                        update: vi.fn(),
-                        delete: vi.fn(),
-                        findStaffContactsByMarketId: vi
-                            .fn()
-                            .mockResolvedValue([]),
-                    },
+                    useValue: marketsRepository,
                 },
                 {
                     provide: MailQueueService,
@@ -70,5 +82,101 @@ describe('MarketsService', () => {
 
     it('should be defined', () => {
         expect(service).toBeDefined();
+    });
+
+    it('rejects update when market is inactive', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: false },
+        ]);
+
+        await expect(
+            service.update('market-1', { name: 'Lagos' }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(marketsRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('activates an inactive market', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: false },
+        ]);
+        marketsRepository.setActive.mockResolvedValue({
+            id: 'market-1',
+            name: 'Lagos',
+            code: 'LOS',
+            is_active: true,
+            currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+        });
+
+        await service.activate('market-1');
+
+        expect(marketsRepository.setActive).toHaveBeenCalledWith(
+            'market-1',
+            true,
+        );
+    });
+
+    it('rejects activate when market is already active', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: true },
+        ]);
+
+        await expect(service.activate('market-1')).rejects.toBeInstanceOf(
+            BadRequestException,
+        );
+        expect(marketsRepository.setActive).not.toHaveBeenCalled();
+    });
+
+    it('deactivates an active market', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: true },
+        ]);
+        marketsRepository.setActive.mockResolvedValue({
+            id: 'market-1',
+            name: 'Lagos',
+            code: 'LOS',
+            is_active: false,
+            currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+        });
+
+        await service.deactivate('market-1');
+
+        expect(marketsRepository.setActive).toHaveBeenCalledWith(
+            'market-1',
+            false,
+        );
+    });
+
+    it('rejects delete when market is still active', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: true },
+        ]);
+
+        await expect(service.delete('market-1')).rejects.toBeInstanceOf(
+            BadRequestException,
+        );
+        expect(marketsRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes an inactive market', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: false },
+        ]);
+        marketsRepository.delete.mockResolvedValue({
+            id: 'market-1',
+            name: 'Lagos',
+            code: 'LOS',
+        });
+
+        await service.delete('market-1');
+
+        expect(marketsRepository.delete).toHaveBeenCalledWith('market-1');
+    });
+
+    it('rejects update when market is missing', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([]);
+
+        await expect(
+            service.update('market-1', { name: 'Lagos' }),
+        ).rejects.toBeInstanceOf(NotFoundException);
     });
 });

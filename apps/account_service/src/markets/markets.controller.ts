@@ -68,6 +68,20 @@ export class MarketsController {
         return this.marketsService.update(id, data);
     }
 
+    @Post(':id/activate')
+    @RequirePermission(StaffPermission.MarketsUpdate)
+    @ResponseMessage('Market activated successfully')
+    activate(@Param('id', ParseUUIDPipe) id: string) {
+        return this.marketsService.activate(id);
+    }
+
+    @Post(':id/deactivate')
+    @RequirePermission(StaffPermission.MarketsUpdate)
+    @ResponseMessage('Market deactivated successfully')
+    deactivate(@Param('id', ParseUUIDPipe) id: string) {
+        return this.marketsService.deactivate(id);
+    }
+
     @Delete(':id')
     @RequirePermission(StaffPermission.MarketsDelete)
     @HttpCode(HttpStatus.OK)
