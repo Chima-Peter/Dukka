@@ -33,6 +33,10 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
 
 describe('MarketsService', () => {
     let service: MarketsService;
+    let mailQueue: {
+        enqueueSend: ReturnType<typeof vi.fn>;
+        enqueueSendMany: ReturnType<typeof vi.fn>;
+    };
     let marketsRepository: {
         create: ReturnType<typeof vi.fn>;
         findAll: ReturnType<typeof vi.fn>;
@@ -59,6 +63,10 @@ describe('MarketsService', () => {
             delete: vi.fn(),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
         };
+        mailQueue = {
+            enqueueSend: vi.fn(),
+            enqueueSendMany: vi.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -69,10 +77,7 @@ describe('MarketsService', () => {
                 },
                 {
                     provide: MailQueueService,
-                    useValue: {
-                        enqueueSend: vi.fn(),
-                        enqueueSendMany: vi.fn(),
-                    },
+                    useValue: mailQueue,
                 },
             ],
         }).compile();
@@ -93,6 +98,26 @@ describe('MarketsService', () => {
             service.update('market-1', { name: 'Lagos' }),
         ).rejects.toBeInstanceOf(BadRequestException);
         expect(marketsRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('skips staff email on update by default', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: true },
+        ]);
+        marketsRepository.update.mockResolvedValue({
+            id: 'market-1',
+            name: 'Lagos',
+            code: 'LOS',
+            is_active: true,
+            currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+        });
+
+        await service.update('market-1', { name: 'Lagos' });
+
+        expect(marketsRepository.update).toHaveBeenCalledWith('market-1', {
+            name: 'Lagos',
+        });
+        expect(mailQueue.enqueueSendMany).not.toHaveBeenCalled();
     });
 
     it('activates an inactive market', async () => {

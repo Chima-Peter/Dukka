@@ -1,4 +1,5 @@
 import {
+    IsBoolean,
     IsOptional,
     IsString,
     IsUUID,
@@ -27,4 +28,8 @@ export class UpdateMarketDto {
     @IsOptional()
     @IsUUID()
     currency_id?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    notify_staff?: boolean;
 }

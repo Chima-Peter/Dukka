@@ -106,10 +106,16 @@ export class MarketsService {
             if (!existing.is_active) {
                 throw new BadRequestException('Market is inactive');
             }
-            const market = await this.marketsRepository.update(id, data);
+            const { notify_staff = false, ...updateData } = data;
+            const market = await this.marketsRepository.update(id, updateData);
             this.logger.log(`Market updated ${id}`);
 
-            await this.notifyMarketStaff(market, 'A market you access was updated');
+            if (notify_staff) {
+                await this.notifyMarketStaff(
+                    market,
+                    'A market you access was updated',
+                );
+            }
             return market;
         } catch (error) {
             this.handleError(error);
