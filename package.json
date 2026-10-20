@@ -13,7 +13,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/apps/account_service/main",
+    "start:prod": "node dist/apps/Dukka/main",
     "start:product_service": "nest start product_service",
     "start:product_service:dev": "nest start product_service --watch",
     "start:product_service:prod": "node dist/apps/product_service/main",

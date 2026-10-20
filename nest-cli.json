@@ -28,6 +28,28 @@
         "tsConfigPath": "libs/common/tsconfig.lib.json"
       }
     },
+    "mail_worker": {
+      "type": "application",
+      "root": "apps/mail_worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/mail_worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/mail_worker/tsconfig.app.json",
+        "assets": [
+          "mail/templates/**/*"
+        ],
+        "watchAssets": true
+      }
+    },
+    "notifications_service": {
+      "type": "application",
+      "root": "apps/notifications_service",
+      "entryFile": "main",
+      "sourceRoot": "apps/notifications_service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/notifications_service/tsconfig.app.json"
+      }
+    },
     "product_service": {
       "type": "application",
       "root": "apps/product_service",
@@ -37,15 +59,13 @@
         "tsConfigPath": "apps/product_service/tsconfig.app.json"
       }
     },
-    "mail_worker": {
-      "type": "application",
-      "root": "apps/mail_worker",
-      "entryFile": "main",
-      "sourceRoot": "apps/mail_worker/src",
+    "queues": {
+      "type": "library",
+      "root": "libs/queues",
+      "entryFile": "index",
+      "sourceRoot": "libs/queues/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/mail_worker/tsconfig.app.json",
-        "assets": ["mail/templates/**/*"],
-        "watchAssets": true
+        "tsConfigPath": "libs/queues/tsconfig.lib.json"
       }
     },
     "utils": {
@@ -55,15 +75,6 @@
       "sourceRoot": "libs/utils/src",
       "compilerOptions": {
         "tsConfigPath": "libs/utils/tsconfig.lib.json"
-      }
-    },
-    "queues": {
-      "type": "library",
-      "root": "libs/queues",
-      "entryFile": "index",
-      "sourceRoot": "libs/queues/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/queues/tsconfig.lib.json"
       }
     }
   }

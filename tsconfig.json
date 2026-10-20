@@ -53,6 +53,12 @@
     },
     {
       "path": "./apps/mail_worker/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/Dukka/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/notifications_service/tsconfig.app.json"
     }
   ]
 }
