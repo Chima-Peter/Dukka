@@ -196,14 +196,27 @@ model Permission {
   role_permissions RolePermission[]
 }
 
-model Market {
+model Currency {
   id         String   @id @default(uuid())
-  name       String
   code       String   @unique
+  name       String
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  market Market?
+}
+
+model Market {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  currency_id String   @unique
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  currency           Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
   role_markets       RoleMarket[]
   staff_markets      StaffMarket[]
   invitation_markets StaffInvitationMarket[]

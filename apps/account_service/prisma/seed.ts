@@ -20,10 +20,14 @@ const SUPER_ADMIN_ROLE_NAME = 'Super Admin';
 const SUPER_ADMIN_HIERARCHY = 0;
 const BCRYPT_ROUNDS = 10;
 
+const DEFAULT_CURRENCIES = [
+    { code: 'NGN', name: 'Nigerian Naira' },
+    { code: 'GHS', name: 'Ghanaian Cedi' },
+] as const;
+
 const DEFAULT_MARKETS = [
-    { name: 'Nigeria', code: 'NG' },
-    { name: 'Ghana', code: 'GH' },
-    { name: 'Kenya', code: 'KE' },
+    { name: 'Nigeria', code: 'NG', currency_code: 'NGN' as const },
+    { name: 'Ghana', code: 'GH', currency_code: 'GHS' as const },
 ] as const;
 
 async function seedPermissions() {
@@ -67,17 +71,42 @@ async function seedPermissions() {
     );
 }
 
+async function seedCurrencies() {
+    for (const currency of DEFAULT_CURRENCIES) {
+        await prisma.currency.upsert({
+            where: { code: currency.code },
+            create: {
+                code: currency.code,
+                name: currency.name,
+                is_active: true,
+            },
+            update: {
+                name: currency.name,
+                is_active: true,
+            },
+        });
+    }
+
+    console.log(`Seeded ${DEFAULT_CURRENCIES.length} currencies`);
+}
+
 async function seedMarkets() {
     for (const market of DEFAULT_MARKETS) {
+        const currency = await prisma.currency.findUniqueOrThrow({
+            where: { code: market.currency_code },
+        });
+
         await prisma.market.upsert({
             where: { code: market.code },
             create: {
                 name: market.name,
                 code: market.code,
+                currency_id: currency.id,
                 is_active: true,
             },
             update: {
                 name: market.name,
+                currency_id: currency.id,
                 is_active: true,
             },
         });
@@ -173,6 +202,7 @@ async function seedSuperAdminStaff(role_id: string) {
 
 async function main() {
     await seedPermissions();
+    await seedCurrencies();
     await seedMarkets();
     const role = await seedSuperAdminRole();
     await seedSuperAdminStaff(role.id);

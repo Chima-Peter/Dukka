@@ -4,21 +4,45 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 
+export type MarketCurrencySummary = {
+    id: string;
+    code: string;
+    name: string;
+};
+
+export type MarketWithCurrency = Market & {
+    currency: MarketCurrencySummary;
+};
+
+const marketWithCurrency = {
+    currency: {
+        select: {
+            id: true,
+            code: true,
+            name: true,
+        },
+    },
+} as const;
+
 @Injectable()
 export class MarketsRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async create(data: CreateMarketDto): Promise<Market> {
-        return await this.prisma.market.create({ data });
+    async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
+        return await this.prisma.market.create({
+            data,
+            include: marketWithCurrency,
+        });
     }
 
-    async findAll(market_ids: string[]): Promise<Market[]> {
+    async findAll(market_ids: string[]): Promise<MarketWithCurrency[]> {
         if (market_ids.length === 0) {
             return [];
         }
 
         return await this.prisma.market.findMany({
             where: { id: { in: market_ids } },
+            include: marketWithCurrency,
             orderBy: { created_at: 'desc' },
         });
     }
@@ -26,24 +50,34 @@ export class MarketsRepository {
     async findById(
         id: string,
         market_ids: string[],
-    ): Promise<Market | null> {
+    ): Promise<MarketWithCurrency | null> {
         if (market_ids.length === 0 || !market_ids.includes(id)) {
             return null;
         }
 
-        return await this.prisma.market.findUnique({ where: { id } });
+        return await this.prisma.market.findUnique({
+            where: { id },
+            include: marketWithCurrency,
+        });
     }
 
-    async update(id: string, data: UpdateMarketDto): Promise<Market> {
+    async update(
+        id: string,
+        data: UpdateMarketDto,
+    ): Promise<MarketWithCurrency> {
         return await this.prisma.market.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.code !== undefined && { code: data.code }),
+                ...(data.currency_id !== undefined && {
+                    currency_id: data.currency_id,
+                }),
                 ...(data.is_active !== undefined && {
                     is_active: data.is_active,
                 }),
             },
+            include: marketWithCurrency,
         });
     }
 

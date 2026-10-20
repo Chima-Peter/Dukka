@@ -85,6 +85,18 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete markets',
     },
     {
+        name: 'currencies:create',
+        description: 'Create currencies',
+    },
+    {
+        name: 'currencies:update',
+        description: 'Update currencies',
+    },
+    {
+        name: 'currencies:delete',
+        description: 'Delete currencies',
+    },
+    {
         name: 'permissions:read',
         description: 'View permissions',
     },
@@ -115,5 +127,8 @@ export const StaffPermission = {
     MarketsRead: 'markets:read',
     MarketsUpdate: 'markets:update',
     MarketsDelete: 'markets:delete',
+    CurrenciesCreate: 'currencies:create',
+    CurrenciesUpdate: 'currencies:update',
+    CurrenciesDelete: 'currencies:delete',
     PermissionsRead: 'permissions:read',
 } as const satisfies Record<string, StaffAccountPermissionName>;

@@ -2,6 +2,7 @@ import {
     IsBoolean,
     IsOptional,
     IsString,
+    IsUUID,
     Matches,
     MaxLength,
     MinLength,
@@ -21,6 +22,9 @@ export class CreateMarketDto {
             'Market code must be uppercase letters, numbers, or underscores (e.g. LAGOS_01)',
     })
     code!: string;
+
+    @IsUUID()
+    currency_id!: string;
 
     @IsOptional()
     @IsBoolean()

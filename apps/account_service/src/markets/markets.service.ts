@@ -8,10 +8,12 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import type { Market } from '../../generated/prisma/client.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
-import { MarketsRepository } from './markets.repository.js';
+import {
+    MarketsRepository,
+    type MarketWithCurrency,
+} from './markets.repository.js';
 
 @Injectable()
 export class MarketsService {
@@ -22,7 +24,7 @@ export class MarketsService {
         private readonly mailQueueService: MailQueueService,
     ) {}
 
-    async create(data: CreateMarketDto): Promise<Market> {
+    async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Creating market ${data.code}`);
             const market = await this.marketsRepository.create(data);
@@ -33,7 +35,7 @@ export class MarketsService {
         }
     }
 
-    async findAll(market_ids: string[]): Promise<Market[]> {
+    async findAll(market_ids: string[]): Promise<MarketWithCurrency[]> {
         try {
             this.logger.log('Fetching markets');
             return await this.marketsRepository.findAll(market_ids);
@@ -42,7 +44,10 @@ export class MarketsService {
         }
     }
 
-    async findOne(id: string, market_ids: string[]): Promise<Market> {
+    async findOne(
+        id: string,
+        market_ids: string[],
+    ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Fetching market ${id}`);
             const market = await this.marketsRepository.findById(
@@ -58,7 +63,10 @@ export class MarketsService {
         }
     }
 
-    async update(id: string, data: UpdateMarketDto): Promise<Market> {
+    async update(
+        id: string,
+        data: UpdateMarketDto,
+    ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Updating market ${id}`);
             const market = await this.marketsRepository.update(id, data);
@@ -146,14 +154,26 @@ export class MarketsService {
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
+                const target = Array.isArray(error.meta?.target)
+                    ? error.meta.target.join(',')
+                    : String(error.meta?.target ?? '');
+                if (target.includes('currency_id')) {
+                    throw new ConflictException(
+                        'This currency is already assigned to another market',
+                    );
+                }
                 throw new ConflictException(
                     'A market with this code already exists',
                 );
             }
             if (error.code === 'P2003') {
                 this.logger.warn(
-                    `Foreign key constraint on market delete: ${error.message}`,
+                    `Foreign key constraint on market: ${error.message}`,
                 );
+                const field = String(error.meta?.field_name ?? '');
+                if (field.includes('currency')) {
+                    throw new NotFoundException('Currency not found');
+                }
                 throw new ConflictException(
                     'Market cannot be deleted while it is still assigned to staff',
                 );
