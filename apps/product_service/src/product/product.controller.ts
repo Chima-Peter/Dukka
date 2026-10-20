@@ -20,9 +20,9 @@ import {
 import { extractBearerToken } from '../shared/extract-bearer-token.js';
 import { AddToMarketDto } from './dto/add-to-market.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
-import { FindAdminProductsDto } from './dto/find-admin-products.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductsDto } from './dto/find-products.dto.js';
+import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { SetMarketPriceDto } from './dto/set-market-price.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
@@ -47,10 +47,16 @@ export class ProductController {
         return this.productService.findAll(query);
     }
 
-    @Get('admin')
+    @Get('staff')
     @ResponseMessage('Products retrieved successfully')
-    findAllForStaff(@Query() query: FindAdminProductsDto) {
+    findAllForStaff(@Query() query: FindStaffProductsDto) {
         return this.productService.findAllForStaff(query);
+    }
+
+    @Get('staff/:id')
+    @ResponseMessage('Product retrieved successfully')
+    findOneForStaff(@Param('id', ParseUUIDPipe) id: string) {
+        return this.productService.findOneForStaff(id);
     }
 
     @Get(':id')

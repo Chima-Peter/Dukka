@@ -26,9 +26,9 @@ import {
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import type { AddToMarketDto } from './dto/add-to-market.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
-import type { FindAdminProductsDto } from './dto/find-admin-products.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
+import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { SetMarketPriceDto } from './dto/set-market-price.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
@@ -96,7 +96,7 @@ export class ProductService {
         }
     }
 
-    async findAllForStaff(query: FindAdminProductsDto) {
+    async findAllForStaff(query: FindStaffProductsDto) {
         try {
             this.logger.log('Fetching products for staff');
             this.assertPriceRange(query.min_price, query.max_price);
@@ -120,6 +120,15 @@ export class ProductService {
                 query.market_id,
                 ProductStatus.ACTIVE,
             );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOneForStaff(id: string) {
+        try {
+            this.logger.log(`Fetching product ${id} for staff`);
+            return await this.productRepository.findDetailedById(id);
         } catch (error) {
             this.handleError(error);
         }

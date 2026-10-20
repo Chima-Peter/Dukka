@@ -5,8 +5,8 @@ import {
     type Product,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { FindAdminProductsDto } from './dto/find-admin-products.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
+import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
 
@@ -28,6 +28,25 @@ export type CreateProductRecord = {
     }[];
 };
 
+const productSummarySelect = {
+    id: true,
+    name: true,
+    description: true,
+    status: true,
+    category_id: true,
+    created_at: true,
+    updated_at: true,
+    images: {
+        orderBy: { sort_order: 'asc' as const },
+        take: 1,
+        select: {
+            id: true,
+            image_url: true,
+            sort_order: true,
+        },
+    },
+} as const;
+
 const productDetailInclude = {
     images: {
         orderBy: { sort_order: 'asc' as const },
@@ -36,6 +55,50 @@ const productDetailInclude = {
         include: { image: true },
     },
 } as const;
+
+function productDetailWithPricesInclude(marketId?: string) {
+    return {
+        images: {
+            orderBy: { sort_order: 'asc' as const },
+        },
+        variants: {
+            include: {
+                image: true,
+                inventory: {
+                    ...(marketId !== undefined && {
+                        where: { warehouse: { market_id: marketId } },
+                    }),
+                    select: {
+                        available_quantity: true,
+                    },
+                },
+                market_price:
+                    marketId !== undefined
+                        ? { where: { market_id: marketId } }
+                        : true,
+            },
+        },
+    } as const;
+}
+
+function withAvailableQuantitySum<
+    T extends {
+        variants: Array<{
+            inventory: Array<{ available_quantity: number }>;
+        }>;
+    },
+>(product: T) {
+    return {
+        ...product,
+        variants: product.variants.map(({ inventory, ...variant }) => ({
+            ...variant,
+            available_quantity: inventory.reduce(
+                (sum, row) => sum + row.available_quantity,
+                0,
+            ),
+        })),
+    };
+}
 
 @Injectable()
 export class ProductRepository {
@@ -89,9 +152,9 @@ export class ProductRepository {
                     ProductStatus.ACTIVE,
                 ),
             },
-            include: {
+            select: {
                 product: {
-                    include: productDetailInclude,
+                    select: productSummarySelect,
                 },
             },
             orderBy: [{ created_at: 'desc' }, { product_id: 'desc' }],
@@ -117,7 +180,7 @@ export class ProductRepository {
         };
     }
 
-    async findAll(query: FindAdminProductsDto) {
+    async findAll(query: FindStaffProductsDto) {
         const nameMatchedIds = await this.findNameMatchedIds(query.name);
         if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
             return { items: [], next_cursor: null };
@@ -126,16 +189,18 @@ export class ProductRepository {
         const limit = query.limit ?? 50;
         const records = await this.prisma.product.findMany({
             where: {
-                market: {
-                    some: { market_id: query.market_id },
-                },
+                ...(query.market_id !== undefined && {
+                    market: {
+                        some: { market_id: query.market_id },
+                    },
+                }),
                 ...this.buildProductFilters(
                     query,
                     nameMatchedIds,
                     query.status,
                 ),
             },
-            include: productDetailInclude,
+            select: productSummarySelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -160,6 +225,19 @@ export class ProductRepository {
         });
     }
 
+    async findDetailedById(id: string) {
+        const product = await this.prisma.product.findUnique({
+            where: { id },
+            include: productDetailWithPricesInclude(),
+        });
+
+        if (!product) {
+            throw new NotFoundException('Product not found');
+        }
+
+        return withAvailableQuantitySum(product);
+    }
+
     async findByIdInMarket(
         id: string,
         marketId: string,
@@ -175,7 +253,7 @@ export class ProductRepository {
             },
             include: {
                 product: {
-                    include: productDetailInclude,
+                    include: productDetailWithPricesInclude(marketId),
                 },
             },
         });
@@ -184,7 +262,7 @@ export class ProductRepository {
             throw new NotFoundException('Product not found');
         }
 
-        return marketProduct.product;
+        return withAvailableQuantitySum(marketProduct.product);
     }
 
     private async findNameMatchedIds(name?: string) {
@@ -203,7 +281,7 @@ export class ProductRepository {
     }
 
     private buildProductFilters(
-        query: FindProductsDto | FindAdminProductsDto,
+        query: FindProductsDto | FindStaffProductsDto,
         nameMatchedIds: string[] | undefined,
         status?: ProductStatus,
     ): Prisma.ProductWhereInput {
@@ -223,7 +301,9 @@ export class ProductRepository {
                     some: {
                         market_price: {
                             some: {
-                                market_id: query.market_id,
+                                ...(query.market_id !== undefined && {
+                                    market_id: query.market_id,
+                                }),
                                 price: {
                                     ...(query.min_price !== undefined && {
                                         gte: query.min_price,
