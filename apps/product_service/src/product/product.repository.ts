@@ -29,24 +29,69 @@ export type CreateProductRecord = {
     }[];
 };
 
-const productSummarySelect = {
-    id: true,
-    name: true,
-    description: true,
-    status: true,
-    category_id: true,
-    created_at: true,
-    updated_at: true,
-    images: {
-        orderBy: { sort_order: 'asc' as const },
-        take: 1,
-        select: {
-            id: true,
-            image_url: true,
-            sort_order: true,
+function productListSummarySelect(marketId?: string) {
+    return {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        category_id: true,
+        created_at: true,
+        updated_at: true,
+        images: {
+            orderBy: { sort_order: 'asc' as const },
+            take: 1,
+            select: {
+                id: true,
+                image_url: true,
+                sort_order: true,
+            },
         },
+        variants: {
+            ...(marketId !== undefined && {
+                where: {
+                    market_variants: {
+                        some: { market_id: marketId },
+                    },
+                },
+            }),
+            orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
+            take: 1,
+            select: {
+                id: true,
+                market_variants: {
+                    ...(marketId !== undefined && {
+                        where: { market_id: marketId },
+                    }),
+                    take: 1,
+                    select: {
+                        price: true,
+                        currency: true,
+                    },
+                },
+            },
+        },
+    } satisfies Prisma.ProductSelect;
+}
+
+function withFirstVariantPrice<
+    T extends {
+        variants: Array<{
+            market_variants: Array<{
+                price: unknown;
+                currency: string;
+            }>;
+        }>;
     },
-} as const;
+>(product: T) {
+    const { variants, ...rest } = product;
+    const marketVariant = variants[0]?.market_variants[0];
+    return {
+        ...rest,
+        price: marketVariant?.price ?? null,
+        currency: marketVariant?.currency ?? null,
+    };
+}
 
 const productDetailInclude = {
     images: {
@@ -203,7 +248,7 @@ export class ProductRepository {
                     },
                 },
             },
-            select: productSummarySelect,
+            select: productListSummarySelect(query.market_id),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -213,7 +258,8 @@ export class ProductRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const page = hasMore ? records.slice(0, limit) : records;
+        const items = page.map(withFirstVariantPrice);
 
         return {
             items,
@@ -268,7 +314,7 @@ export class ProductRepository {
                       }
                     : {}),
             },
-            select: productSummarySelect,
+            select: productListSummarySelect(query.market_id),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -278,7 +324,8 @@ export class ProductRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const page = hasMore ? records.slice(0, limit) : records;
+        const items = page.map(withFirstVariantPrice);
 
         return {
             items,
