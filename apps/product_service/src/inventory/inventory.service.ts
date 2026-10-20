@@ -84,35 +84,16 @@ export class InventoryService {
                 `Checking availability for product ${data.product_id}`,
             );
 
-            await this.productRepository.findByIdOrThrow(data.product_id);
-
-            const marketVariants =
-                await this.inventoryRepository.findProductMarketVariantIds(
+            const availability =
+                await this.inventoryRepository.findProductAvailability(
                     data.product_id,
                     data.market_id,
                 );
-            const availableByMarketVariant =
-                await this.inventoryRepository.sumAvailableByMarketVariantIds(
-                    marketVariants.map((row) => row.market_variant_id),
-                    data.market_id,
-                );
+            if (!availability) {
+                throw new NotFoundException('Product not found');
+            }
 
-            const variants = marketVariants.map((row) => ({
-                variant_id: row.variant_id,
-                market_variant_id: row.market_variant_id,
-                available_quantity:
-                    availableByMarketVariant.get(row.market_variant_id) ?? 0,
-            }));
-
-            return {
-                product_id: data.product_id,
-                market_id: data.market_id,
-                available_quantity: variants.reduce(
-                    (sum, variant) => sum + variant.available_quantity,
-                    0,
-                ),
-                variants,
-            };
+            return availability;
         } catch (error) {
             this.handleError(error);
         }

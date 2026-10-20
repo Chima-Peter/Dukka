@@ -73,55 +73,82 @@ export class InventoryRepository {
         });
     }
 
-    async findProductMarketVariantIds(
-        productId: string,
-        marketId: string,
-    ): Promise<Array<{ market_variant_id: string; variant_id: string }>> {
-        const marketVariants = await this.prisma.marketVariant.findMany({
-            where: {
-                market_id: marketId,
-                variant: { product_id: productId },
-            },
+    async findProductAvailability(productId: string, marketId: string) {
+        const product = await this.prisma.product.findUnique({
+            where: { id: productId },
             select: {
                 id: true,
-                variant_id: true,
-            },
-        });
-        return marketVariants.map((marketVariant) => ({
-            market_variant_id: marketVariant.id,
-            variant_id: marketVariant.variant_id,
-        }));
-    }
-
-    async sumAvailableByMarketVariantIds(
-        marketVariantIds: string[],
-        marketId: string,
-    ): Promise<Map<string, number>> {
-        if (marketVariantIds.length === 0) {
-            return new Map();
-        }
-
-        const rows = await this.prisma.inventory.groupBy({
-            by: ['market_variant_id'],
-            where: {
-                market_variant_id: { in: marketVariantIds },
-                market_variant: { market_id: marketId },
-                warehouse: {
-                    market_id: marketId,
-                    status: WarehouseStatus.OPEN,
+                variants: {
+                    select: {
+                        id: true,
+                        market_variants: {
+                            where: { market_id: marketId },
+                            select: {
+                                id: true,
+                                inventories: {
+                                    where: {
+                                        warehouse: {
+                                            market_id: marketId,
+                                            status: WarehouseStatus.OPEN,
+                                        },
+                                    },
+                                    select: {
+                                        warehouse_id: true,
+                                        available_quantity: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
             },
-            _sum: {
-                available_quantity: true,
-            },
         });
 
-        return new Map(
-            rows.map((row) => [
-                row.market_variant_id,
-                row._sum.available_quantity ?? 0,
-            ]),
+        if (!product) {
+            return null;
+        }
+
+        const variants = product.variants.map(
+            ({ market_variants, ...variant }) => {
+                const mappedMarketVariants = market_variants.map(
+                    ({ inventories, ...marketVariant }) => {
+                        const available_quantity = inventories.reduce(
+                            (sum, row) => sum + row.available_quantity,
+                            0,
+                        );
+                        return {
+                            ...marketVariant,
+                            available_quantity,
+                            inventories: inventories.map((inventory) => ({
+                                warehouse_id: inventory.warehouse_id,
+                                available_quantity:
+                                    inventory.available_quantity,
+                            })),
+                        };
+                    },
+                );
+
+                return {
+                    ...variant,
+                    available_quantity: mappedMarketVariants.reduce(
+                        (sum, marketVariant) =>
+                            sum + marketVariant.available_quantity,
+                        0,
+                    ),
+                    market_variants: mappedMarketVariants,
+                };
+            },
         );
+
+        return {
+            product_id: product.id,
+            market_id: marketId,
+            available_quantity: variants.reduce(
+                (sum, variant) => sum + variant.available_quantity,
+                0,
+            ),
+            variants,
+        };
     }
 
     async findByVariantId(
