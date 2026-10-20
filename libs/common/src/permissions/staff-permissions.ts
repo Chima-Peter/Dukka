@@ -117,6 +117,18 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Archive products',
     },
     {
+        name: 'warehouses:create',
+        description: 'Create warehouses',
+    },
+    {
+        name: 'warehouses:update',
+        description: 'Update warehouses',
+    },
+    {
+        name: 'warehouses:close',
+        description: 'Close warehouses',
+    },
+    {
         name: 'permissions:read',
         description: 'View permissions',
     },
@@ -155,5 +167,8 @@ export const StaffPermission = {
     ProductsApprove: 'products:approve',
     ProductsReject: 'products:reject',
     ProductsArchive: 'products:archive',
+    WarehousesCreate: 'warehouses:create',
+    WarehousesUpdate: 'warehouses:update',
+    WarehousesClose: 'warehouses:close',
     PermissionsRead: 'permissions:read',
 } as const satisfies Record<string, StaffAccountPermissionName>;

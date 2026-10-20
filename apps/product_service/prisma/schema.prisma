@@ -114,12 +114,18 @@ model MarketPrice {
   @@unique([market_id, variant_id])
 }
 
+enum WarehouseStatus {
+  OPEN
+  CLOSED
+}
+
 model Warehouse {
-  id         String @id @default(uuid())
+  id         String          @id @default(uuid())
   market_id  String
   name       String
   manager_id String
   address    String
+  status     WarehouseStatus @default(OPEN)
 
   inventory Inventory[]
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
     Prisma,
     ProductStatus,
+    WarehouseStatus,
     type Product,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -66,7 +67,12 @@ function productDetailWithPricesInclude(marketId?: string) {
                 image: true,
                 inventory: {
                     ...(marketId !== undefined && {
-                        where: { warehouse: { market_id: marketId } },
+                        where: { 
+                            warehouse: { 
+                                market_id: marketId,
+                                status: WarehouseStatus.OPEN,
+                            }
+                        },
                     }),
                     select: {
                         available_quantity: true,
