@@ -31,6 +31,7 @@ import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
+import { ValidateStaffDto } from './dto/validate-staff.dto.js';
 import { StaffAuthService } from './staff-auth.service.js';
 import { StaffService } from './staff.service.js';
 
@@ -155,6 +156,12 @@ export class StaffController {
             staff.market_ids,
             staff.hierarchy,
         );
+    }
+
+    @Post('validate')
+    @ResponseMessage('Staff ids validated successfully')
+    validate(@Body() data: ValidateStaffDto) {
+        return this.staffService.validateIds(data);
     }
 
     @Get(':id')

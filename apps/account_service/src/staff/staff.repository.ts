@@ -265,6 +265,51 @@ export class StaffRepository {
         return staff !== null;
     }
 
+    async findValidationByIds(ids: string[]): Promise<
+        {
+            id: string;
+            is_active: boolean;
+            market_ids: string[];
+            permissions: string[];
+        }[]
+    > {
+        if (ids.length === 0) {
+            return [];
+        }
+
+        const records = await this.prisma.staff.findMany({
+            where: { id: { in: ids } },
+            select: {
+                id: true,
+                is_active: true,
+                staff_markets: {
+                    select: { market_id: true },
+                },
+                role: {
+                    select: {
+                        role_permissions: {
+                            select: {
+                                permission: {
+                                    select: { name: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return records.map((staff) => ({
+            id: staff.id,
+            is_active: staff.is_active,
+            market_ids: staff.staff_markets.map((sm) => sm.market_id),
+            permissions:
+                staff.role?.role_permissions.map(
+                    (rolePermission) => rolePermission.permission.name,
+                ) ?? [],
+        }));
+    }
+
     async findAuditsByStaffId(
         staff_id: string,
         query: FindStaffAuditDto,

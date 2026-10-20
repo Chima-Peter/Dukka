@@ -74,8 +74,14 @@ export class WarehouseController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseManagerDto,
+        @Headers('authorization') authorization?: string,
     ) {
-        return this.warehouseService.updateManager(id, data, staff.market_ids);
+        return this.warehouseService.updateManager(
+            id,
+            data,
+            staff.market_ids,
+            extractBearerToken(authorization),
+        );
     }
 
     @Post(':id/close')

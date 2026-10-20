@@ -58,6 +58,7 @@ describe('StaffController', () => {
                     useValue: {
                         findAll: vi.fn(),
                         findOne: staffService.findOne,
+                        validateIds: vi.fn(),
                         findAudits: vi.fn(),
                         update: vi.fn(),
                         assignRole: vi.fn(),

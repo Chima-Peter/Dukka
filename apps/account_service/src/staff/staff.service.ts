@@ -37,6 +37,7 @@ import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import type { AssignStaffMarketDto } from './dto/assign-market.dto.js';
 import type { RemoveStaffMarketDto } from './dto/remove-market.dto.js';
+import type { ValidateStaffDto } from './dto/validate-staff.dto.js';
 import {
     STAFF_REPO_ERROR,
     StaffRepository,
@@ -112,6 +113,67 @@ export class StaffService {
                 throw new NotFoundException('Staff not found');
             }
             return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async validateIds(data: ValidateStaffDto): Promise<{
+        valid: boolean;
+        invalid_ids: string[];
+        inactive_ids: string[];
+        missing_permission_ids: string[];
+        missing_market_ids: string[];
+    }> {
+        try {
+            this.logger.log(
+                `Validating ${data.staff_ids.length} staff id(s)`,
+            );
+            const existing = await this.staffRepository.findValidationByIds(
+                data.staff_ids,
+            );
+            const existingById = new Map(
+                existing.map((staff) => [staff.id, staff]),
+            );
+            const invalidIds = data.staff_ids.filter(
+                (id) => !existingById.has(id),
+            );
+            const inactiveIds = data.staff_ids.filter(
+                (id) => existingById.get(id)?.is_active === false,
+            );
+            const missingPermissionIds = data.staff_ids.filter((id) => {
+                const staff = existingById.get(id);
+                if (!staff || !staff.is_active) {
+                    return false;
+                }
+                const granted = new Set(staff.permissions);
+                return data.permissions.some(
+                    (permission) => !granted.has(permission),
+                );
+            });
+            const requiredMarketId = data.market_id;
+            const missingMarketIds =
+                requiredMarketId === undefined
+                    ? []
+                    : data.staff_ids.filter((id) => {
+                          const staff = existingById.get(id);
+                          if (!staff || !staff.is_active) {
+                              return false;
+                          }
+                          return !staff.market_ids.includes(requiredMarketId);
+                      });
+
+            return {
+                valid:
+                    invalidIds.length === 0 &&
+                    inactiveIds.length === 0 &&
+                    missingPermissionIds.length === 0 &&
+                    missingMarketIds.length === 0,
+                invalid_ids: invalidIds,
+                inactive_ids: inactiveIds,
+                missing_permission_ids: missingPermissionIds,
+                missing_market_ids: missingMarketIds,
+            };
         } catch (error) {
             this.handleError(error);
         }

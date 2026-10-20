@@ -14,7 +14,7 @@ import {
     type HttpClient,
 } from '@nestjs/http-client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { type ApiResponse } from '@app/common';
+import { StaffPermission, type ApiResponse } from '@app/common';
 import {
     WarehouseStatus,
     type Warehouse,
@@ -26,6 +26,12 @@ import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
 import { WarehouseRepository } from './warehouse.repository.js';
+
+const WAREHOUSE_MANAGER_PERMISSIONS = [
+    StaffPermission.WarehousesCreate,
+    StaffPermission.WarehousesUpdate,
+    StaffPermission.WarehousesClose,
+] as const;
 
 @Injectable()
 export class WarehouseService {
@@ -48,6 +54,11 @@ export class WarehouseService {
             );
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             await this.assertMarketsValid([data.market_id], accessToken);
+            await this.assertManagerValid(
+                data.manager_id,
+                data.market_id,
+                accessToken,
+            );
             const warehouse = await this.warehouseRepository.create(data);
             this.logger.log(`Warehouse created ${warehouse.id}`);
             return warehouse;
@@ -104,6 +115,7 @@ export class WarehouseService {
         id: string,
         data: UpdateWarehouseManagerDto,
         staffMarketIds: string[],
+        accessToken?: string,
     ): Promise<Warehouse> {
         try {
             this.logger.log(`Updating manager for warehouse ${id}`);
@@ -114,6 +126,11 @@ export class WarehouseService {
                     'Cannot update manager of a closed warehouse',
                 );
             }
+            await this.assertManagerValid(
+                data.manager_id,
+                existing.market_id,
+                accessToken,
+            );
             const warehouse = await this.warehouseRepository.updateManager(
                 id,
                 data.manager_id,
@@ -184,6 +201,78 @@ export class WarehouseService {
                               'One or more market ids are invalid'),
                     invalid_ids: invalidIds,
                     inactive_ids: inactiveIds,
+                });
+            }
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw toHttpException(error, { forward: [400, 404] });
+        }
+    }
+
+    private async assertManagerValid(
+        managerId: string,
+        marketId: string,
+        accessToken?: string,
+    ): Promise<void> {
+        if (!accessToken) {
+            throw new UnauthorizedException('Missing authentication token');
+        }
+
+        try {
+            const { data: body } = await this.accountHttp.post<
+                ApiResponse<{
+                    valid: boolean;
+                    invalid_ids: string[];
+                    inactive_ids: string[];
+                    missing_permission_ids: string[];
+                    missing_market_ids: string[];
+                }>
+            >('/staff/validate', {
+                json: {
+                    staff_ids: [managerId],
+                    permissions: [...WAREHOUSE_MANAGER_PERMISSIONS],
+                    market_id: marketId,
+                },
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!body.success || !body.data?.valid) {
+                const invalidIds = body.data?.invalid_ids ?? [];
+                const inactiveIds = body.data?.inactive_ids ?? [];
+                const missingPermissionIds =
+                    body.data?.missing_permission_ids ?? [];
+                const missingMarketIds = body.data?.missing_market_ids ?? [];
+                const parts: string[] = [];
+                if (invalidIds.length > 0) {
+                    parts.push('Manager is not a valid staff member');
+                }
+                if (inactiveIds.length > 0) {
+                    parts.push('Manager staff account is inactive');
+                }
+                if (missingPermissionIds.length > 0) {
+                    parts.push(
+                        'Manager lacks required warehouse permissions',
+                    );
+                }
+                if (missingMarketIds.length > 0) {
+                    parts.push(
+                        'Manager is not assigned to the warehouse market',
+                    );
+                }
+                throw new BadRequestException({
+                    message:
+                        parts.length > 0
+                            ? parts.join('; ')
+                            : (body.message ?? 'Manager is invalid'),
+                    invalid_ids: invalidIds,
+                    inactive_ids: inactiveIds,
+                    missing_permission_ids: missingPermissionIds,
+                    missing_market_ids: missingMarketIds,
                 });
             }
         } catch (error) {
