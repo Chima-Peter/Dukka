@@ -53,6 +53,7 @@ describe('MarketsController', () => {
                     provide: MarketsService,
                     useValue: {
                         create: vi.fn(),
+                        validateIds: vi.fn(),
                         findAll: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),

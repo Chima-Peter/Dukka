@@ -2,6 +2,7 @@ import {
     Body,
     Controller,
     Get,
+    Headers,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -16,6 +17,7 @@ import {
     ResponseMessage,
     StaffPermission,
 } from '@app/common';
+import { extractBearerToken } from '../shared/extract-bearer-token.js';
 import { AddToMarketDto } from './dto/add-to-market.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { FindAdminProductsDto } from './dto/find-admin-products.dto.js';
@@ -88,8 +90,13 @@ export class ProductController {
     addToMarket(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: AddToMarketDto,
+        @Headers('authorization') authorization?: string,
     ) {
-        return this.productService.addToMarket(id, data);
+        return this.productService.addToMarket(
+            id,
+            data,
+            extractBearerToken(authorization),
+        );
     }
 
     @Put(':id/variants/:variantId/market-price')

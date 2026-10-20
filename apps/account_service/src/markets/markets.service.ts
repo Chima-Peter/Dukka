@@ -10,6 +10,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
+import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
 import {
     MarketsRepository,
     type MarketWithCurrency,
@@ -58,6 +59,31 @@ export class MarketsService {
                 throw new NotFoundException('Market not found');
             }
             return market;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async validateIds(data: ValidateMarketsDto): Promise<{
+        valid: boolean;
+        invalid_ids: string[];
+    }> {
+        try {
+            this.logger.log(
+                `Validating ${data.market_ids.length} market id(s)`,
+            );
+            const existingIds =
+                await this.marketsRepository.findExistingActiveIds(
+                    data.market_ids,
+                );
+            const existingSet = new Set(existingIds);
+            const invalidIds = data.market_ids.filter(
+                (id) => !existingSet.has(id),
+            );
+            return {
+                valid: invalidIds.length === 0,
+                invalid_ids: invalidIds,
+            };
         } catch (error) {
             this.handleError(error);
         }

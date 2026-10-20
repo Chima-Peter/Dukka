@@ -20,6 +20,7 @@ import {
 } from '@app/common';
 import { CreateMarketDto } from './dto/create-market.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
+import { ValidateMarketsDto } from './dto/validate-markets.dto.js';
 import { MarketsService } from './markets.service.js';
 
 @Auth('staff')
@@ -32,6 +33,12 @@ export class MarketsController {
     @ResponseMessage('Market created successfully')
     create(@Body() data: CreateMarketDto) {
         return this.marketsService.create(data);
+    }
+
+    @Post('validate')
+    @ResponseMessage('Market ids validated successfully')
+    validate(@Body() data: ValidateMarketsDto) {
+        return this.marketsService.validateIds(data);
     }
 
     @Get()

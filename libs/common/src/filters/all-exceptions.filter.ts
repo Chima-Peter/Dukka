@@ -26,8 +26,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
             const message = Array.isArray(rawMessage)
                 ? rawMessage.join(', ')
                 : rawMessage;
+            const data = this.extractErrorData(exceptionResponse);
 
-            response.status(statusCode).json(errorResponse(message));
+            response.status(statusCode).json(errorResponse(message, data));
             return;
         }
 
@@ -40,5 +41,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
                         : 'Internal server error',
                 ),
             );
+    }
+
+    private extractErrorData(exceptionResponse: string | object): unknown {
+        if (
+            typeof exceptionResponse !== 'object' ||
+            exceptionResponse === null ||
+            Array.isArray(exceptionResponse)
+        ) {
+            return null;
+        }
+
+        const {
+            message: _message,
+            error: _error,
+            statusCode: _statusCode,
+            ...rest
+        } = exceptionResponse as Record<string, unknown>;
+
+        return Object.keys(rest).length > 0 ? rest : null;
     }
 }

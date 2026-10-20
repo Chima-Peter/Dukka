@@ -46,6 +46,7 @@ describe('MarketsService', () => {
                     useValue: {
                         create: vi.fn(),
                         findAll: vi.fn(),
+                        findExistingActiveIds: vi.fn(),
                         findById: vi.fn(),
                         update: vi.fn(),
                         delete: vi.fn(),

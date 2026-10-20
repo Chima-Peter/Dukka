@@ -6,13 +6,24 @@ import {
     InternalServerErrorException,
     Logger,
     NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
+import {
+    InjectHttpClient,
+    toHttpException,
+    type HttpClient,
+} from '@nestjs/http-client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
+import {
+    PRODUCT_BUCKET,
+    SupabaseService,
+    type ApiResponse,
+} from '@app/common';
 import {
     ProductStatus,
     type Product,
 } from '../../generated/prisma/client.js';
+import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import type { AddToMarketDto } from './dto/add-to-market.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindAdminProductsDto } from './dto/find-admin-products.dto.js';
@@ -30,6 +41,8 @@ export class ProductService {
     constructor(
         private readonly productRepository: ProductRepository,
         private readonly supabaseService: SupabaseService,
+        @InjectHttpClient(ACCOUNT_HTTP_CLIENT)
+        private readonly accountHttp: HttpClient,
     ) {}
 
     async create(data: CreateProductDto) {
@@ -144,7 +157,11 @@ export class ProductService {
         }
     }
 
-    async addToMarket(productId: string, data: AddToMarketDto) {
+    async addToMarket(
+        productId: string,
+        data: AddToMarketDto,
+        accessToken?: string,
+    ) {
         try {
             this.logger.log(
                 `Adding product ${productId} to ${data.market_ids.length} market(s)`,
@@ -158,6 +175,7 @@ export class ProductService {
                     'Only approved products can be added to a market',
                 );
             }
+            await this.assertMarketsValid(data.market_ids, accessToken);
             const marketProducts = await this.productRepository.addToMarkets(
                 productId,
                 data.market_ids,
@@ -176,6 +194,44 @@ export class ProductService {
                 );
             }
             this.handleError(error);
+        }
+    }
+
+    private async assertMarketsValid(
+        marketIds: string[],
+        accessToken?: string,
+    ): Promise<void> {
+        if (!accessToken) {
+            throw new UnauthorizedException('Missing authentication token');
+        }
+
+        try {
+            const { data: body } = await this.accountHttp.post<
+                ApiResponse<{ valid: boolean; invalid_ids: string[] }>
+            >('/markets/validate', {
+                json: { market_ids: marketIds },
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!body.success || !body.data?.valid) {
+                const invalidIds = body.data?.invalid_ids ?? [];
+                throw new BadRequestException({
+                    message:
+                        invalidIds.length > 0
+                            ? `Invalid or inactive market id(s): ${invalidIds.join(', ')}`
+                            : (body.message ??
+                              'One or more market ids are invalid'),
+                    invalid_ids: invalidIds,
+                });
+            }
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw toHttpException(error, { forward: [400, 404] });
         }
     }
 
