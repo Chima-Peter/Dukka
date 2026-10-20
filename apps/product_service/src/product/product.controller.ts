@@ -12,10 +12,12 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentStaff,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type StaffJwtPayload,
 } from '@app/common';
 import { extractBearerToken } from '../shared/extract-bearer-token.js';
 import { AddToMarketDto } from './dto/add-to-market.dto.js';
@@ -26,12 +28,23 @@ import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { SetMarketPriceDto } from './dto/set-market-price.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
+import { UploadFileDto } from './dto/upload-file.dto.js';
 import { ProductService } from './product.service.js';
 
 @Auth('staff')
-@Controller()
+@Controller('products')
 export class ProductController {
     constructor(private readonly productService: ProductService) {}
+
+    @Post('upload-url')
+    @RequirePermission(StaffPermission.ProductsCreate)
+    @ResponseMessage('Product image upload URLs generated successfully')
+    getImageUploadURLs(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: UploadFileDto,
+    ) {
+        return this.productService.getImageUploadURLs(staff.sub, data);
+    }
 
     @Post()
     @RequirePermission(StaffPermission.ProductsCreate)

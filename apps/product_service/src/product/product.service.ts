@@ -32,7 +32,9 @@ import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { SetMarketPriceDto } from './dto/set-market-price.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
+import type { UploadFileDto } from './dto/upload-file.dto.js';
 import { ProductRepository } from './product.repository.js';
+import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
 
 @Injectable()
 export class ProductService {
@@ -44,6 +46,41 @@ export class ProductService {
         @InjectHttpClient(ACCOUNT_HTTP_CLIENT)
         private readonly accountHttp: HttpClient,
     ) {}
+
+    async getImageUploadURLs(
+        staffId: string,
+        data: UploadFileDto,
+    ): Promise<ImageUploadUrls> {
+        try {
+            this.logger.log(
+                `Generating upload URLs for staff ${staffId}: ${data.product_images.length} product image(s), ${data.variant_images.length} variant image(s)`,
+            );
+            const [product_images, variant_images] = await Promise.all([
+                this.createUploadMap(staffId, data.product_images),
+                this.createUploadMap(staffId, data.variant_images),
+            ]);
+            return { product_images, variant_images };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private async createUploadMap(
+        staffId: string,
+        names: string[],
+    ): Promise<Record<string, SignedUpload>> {
+        const entries = await Promise.all(
+            names.map(async (name) => {
+                const upload = await this.supabaseService.createSignedUploadUrl(
+                    staffId,
+                    name,
+                    PRODUCT_BUCKET,
+                );
+                return [name, upload] as const;
+            }),
+        );
+        return Object.fromEntries(entries);
+    }
 
     async create(data: CreateProductDto) {
         try {

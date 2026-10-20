@@ -47,7 +47,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
                     .replace(/\/$/, '');
 
                 return {
-                    baseUrl: `${baseUrl}/api/v1/accounts`,
+                    baseUrl: `${baseUrl}/api/v1/accounts_service`,
                     retry: false,
                 };
             },

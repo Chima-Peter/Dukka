@@ -21,7 +21,7 @@ async function bootstrap() {
     });
     app.enableVersioning({
         type: VersioningType.URI,
-        defaultVersion: '1/accounts',
+        defaultVersion: '1/accounts_service',
         prefix: 'api/v',
     });
     app.enableCors({
