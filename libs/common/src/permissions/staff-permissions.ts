@@ -16,6 +16,10 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Assign roles to staff members',
     },
     {
+        name: 'staff:revoke_role',
+        description: 'Revoke roles from staff members',
+    },
+    {
         name: 'staff:assign_markets',
         description: 'Assign markets to staff members',
     },
@@ -94,6 +98,7 @@ export const StaffPermission = {
     StaffRead: 'staff:read',
     StaffDelete: 'staff:delete',
     StaffAssignRole: 'staff:assign_role',
+    StaffRevokeRole: 'staff:revoke_role',
     StaffAssignMarkets: 'staff:assign_markets',
     StaffRemoveMarkets: 'staff:remove_markets',
     StaffReadAudits: 'staff:read_audits',

@@ -1,0 +1,30 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your staff role was revoked
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Permissions update
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your staff role on Dukka has been revoked for <strong>{{email}}</strong>. You no longer have the permissions associated with that role until a new one is assigned.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Staff email" value=email}}
+  {{#if previousRoleName}}
+  {{> detail-row label="Previous role" value=previousRoleName}}
+  {{else}}
+  {{> detail-row label="Previous role id" value=previousRoleId}}
+  {{/if}}
+{{/details}}
+
+{{#> tip title="What to do next"}}
+  Sign in again if you are already in a session so your permissions refresh. If you believe this was a mistake, ask an administrator to review your role.
+{{/tip}}
+
+<p style="margin:0;">
+  Contact an administrator if you need a role restored.
+</p>

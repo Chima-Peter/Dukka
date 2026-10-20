@@ -207,6 +207,17 @@ export class StaffController {
         return this.staffService.assignRole(id, data, staff.sub);
     }
 
+    @Delete(':id/role')
+    @RequirePermission(StaffPermission.StaffRevokeRole)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Role revoked from staff successfully')
+    revokeRole(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
+    ) {
+        return this.staffService.revokeRole(id, staff.sub);
+    }
+
     @Post(':id/markets')
     @RequirePermission(StaffPermission.StaffAssignMarkets)
     @ResponseMessage('Markets assigned to staff successfully')

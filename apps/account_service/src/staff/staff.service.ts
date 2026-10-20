@@ -283,6 +283,37 @@ export class StaffService {
         }
     }
 
+    async revokeRole(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<StaffResponse> {
+        try {
+            this.logger.log(`Revoking role from staff ${id}`);
+            const { staff, previous_role } =
+                await this.staffRepository.revokeRole(
+                    id,
+                    performed_by_staff_id,
+                );
+            this.logger.log(`Role revoked from staff ${id}`);
+
+            await this.mailQueueService.enqueueSend({
+                to: staff.email,
+                subject: 'Your role has been revoked',
+                template: MAIL_TEMPLATES.STAFF_ROLE_REVOKED,
+                context: {
+                    name: staff.name,
+                    email: staff.email,
+                    previousRoleId: previous_role.id,
+                    previousRoleName: previous_role.name,
+                },
+            });
+
+            return this.toStaffResponse(staff);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async assignMarkets(
         id: string,
         data: AssignStaffMarketDto,
@@ -905,6 +936,16 @@ export class StaffService {
             if (error.message === STAFF_REPO_ERROR.SELF_ROLE_ASSIGNMENT) {
                 throw new ForbiddenException(
                     'Staff cannot assign a role to themselves',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.SELF_ROLE_REVOCATION) {
+                throw new ForbiddenException(
+                    'Staff cannot revoke their own role',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.ROLE_NOT_ASSIGNED) {
+                throw new NotFoundException(
+                    'Staff does not have a role assigned',
                 );
             }
             if (error.message === STAFF_REPO_ERROR.SELF_DELETION) {

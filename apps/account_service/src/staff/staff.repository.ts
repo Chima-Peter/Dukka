@@ -31,8 +31,10 @@ import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 export const STAFF_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
+    ROLE_NOT_ASSIGNED: 'ROLE_NOT_ASSIGNED',
     MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
     SELF_ROLE_ASSIGNMENT: 'SELF_ROLE_ASSIGNMENT',
+    SELF_ROLE_REVOCATION: 'SELF_ROLE_REVOCATION',
     SELF_MARKET_MODIFICATION: 'SELF_MARKET_MODIFICATION',
     SELF_DELETION: 'SELF_DELETION',
     STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
@@ -435,6 +437,94 @@ export class StaffRepository {
             });
 
             return this.omitPassword(staff);
+        });
+    }
+
+    async revokeRole(
+        id: string,
+        performed_by_staff_id: string,
+    ): Promise<{
+        staff: StaffWithDetails;
+        previous_role: { id: string; name: string };
+    }> {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staff.findUnique({
+                where: { id },
+                include: {
+                    staff_markets: { select: { market_id: true } },
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                            hierarchy: true,
+                        },
+                    },
+                },
+            });
+            if (!existing) {
+                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+            }
+
+            if (performed_by_staff_id === existing.id) {
+                throw new Error(STAFF_REPO_ERROR.SELF_ROLE_REVOCATION);
+            }
+
+            if (!existing.role) {
+                throw new Error(STAFF_REPO_ERROR.ROLE_NOT_ASSIGNED);
+            }
+
+            const actor = await tx.staff.findUnique({
+                where: { id: performed_by_staff_id },
+                select: {
+                    id: true,
+                    name: true,
+                    staff_markets: { select: { market_id: true } },
+                    role: {
+                        select: {
+                            hierarchy: true,
+                        },
+                    },
+                },
+            });
+            if (!actor) {
+                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+            }
+
+            assertCanManageHierarchies(
+                actor.role?.hierarchy,
+                existing.role.hierarchy,
+            );
+
+            assertCanManageStaffInMarkets(
+                actor.staff_markets.map((sm) => sm.market_id),
+                existing.staff_markets.map((sm) => sm.market_id),
+            );
+
+            const staff = await tx.staff.update({
+                where: { id },
+                data: { role_id: null },
+                include: staffDetailsInclude,
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.ROLE_REVOKED,
+                    staff_id: staff.id,
+                    staff_name: staff.name,
+                    performed_by_staff_id: actor.id,
+                    performed_by_staff_name: actor.name,
+                    previous_role_id: existing.role.id,
+                    previous_role_name: existing.role.name,
+                },
+            });
+
+            return {
+                staff: this.omitPassword(staff),
+                previous_role: {
+                    id: existing.role.id,
+                    name: existing.role.name,
+                },
+            };
         });
     }
 

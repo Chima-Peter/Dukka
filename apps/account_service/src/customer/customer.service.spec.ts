@@ -30,6 +30,7 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
         STAFF_DEACTIVATED: 'staff.deactivated',
         STAFF_ACCOUNT_UPDATED: 'staff.account-updated',
         STAFF_ROLE_ASSIGNED: 'staff.role-assigned',
+        STAFF_ROLE_REVOKED: 'staff.role-revoked',
         STAFF_ROLE_UPDATED: 'staff.role-updated',
         STAFF_PERMISSIONS_CHANGED: 'staff.permissions-changed',
         STAFF_MARKETS_CHANGED: 'staff.markets-changed',
