@@ -33,8 +33,21 @@ SET "currency_id" = c."id"
 FROM "Currency" AS c
 WHERE m."code" = 'GH' AND c."code" = 'GHS';
 
--- Remove markets that cannot be mapped 1:1 to a supported currency
-DELETE FROM "Market" WHERE "currency_id" IS NULL;
+-- Create a dedicated currency for each remaining market (keeps 1:1, no deletes)
+INSERT INTO "Currency" ("id", "code", "name", "is_active", "created_at", "updated_at")
+SELECT
+    m."id",
+    UPPER(RPAD(SUBSTRING(m."code" FROM 1 FOR 3), 3, 'X')),
+    m."name",
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM "Market" AS m
+WHERE m."currency_id" IS NULL;
+
+UPDATE "Market" AS m
+SET "currency_id" = m."id"
+WHERE m."currency_id" IS NULL;
 
 ALTER TABLE "Market" ALTER COLUMN "currency_id" SET NOT NULL;
 
