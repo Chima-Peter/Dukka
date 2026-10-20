@@ -285,31 +285,14 @@ async function seedProducts(markets: AccountMarket[]) {
             },
         });
 
-        if (product.status === ProductStatus.ACTIVE) {
-            for (const market of markets) {
-                await prisma.marketProduct.upsert({
-                    where: {
-                        market_id_product_id: {
-                            market_id: market.id,
-                            product_id: product.id,
-                        },
-                    },
-                    create: {
-                        market_id: market.id,
-                        product_id: product.id,
-                    },
-                    update: {},
-                });
-            }
-        }
-
         for (const variant of product.variants) {
             for (const [marketCode, price] of Object.entries(variant.prices)) {
                 const market = marketByCode.get(marketCode);
                 if (!market) {
                     continue;
                 }
-                await prisma.marketPrice.upsert({
+
+                const marketVariant = await prisma.marketVariant.upsert({
                     where: {
                         market_id_variant_id: {
                             market_id: market.id,
@@ -327,24 +310,22 @@ async function seedProducts(markets: AccountMarket[]) {
                         currency: market.currency_code,
                     },
                 });
-            }
 
-            if (variant.inventory > 0) {
-                for (const market of markets) {
+                if (variant.inventory > 0) {
                     const warehouse = warehouseByMarketId.get(market.id);
                     if (!warehouse) {
                         continue;
                     }
                     await prisma.inventory.upsert({
                         where: {
-                            warehouse_id_variant_id: {
+                            market_variant_id_warehouse_id: {
+                                market_variant_id: marketVariant.id,
                                 warehouse_id: warehouse.id,
-                                variant_id: variant.id,
                             },
                         },
                         create: {
+                            market_variant_id: marketVariant.id,
                             warehouse_id: warehouse.id,
-                            variant_id: variant.id,
                             available_quantity: variant.inventory,
                             reserved_quantity: 0,
                         },
@@ -358,7 +339,9 @@ async function seedProducts(markets: AccountMarket[]) {
         }
     }
 
-    console.log(`Seeded ${products.length} products with variants and inventory`);
+    console.log(
+        `Seeded ${products.length} products with market variants and inventory`,
+    );
 }
 
 async function main() {

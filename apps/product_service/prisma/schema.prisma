@@ -37,7 +37,6 @@ model Product {
 
   images   ProductImage[]
   variants Variant[]
-  market   MarketProduct[]
 
   category_id String
   category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
@@ -69,8 +68,7 @@ model Variant {
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
-  market_price MarketPrice[]
-  inventory    Inventory[]
+  market_variants MarketVariant[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -87,19 +85,7 @@ model VariantImage {
   updated_at DateTime @updatedAt
 }
 
-model MarketProduct {
-  id         String  @id @default(uuid())
-  market_id  String
-  product_id String
-  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@unique([market_id, product_id])
-}
-
-model MarketPrice {
+model MarketVariant {
   id       String  @id @default(uuid())
   price    Decimal @db.Decimal(12, 2)
   currency String
@@ -107,6 +93,8 @@ model MarketPrice {
   market_id  String
   variant_id String
   variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  inventories Inventory[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -141,10 +129,10 @@ model Inventory {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  variant_id   String
-  variant      Variant   @relation(fields: [variant_id], references: [id], onDelete: Cascade)
-  warehouse_id String
-  warehouse    Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
+  warehouse_id      String
+  warehouse         Warehouse     @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
 
-  @@unique([warehouse_id, variant_id])
+  @@unique([market_variant_id, warehouse_id])
 }

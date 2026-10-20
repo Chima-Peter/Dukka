@@ -57,7 +57,7 @@ const productDetailInclude = {
     },
 } as const;
 
-function productDetailWithPricesInclude(marketId?: string) {
+function productDetailWithMarketVariantsInclude(marketId?: string) {
     return {
         images: {
             orderBy: { sort_order: 'asc' as const },
@@ -65,44 +65,67 @@ function productDetailWithPricesInclude(marketId?: string) {
         variants: {
             include: {
                 image: true,
-                inventory: {
+                market_variants: {
                     ...(marketId !== undefined && {
-                        where: { 
-                            warehouse: { 
-                                market_id: marketId,
-                                status: WarehouseStatus.OPEN,
-                            }
-                        },
+                        where: { market_id: marketId },
                     }),
-                    select: {
-                        available_quantity: true,
+                    include: {
+                        inventories: {
+                            ...(marketId !== undefined && {
+                                where: {
+                                    warehouse: {
+                                        market_id: marketId,
+                                        status: WarehouseStatus.OPEN,
+                                    },
+                                },
+                            }),
+                            select: {
+                                available_quantity: true,
+                            },
+                        },
                     },
                 },
-                market_price:
-                    marketId !== undefined
-                        ? { where: { market_id: marketId } }
-                        : true,
             },
         },
     } as const;
 }
 
-function withAvailableQuantitySum<
+function withMarketVariantAvailability<
     T extends {
         variants: Array<{
-            inventory: Array<{ available_quantity: number }>;
+            market_variants: Array<{
+                inventories: Array<{ available_quantity: number }>;
+            }>;
         }>;
     },
 >(product: T) {
     return {
         ...product,
-        variants: product.variants.map(({ inventory, ...variant }) => ({
-            ...variant,
-            available_quantity: inventory.reduce(
-                (sum, row) => sum + row.available_quantity,
+        variants: product.variants.map(({ market_variants, ...variant }) => {
+            const available_quantity = market_variants.reduce(
+                (variantSum, marketVariant) =>
+                    variantSum +
+                    marketVariant.inventories.reduce(
+                        (sum, row) => sum + row.available_quantity,
+                        0,
+                    ),
                 0,
-            ),
-        })),
+            );
+
+            return {
+                ...variant,
+                available_quantity,
+                market_variants: market_variants.map(
+                    ({ inventories, ...marketVariant }) => ({
+                        ...marketVariant,
+                        available_quantity: inventories.reduce(
+                            (sum, row) => sum + row.available_quantity,
+                            0,
+                        ),
+                    }),
+                ),
+            };
+        }),
     };
 }
 
@@ -149,36 +172,48 @@ export class ProductRepository {
         }
 
         const limit = query.limit ?? 50;
-        const records = await this.prisma.marketProduct.findMany({
+        const hasPriceFilter =
+            query.min_price !== undefined || query.max_price !== undefined;
+        const records = await this.prisma.product.findMany({
             where: {
-                market_id: query.market_id,
-                product: this.buildProductFilters(
-                    query,
-                    nameMatchedIds,
-                    ProductStatus.ACTIVE,
-                ),
-            },
-            select: {
-                product: {
-                    select: productSummarySelect,
-                },
-            },
-            orderBy: [{ created_at: 'desc' }, { product_id: 'desc' }],
-            take: limit + 1,
-            ...(query.cursor !== undefined && {
-                cursor: {
-                    market_id_product_id: {
-                        market_id: query.market_id,
-                        product_id: query.cursor,
+                ...(nameMatchedIds !== undefined && {
+                    id: { in: nameMatchedIds },
+                }),
+                ...(query.category_id !== undefined && {
+                    category_id: query.category_id,
+                }),
+                status: ProductStatus.ACTIVE,
+                variants: {
+                    some: {
+                        market_variants: {
+                            some: {
+                                market_id: query.market_id,
+                                ...(hasPriceFilter && {
+                                    price: {
+                                        ...(query.min_price !== undefined && {
+                                            gte: query.min_price,
+                                        }),
+                                        ...(query.max_price !== undefined && {
+                                            lte: query.max_price,
+                                        }),
+                                    },
+                                }),
+                            },
+                        },
                     },
                 },
+            },
+            select: productSummarySelect,
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
                 skip: 1,
             }),
         });
 
         const hasMore = records.length > limit;
-        const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map((record) => record.product);
+        const items = hasMore ? records.slice(0, limit) : records;
 
         return {
             items,
@@ -193,18 +228,45 @@ export class ProductRepository {
         }
 
         const limit = query.limit ?? 50;
+        const hasPriceFilter =
+            query.min_price !== undefined || query.max_price !== undefined;
         const records = await this.prisma.product.findMany({
             where: {
-                ...(query.market_id !== undefined && {
-                    market: {
-                        some: { market_id: query.market_id },
-                    },
+                ...(nameMatchedIds !== undefined && {
+                    id: { in: nameMatchedIds },
                 }),
-                ...this.buildProductFilters(
-                    query,
-                    nameMatchedIds,
-                    query.status,
-                ),
+                ...(query.category_id !== undefined && {
+                    category_id: query.category_id,
+                }),
+                ...(query.status !== undefined && { status: query.status }),
+                ...(query.market_id !== undefined || hasPriceFilter
+                    ? {
+                          variants: {
+                              some: {
+                                  market_variants: {
+                                      some: {
+                                          ...(query.market_id !==
+                                              undefined && {
+                                              market_id: query.market_id,
+                                          }),
+                                          ...(hasPriceFilter && {
+                                              price: {
+                                                  ...(query.min_price !==
+                                                      undefined && {
+                                                      gte: query.min_price,
+                                                  }),
+                                                  ...(query.max_price !==
+                                                      undefined && {
+                                                      lte: query.max_price,
+                                                  }),
+                                              },
+                                          }),
+                                      },
+                                  },
+                              },
+                          },
+                      }
+                    : {}),
             },
             select: productSummarySelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
@@ -231,17 +293,25 @@ export class ProductRepository {
         });
     }
 
+    async findByIdOrThrow(id: string) {
+        const product = await this.findById(id);
+        if (!product) {
+            throw new NotFoundException('Product not found');
+        }
+        return product;
+    }
+
     async findDetailedById(id: string) {
         const product = await this.prisma.product.findUnique({
             where: { id },
-            include: productDetailWithPricesInclude(),
+            include: productDetailWithMarketVariantsInclude(),
         });
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return withAvailableQuantitySum(product);
+        return withMarketVariantAvailability(product);
     }
 
     async findByIdInMarket(
@@ -249,26 +319,26 @@ export class ProductRepository {
         marketId: string,
         status?: ProductStatus,
     ) {
-        const marketProduct = await this.prisma.marketProduct.findFirst({
+        const product = await this.prisma.product.findFirst({
             where: {
-                market_id: marketId,
-                product_id: id,
-                ...(status !== undefined && {
-                    product: { status },
-                }),
-            },
-            include: {
-                product: {
-                    include: productDetailWithPricesInclude(marketId),
+                id,
+                ...(status !== undefined && { status }),
+                variants: {
+                    some: {
+                        market_variants: {
+                            some: { market_id: marketId },
+                        },
+                    },
                 },
             },
+            include: productDetailWithMarketVariantsInclude(marketId),
         });
 
-        if (!marketProduct) {
+        if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return withAvailableQuantitySum(marketProduct.product);
+        return withMarketVariantAvailability(product);
     }
 
     private async findNameMatchedIds(name?: string) {
@@ -284,46 +354,6 @@ export class ProductRepository {
                 @@ websearch_to_tsquery('english', ${nameQuery})
         `;
         return rows.map((row) => row.id);
-    }
-
-    private buildProductFilters(
-        query: FindProductsDto | FindStaffProductsDto,
-        nameMatchedIds: string[] | undefined,
-        status?: ProductStatus,
-    ): Prisma.ProductWhereInput {
-        const hasPriceFilter =
-            query.min_price !== undefined || query.max_price !== undefined;
-
-        return {
-            ...(nameMatchedIds !== undefined && {
-                id: { in: nameMatchedIds },
-            }),
-            ...(query.category_id !== undefined && {
-                category_id: query.category_id,
-            }),
-            ...(status !== undefined && { status }),
-            ...(hasPriceFilter && {
-                variants: {
-                    some: {
-                        market_price: {
-                            some: {
-                                ...(query.market_id !== undefined && {
-                                    market_id: query.market_id,
-                                }),
-                                price: {
-                                    ...(query.min_price !== undefined && {
-                                        gte: query.min_price,
-                                    }),
-                                    ...(query.max_price !== undefined && {
-                                        lte: query.max_price,
-                                    }),
-                                },
-                            },
-                        },
-                    },
-                },
-            }),
-        };
     }
 
     async update(id: string, data: UpdateProductDto): Promise<Product> {
@@ -387,57 +417,128 @@ export class ProductRepository {
         });
     }
 
-    async addToMarkets(productId: string, marketIds: string[]) {
-        return await this.prisma.marketProduct.createManyAndReturn({
-            data: marketIds.map((marketId) => ({
-                product_id: productId,
-                market_id: marketId,
-            })),
+    async findVariantById(variantId: string) {
+        return await this.prisma.variant.findUnique({
+            where: { id: variantId },
+            select: {
+                id: true,
+                product_id: true,
+            },
         });
     }
 
-    async setMarketPrice(
+    async findVariantByIdOrThrow(variantId: string) {
+        const variant = await this.findVariantById(variantId);
+        if (!variant) {
+            throw new NotFoundException('Variant not found');
+        }
+        return variant;
+    }
+
+    async findMarketVariantById(marketVariantId: string) {
+        return await this.prisma.marketVariant.findUnique({
+            where: { id: marketVariantId },
+            select: {
+                id: true,
+                market_id: true,
+                variant_id: true,
+                variant: {
+                    select: {
+                        id: true,
+                        product_id: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async findMarketVariantByIdOrThrow(marketVariantId: string) {
+        const marketVariant = await this.findMarketVariantById(marketVariantId);
+        if (!marketVariant) {
+            throw new NotFoundException('Market variant not found');
+        }
+        return marketVariant;
+    }
+
+    async findMarketVariantsByIds(marketVariantIds: string[]) {
+        if (marketVariantIds.length === 0) {
+            return [];
+        }
+
+        return await this.prisma.marketVariant.findMany({
+            where: { id: { in: marketVariantIds } },
+            select: {
+                id: true,
+                market_id: true,
+                variant_id: true,
+                variant: {
+                    select: {
+                        id: true,
+                        product_id: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async createMarketVariant(data: {
+        variant_id: string;
+        market_id: string;
+        price: number;
+        currency: string;
+    }) {
+        return await this.prisma.marketVariant.create({
+            data: {
+                variant_id: data.variant_id,
+                market_id: data.market_id,
+                price: data.price,
+                currency: data.currency,
+            },
+        });
+    }
+
+    async updateMarketVariant(
         variantId: string,
-        data: { market_id: string; price: number; currency: string },
+        marketId: string,
+        price: number,
     ) {
-        return await this.prisma.marketPrice.upsert({
+        return await this.prisma.marketVariant.update({
             where: {
                 market_id_variant_id: {
-                    market_id: data.market_id,
+                    market_id: marketId,
                     variant_id: variantId,
                 },
             },
-            create: {
-                market_id: data.market_id,
-                variant_id: variantId,
-                price: data.price,
-                currency: data.currency,
-            },
-            update: {
-                price: data.price,
-                currency: data.currency,
+            data: { price },
+        });
+    }
+
+    async deleteMarketVariant(variantId: string, marketId: string) {
+        return await this.prisma.marketVariant.delete({
+            where: {
+                market_id_variant_id: {
+                    market_id: marketId,
+                    variant_id: variantId,
+                },
             },
         });
     }
 
-    async findMarketPrice(
+    async findMarketVariant(
         productId: string,
         variantId: string,
         marketId: string,
         status?: ProductStatus,
     ) {
-        return await this.prisma.marketPrice.findFirst({
+        return await this.prisma.marketVariant.findFirst({
             where: {
                 market_id: marketId,
                 variant_id: variantId,
                 variant: {
                     product_id: productId,
-                    product: {
-                        ...(status !== undefined && { status }),
-                        market: {
-                            some: { market_id: marketId },
-                        },
-                    },
+                    ...(status !== undefined && {
+                        product: { status },
+                    }),
                 },
             },
         });

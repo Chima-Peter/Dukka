@@ -25,12 +25,12 @@ import {
 } from '../../generated/prisma/client.js';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
-import type { AddToMarketDto } from './dto/add-to-market.dto.js';
+import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
-import type { SetMarketPriceDto } from './dto/set-market-price.dto.js';
+import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
 import type { UploadFileDto } from './dto/upload-file.dto.js';
@@ -204,15 +204,16 @@ export class ProductService {
         }
     }
 
-    async addToMarket(
+    async addVariantToMarket(
         productId: string,
-        data: AddToMarketDto,
+        variantId: string,
+        data: CreateMarketVariantDto,
         staffMarketIds: string[],
         accessToken?: string,
     ) {
         try {
             this.logger.log(
-                `Adding product ${productId} to ${data.market_ids.length} market(s)`,
+                `Adding variant ${variantId} to market ${data.market_id}`,
             );
             const product = await this.productRepository.findById(productId);
             if (!product) {
@@ -220,96 +221,9 @@ export class ProductService {
             }
             if (product.status !== ProductStatus.ACTIVE) {
                 throw new BadRequestException(
-                    'Only approved products can be added to a market',
+                    'Only approved products can have variants added to a market',
                 );
             }
-            assertStaffHasMarkets(staffMarketIds, data.market_ids);
-            await this.assertMarketsValid(data.market_ids, accessToken);
-            const marketProducts = await this.productRepository.addToMarkets(
-                productId,
-                data.market_ids,
-            );
-            this.logger.log(
-                `Product ${productId} added to ${marketProducts.length} market(s)`,
-            );
-            return marketProducts;
-        } catch (error) {
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                throw new ConflictException(
-                    'Product is already in one or more of these markets',
-                );
-            }
-            this.handleError(error);
-        }
-    }
-
-    private async assertMarketsValid(
-        marketIds: string[],
-        accessToken?: string,
-    ): Promise<void> {
-        if (!accessToken) {
-            throw new UnauthorizedException('Missing authentication token');
-        }
-
-        try {
-            const { data: body } = await this.accountHttp.post<
-                ApiResponse<{
-                    valid: boolean;
-                    invalid_ids: string[];
-                    inactive_ids: string[];
-                }>
-            >('/markets/validate', {
-                json: { market_ids: marketIds },
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Accept: 'application/json',
-                },
-            });
-
-            if (!body.success || !body.data?.valid) {
-                const invalidIds = body.data?.invalid_ids ?? [];
-                const inactiveIds = body.data?.inactive_ids ?? [];
-                const parts: string[] = [];
-                if (invalidIds.length > 0) {
-                    parts.push(`Invalid market id(s): ${invalidIds.join(', ')}`);
-                }
-                if (inactiveIds.length > 0) {
-                    parts.push(
-                        `Inactive market id(s): ${inactiveIds.join(', ')}`,
-                    );
-                }
-                throw new BadRequestException({
-                    message:
-                        parts.length > 0
-                            ? parts.join('; ')
-                            : (body.message ??
-                              'One or more market ids are invalid'),
-                    invalid_ids: invalidIds,
-                    inactive_ids: inactiveIds,
-                });
-            }
-        } catch (error) {
-            if (error instanceof HttpException) {
-                throw error;
-            }
-            throw toHttpException(error, { forward: [400, 404] });
-        }
-    }
-
-    async setMarketPrice(
-        productId: string,
-        variantId: string,
-        data: SetMarketPriceDto,
-        staffMarketIds: string[],
-        accessToken?: string,
-    ) {
-        try {
-            this.logger.log(
-                `Setting market price for variant ${variantId} in market ${data.market_id}`,
-            );
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             const market = await this.fetchMarket(data.market_id, accessToken);
             if (!market.is_active) {
@@ -322,20 +236,94 @@ export class ProductService {
             if (!variant) {
                 throw new NotFoundException('Variant not found');
             }
-            const marketPrice = await this.productRepository.setMarketPrice(
-                variantId,
-                {
+
+            const marketVariant =
+                await this.productRepository.createMarketVariant({
+                    variant_id: variantId,
                     market_id: data.market_id,
                     price: data.price,
                     currency: market.currency.code,
-                },
-            );
+                });
             this.logger.log(
-                `Market price set for variant ${variantId} in market ${data.market_id}`,
+                `Market variant created ${marketVariant.id} for variant ${variantId}`,
             );
-            return marketPrice;
+            return marketVariant;
         } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+            ) {
+                throw new ConflictException(
+                    'Variant is already listed in this market',
+                );
+            }
             this.handleError(error, 'Variant not found');
+        }
+    }
+
+    async updateMarketVariant(
+        productId: string,
+        variantId: string,
+        marketId: string,
+        data: UpdateMarketVariantDto,
+        staffMarketIds: string[],
+    ) {
+        try {
+            this.logger.log(
+                `Updating market variant for variant ${variantId} in market ${marketId}`,
+            );
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            const variant = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!variant) {
+                throw new NotFoundException('Variant not found');
+            }
+            const marketVariant =
+                await this.productRepository.updateMarketVariant(
+                    variantId,
+                    marketId,
+                    data.price,
+                );
+            this.logger.log(
+                `Market variant updated for variant ${variantId} in market ${marketId}`,
+            );
+            return marketVariant;
+        } catch (error) {
+            this.handleError(error, 'Market variant not found');
+        }
+    }
+
+    async removeVariantFromMarket(
+        productId: string,
+        variantId: string,
+        marketId: string,
+        staffMarketIds: string[],
+    ) {
+        try {
+            this.logger.log(
+                `Removing variant ${variantId} from market ${marketId}`,
+            );
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            const variant = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!variant) {
+                throw new NotFoundException('Variant not found');
+            }
+            const marketVariant =
+                await this.productRepository.deleteMarketVariant(
+                    variantId,
+                    marketId,
+                );
+            this.logger.log(
+                `Market variant removed for variant ${variantId} in market ${marketId}`,
+            );
+            return marketVariant;
+        } catch (error) {
+            this.handleError(error, 'Market variant not found');
         }
     }
 
@@ -381,27 +369,28 @@ export class ProductService {
         }
     }
 
-    async getMarketPrice(
+    async getMarketVariant(
         productId: string,
         variantId: string,
-        query: FindProductDto,
+        marketId: string,
     ) {
         try {
             this.logger.log(
-                `Fetching market price for variant ${variantId} in market ${query.market_id}`,
+                `Fetching market variant for variant ${variantId} in market ${marketId}`,
             );
-            const marketPrice = await this.productRepository.findMarketPrice(
-                productId,
-                variantId,
-                query.market_id,
-                ProductStatus.ACTIVE,
-            );
-            if (!marketPrice) {
-                throw new NotFoundException('Market price not found');
+            const marketVariant =
+                await this.productRepository.findMarketVariant(
+                    productId,
+                    variantId,
+                    marketId,
+                    ProductStatus.ACTIVE,
+                );
+            if (!marketVariant) {
+                throw new NotFoundException('Market variant not found');
             }
-            return marketPrice;
+            return marketVariant;
         } catch (error) {
-            this.handleError(error, 'Market price not found');
+            this.handleError(error, 'Market variant not found');
         }
     }
 

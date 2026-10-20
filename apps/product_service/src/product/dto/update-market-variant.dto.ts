@@ -1,10 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsUUID, Min } from 'class-validator';
+import { IsNumber, Min } from 'class-validator';
 
-export class SetMarketPriceDto {
-    @IsUUID()
-    market_id!: string;
-
+export class UpdateMarketVariantDto {
     @Type(() => Number)
     @IsNumber({ maxDecimalPlaces: 2 })
     @Min(0)

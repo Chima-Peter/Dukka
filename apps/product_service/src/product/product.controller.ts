@@ -1,13 +1,13 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     Headers,
     Param,
     ParseUUIDPipe,
     Patch,
     Post,
-    Put,
     Query,
 } from '@nestjs/common';
 import {
@@ -20,12 +20,12 @@ import {
     type StaffJwtPayload,
 } from '@app/common';
 import { extractBearerToken } from '../shared/extract-bearer-token.js';
-import { AddToMarketDto } from './dto/add-to-market.dto.js';
+import { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductsDto } from './dto/find-products.dto.js';
 import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
-import { SetMarketPriceDto } from './dto/set-market-price.dto.js';
+import { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
@@ -103,34 +103,17 @@ export class ProductController {
         return this.productService.updateVariant(id, variantId, data);
     }
 
-    @Post(':id/markets')
+    @Post(':id/variants/:variantId/markets')
     @RequirePermission(StaffPermission.ProductsApprove)
-    @ResponseMessage('Product added to market successfully')
-    addToMarket(
-        @CurrentStaff() staff: StaffJwtPayload,
-        @Param('id', ParseUUIDPipe) id: string,
-        @Body() data: AddToMarketDto,
-        @Headers('authorization') authorization?: string,
-    ) {
-        return this.productService.addToMarket(
-            id,
-            data,
-            staff.market_ids,
-            extractBearerToken(authorization),
-        );
-    }
-
-    @Put(':id/variants/:variantId/market-price')
-    @RequirePermission(StaffPermission.ProductsUpdate)
-    @ResponseMessage('Market price set successfully')
-    setMarketPrice(
+    @ResponseMessage('Variant added to market successfully')
+    addVariantToMarket(
         @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,
-        @Body() data: SetMarketPriceDto,
+        @Body() data: CreateMarketVariantDto,
         @Headers('authorization') authorization?: string,
     ) {
-        return this.productService.setMarketPrice(
+        return this.productService.addVariantToMarket(
             id,
             variantId,
             data,
@@ -139,15 +122,51 @@ export class ProductController {
         );
     }
 
-    @Get(':id/variants/:variantId/market-price')
-    @Public()
-    @ResponseMessage('Market price retrieved successfully')
-    getMarketPrice(
+    @Patch(':id/variants/:variantId/markets/:marketId')
+    @RequirePermission(StaffPermission.ProductsUpdate)
+    @ResponseMessage('Market variant updated successfully')
+    updateMarketVariant(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,
-        @Query() query: FindProductDto,
+        @Param('marketId', ParseUUIDPipe) marketId: string,
+        @Body() data: UpdateMarketVariantDto,
     ) {
-        return this.productService.getMarketPrice(id, variantId, query);
+        return this.productService.updateMarketVariant(
+            id,
+            variantId,
+            marketId,
+            data,
+            staff.market_ids,
+        );
+    }
+
+    @Delete(':id/variants/:variantId/markets/:marketId')
+    @RequirePermission(StaffPermission.ProductsApprove)
+    @ResponseMessage('Variant removed from market successfully')
+    removeVariantFromMarket(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Param('marketId', ParseUUIDPipe) marketId: string,
+    ) {
+        return this.productService.removeVariantFromMarket(
+            id,
+            variantId,
+            marketId,
+            staff.market_ids,
+        );
+    }
+
+    @Get(':id/variants/:variantId/markets/:marketId')
+    @Public()
+    @ResponseMessage('Market variant retrieved successfully')
+    getMarketVariant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Param('marketId', ParseUUIDPipe) marketId: string,
+    ) {
+        return this.productService.getMarketVariant(id, variantId, marketId);
     }
 
     @Post(':id/approve')
