@@ -1,7 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PointsController } from './points.controller.js';
-import { PointsRepository } from './points.repository.js';
 import { PointsService } from './points.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', () => ({
+    Auth: () => () => undefined,
+    CurrentCustomer: () => () => undefined,
+    ResponseMessage: () => () => undefined,
+}));
 
 describe('PointsController', () => {
     let controller: PointsController;
@@ -10,9 +16,8 @@ describe('PointsController', () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [PointsController],
             providers: [
-                PointsService,
                 {
-                    provide: PointsRepository,
+                    provide: PointsService,
                     useValue: {
                         findHistory: vi.fn(),
                         earn: vi.fn(),
