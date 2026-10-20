@@ -47,20 +47,17 @@ export class MarketsRepository {
         });
     }
 
-    async findExistingActiveIds(marketIds: string[]): Promise<string[]> {
+    async findExistingByIds(
+        marketIds: string[],
+    ): Promise<{ id: string; is_active: boolean }[]> {
         if (marketIds.length === 0) {
             return [];
         }
 
-        const markets = await this.prisma.market.findMany({
-            where: {
-                id: { in: marketIds },
-                is_active: true,
-            },
-            select: { id: true },
+        return await this.prisma.market.findMany({
+            where: { id: { in: marketIds } },
+            select: { id: true, is_active: true },
         });
-
-        return markets.map((market) => market.id);
     }
 
     async findById(

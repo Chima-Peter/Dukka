@@ -67,22 +67,28 @@ export class MarketsService {
     async validateIds(data: ValidateMarketsDto): Promise<{
         valid: boolean;
         invalid_ids: string[];
+        inactive_ids: string[];
     }> {
         try {
             this.logger.log(
                 `Validating ${data.market_ids.length} market id(s)`,
             );
-            const existingIds =
-                await this.marketsRepository.findExistingActiveIds(
-                    data.market_ids,
-                );
-            const existingSet = new Set(existingIds);
+            const existing = await this.marketsRepository.findExistingByIds(
+                data.market_ids,
+            );
+            const existingById = new Map(
+                existing.map((market) => [market.id, market]),
+            );
             const invalidIds = data.market_ids.filter(
-                (id) => !existingSet.has(id),
+                (id) => !existingById.has(id),
+            );
+            const inactiveIds = data.market_ids.filter(
+                (id) => existingById.get(id)?.is_active === false,
             );
             return {
-                valid: invalidIds.length === 0,
+                valid: invalidIds.length === 0 && inactiveIds.length === 0,
                 invalid_ids: invalidIds,
+                inactive_ids: inactiveIds,
             };
         } catch (error) {
             this.handleError(error);

@@ -5,6 +5,7 @@ import { ProductService } from './product.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
+    CurrentStaff: () => () => undefined,
     Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,

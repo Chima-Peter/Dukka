@@ -107,6 +107,7 @@ export class ProductController {
     @RequirePermission(StaffPermission.ProductsApprove)
     @ResponseMessage('Product added to market successfully')
     addToMarket(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: AddToMarketDto,
         @Headers('authorization') authorization?: string,
@@ -114,6 +115,7 @@ export class ProductController {
         return this.productService.addToMarket(
             id,
             data,
+            staff.market_ids,
             extractBearerToken(authorization),
         );
     }
@@ -122,11 +124,19 @@ export class ProductController {
     @RequirePermission(StaffPermission.ProductsUpdate)
     @ResponseMessage('Market price set successfully')
     setMarketPrice(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,
         @Body() data: SetMarketPriceDto,
+        @Headers('authorization') authorization?: string,
     ) {
-        return this.productService.setMarketPrice(id, variantId, data);
+        return this.productService.setMarketPrice(
+            id,
+            variantId,
+            data,
+            staff.market_ids,
+            extractBearerToken(authorization),
+        );
     }
 
     @Get(':id/variants/:variantId/market-price')

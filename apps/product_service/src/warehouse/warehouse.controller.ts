@@ -11,9 +11,11 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentStaff,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type StaffJwtPayload,
 } from '@app/common';
 import { extractBearerToken } from '../shared/extract-bearer-token.js';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
@@ -31,11 +33,13 @@ export class WarehouseController {
     @RequirePermission(StaffPermission.WarehousesCreate)
     @ResponseMessage('Warehouse created successfully')
     create(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: CreateWarehouseDto,
         @Headers('authorization') authorization?: string,
     ) {
         return this.warehouseService.create(
             data,
+            staff.market_ids,
             extractBearerToken(authorization),
         );
     }
@@ -56,26 +60,31 @@ export class WarehouseController {
     @RequirePermission(StaffPermission.WarehousesUpdate)
     @ResponseMessage('Warehouse updated successfully')
     update(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseDto,
     ) {
-        return this.warehouseService.update(id, data);
+        return this.warehouseService.update(id, data, staff.market_ids);
     }
 
     @Patch(':id/manager')
     @RequirePermission(StaffPermission.WarehousesUpdate)
     @ResponseMessage('Warehouse manager updated successfully')
     updateManager(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseManagerDto,
     ) {
-        return this.warehouseService.updateManager(id, data);
+        return this.warehouseService.updateManager(id, data, staff.market_ids);
     }
 
     @Post(':id/close')
     @RequirePermission(StaffPermission.WarehousesClose)
     @ResponseMessage('Warehouse closed successfully')
-    close(@Param('id', ParseUUIDPipe) id: string) {
-        return this.warehouseService.close(id);
+    close(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.warehouseService.close(id, staff.market_ids);
     }
 }

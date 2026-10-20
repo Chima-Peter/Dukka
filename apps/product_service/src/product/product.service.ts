@@ -24,6 +24,7 @@ import {
     type Product,
 } from '../../generated/prisma/client.js';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
+import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import type { AddToMarketDto } from './dto/add-to-market.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
@@ -206,6 +207,7 @@ export class ProductService {
     async addToMarket(
         productId: string,
         data: AddToMarketDto,
+        staffMarketIds: string[],
         accessToken?: string,
     ) {
         try {
@@ -221,6 +223,7 @@ export class ProductService {
                     'Only approved products can be added to a market',
                 );
             }
+            assertStaffHasMarkets(staffMarketIds, data.market_ids);
             await this.assertMarketsValid(data.market_ids, accessToken);
             const marketProducts = await this.productRepository.addToMarkets(
                 productId,
@@ -253,7 +256,11 @@ export class ProductService {
 
         try {
             const { data: body } = await this.accountHttp.post<
-                ApiResponse<{ valid: boolean; invalid_ids: string[] }>
+                ApiResponse<{
+                    valid: boolean;
+                    invalid_ids: string[];
+                    inactive_ids: string[];
+                }>
             >('/markets/validate', {
                 json: { market_ids: marketIds },
                 headers: {
@@ -264,13 +271,24 @@ export class ProductService {
 
             if (!body.success || !body.data?.valid) {
                 const invalidIds = body.data?.invalid_ids ?? [];
+                const inactiveIds = body.data?.inactive_ids ?? [];
+                const parts: string[] = [];
+                if (invalidIds.length > 0) {
+                    parts.push(`Invalid market id(s): ${invalidIds.join(', ')}`);
+                }
+                if (inactiveIds.length > 0) {
+                    parts.push(
+                        `Inactive market id(s): ${inactiveIds.join(', ')}`,
+                    );
+                }
                 throw new BadRequestException({
                     message:
-                        invalidIds.length > 0
-                            ? `Invalid or inactive market id(s): ${invalidIds.join(', ')}`
+                        parts.length > 0
+                            ? parts.join('; ')
                             : (body.message ??
                               'One or more market ids are invalid'),
                     invalid_ids: invalidIds,
+                    inactive_ids: inactiveIds,
                 });
             }
         } catch (error) {
@@ -285,11 +303,18 @@ export class ProductService {
         productId: string,
         variantId: string,
         data: SetMarketPriceDto,
+        staffMarketIds: string[],
+        accessToken?: string,
     ) {
         try {
             this.logger.log(
                 `Setting market price for variant ${variantId} in market ${data.market_id}`,
             );
+            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            const market = await this.fetchMarket(data.market_id, accessToken);
+            if (!market.is_active) {
+                throw new BadRequestException('Market is inactive');
+            }
             const variant = await this.productRepository.findVariantInProduct(
                 productId,
                 variantId,
@@ -299,7 +324,11 @@ export class ProductService {
             }
             const marketPrice = await this.productRepository.setMarketPrice(
                 variantId,
-                data,
+                {
+                    market_id: data.market_id,
+                    price: data.price,
+                    currency: market.currency.code,
+                },
             );
             this.logger.log(
                 `Market price set for variant ${variantId} in market ${data.market_id}`,
@@ -307,6 +336,48 @@ export class ProductService {
             return marketPrice;
         } catch (error) {
             this.handleError(error, 'Variant not found');
+        }
+    }
+
+    private async fetchMarket(
+        marketId: string,
+        accessToken?: string,
+    ): Promise<{
+        id: string;
+        is_active: boolean;
+        currency: { id: string; code: string; name: string };
+    }> {
+        if (!accessToken) {
+            throw new UnauthorizedException('Missing authentication token');
+        }
+
+        try {
+            const { data: body } = await this.accountHttp.get<
+                ApiResponse<{
+                    id: string;
+                    is_active: boolean;
+                    currency: { id: string; code: string; name: string };
+                }>
+            >('/markets/:id', {
+                params: { id: marketId },
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!body.success || !body.data) {
+                throw new NotFoundException(
+                    body.message ?? 'Market not found',
+                );
+            }
+
+            return body.data;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw toHttpException(error, { forward: [400, 403, 404] });
         }
     }
 

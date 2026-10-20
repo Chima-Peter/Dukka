@@ -20,6 +20,7 @@ import {
     type Warehouse,
 } from '../../generated/prisma/client.js';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
+import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
@@ -38,12 +39,14 @@ export class WarehouseService {
 
     async create(
         data: CreateWarehouseDto,
+        staffMarketIds: string[],
         accessToken?: string,
     ): Promise<Warehouse> {
         try {
             this.logger.log(
                 `Creating warehouse ${data.name} in market ${data.market_id}`,
             );
+            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             await this.assertMarketsValid([data.market_id], accessToken);
             const warehouse = await this.warehouseRepository.create(data);
             this.logger.log(`Warehouse created ${warehouse.id}`);
@@ -75,10 +78,15 @@ export class WarehouseService {
         }
     }
 
-    async update(id: string, data: UpdateWarehouseDto): Promise<Warehouse> {
+    async update(
+        id: string,
+        data: UpdateWarehouseDto,
+        staffMarketIds: string[],
+    ): Promise<Warehouse> {
         try {
             this.logger.log(`Updating warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update a closed warehouse',
@@ -95,10 +103,12 @@ export class WarehouseService {
     async updateManager(
         id: string,
         data: UpdateWarehouseManagerDto,
+        staffMarketIds: string[],
     ): Promise<Warehouse> {
         try {
             this.logger.log(`Updating manager for warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update manager of a closed warehouse',
@@ -115,10 +125,11 @@ export class WarehouseService {
         }
     }
 
-    async close(id: string): Promise<Warehouse> {
+    async close(id: string, staffMarketIds: string[]): Promise<Warehouse> {
         try {
             this.logger.log(`Closing warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException('Warehouse is already closed');
             }
@@ -140,7 +151,11 @@ export class WarehouseService {
 
         try {
             const { data: body } = await this.accountHttp.post<
-                ApiResponse<{ valid: boolean; invalid_ids: string[] }>
+                ApiResponse<{
+                    valid: boolean;
+                    invalid_ids: string[];
+                    inactive_ids: string[];
+                }>
             >('/markets/validate', {
                 json: { market_ids: marketIds },
                 headers: {
@@ -151,13 +166,24 @@ export class WarehouseService {
 
             if (!body.success || !body.data?.valid) {
                 const invalidIds = body.data?.invalid_ids ?? [];
+                const inactiveIds = body.data?.inactive_ids ?? [];
+                const parts: string[] = [];
+                if (invalidIds.length > 0) {
+                    parts.push(`Invalid market id(s): ${invalidIds.join(', ')}`);
+                }
+                if (inactiveIds.length > 0) {
+                    parts.push(
+                        `Inactive market id(s): ${inactiveIds.join(', ')}`,
+                    );
+                }
                 throw new BadRequestException({
                     message:
-                        invalidIds.length > 0
-                            ? `Invalid or inactive market id(s): ${invalidIds.join(', ')}`
+                        parts.length > 0
+                            ? parts.join('; ')
                             : (body.message ??
                               'One or more market ids are invalid'),
                     invalid_ids: invalidIds,
+                    inactive_ids: inactiveIds,
                 });
             }
         } catch (error) {
