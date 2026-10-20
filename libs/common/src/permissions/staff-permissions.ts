@@ -97,6 +97,26 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete currencies',
     },
     {
+        name: 'products:create',
+        description: 'Create products',
+    },
+    {
+        name: 'products:update',
+        description: 'Update products',
+    },
+    {
+        name: 'products:approve',
+        description: 'Approve products',
+    },
+    {
+        name: 'products:reject',
+        description: 'Reject products',
+    },
+    {
+        name: 'products:archive',
+        description: 'Archive products',
+    },
+    {
         name: 'permissions:read',
         description: 'View permissions',
     },
@@ -130,5 +150,10 @@ export const StaffPermission = {
     CurrenciesCreate: 'currencies:create',
     CurrenciesUpdate: 'currencies:update',
     CurrenciesDelete: 'currencies:delete',
+    ProductsCreate: 'products:create',
+    ProductsUpdate: 'products:update',
+    ProductsApprove: 'products:approve',
+    ProductsReject: 'products:reject',
+    ProductsArchive: 'products:archive',
     PermissionsRead: 'permissions:read',
 } as const satisfies Record<string, StaffAccountPermissionName>;

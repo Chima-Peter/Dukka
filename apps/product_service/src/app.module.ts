@@ -18,6 +18,7 @@ import { AppController } from './app.controller.js';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { ProductModule } from './product/product.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -122,6 +123,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
             },
             inject: [ConfigService],
         }),
+        ProductModule,
     ],
     providers: [
         {
