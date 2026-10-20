@@ -64,8 +64,12 @@ export class InventoryRepository {
     async create(data: CreateInventoryRecord): Promise<InventoryDetail> {
         return await this.prisma.inventory.create({
             data: {
-                market_variant_id: data.market_variant_id,
-                warehouse_id: data.warehouse_id,
+                market_variant: {
+                    connect: { id: data.market_variant_id },
+                },
+                warehouse: {
+                    connect: { id: data.warehouse_id },
+                },
                 available_quantity: data.available_quantity,
                 reserved_quantity: 0,
             },

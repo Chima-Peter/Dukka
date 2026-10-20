@@ -122,18 +122,16 @@ export class ProductController {
         );
     }
 
-    @Patch(':id/variants/:variantId/markets/:marketId')
+    @Patch('variants/:variantId/markets/:marketId')
     @RequirePermission(StaffPermission.ProductsUpdate)
     @ResponseMessage('Market variant updated successfully')
     updateMarketVariant(
         @CurrentStaff() staff: StaffJwtPayload,
-        @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,
         @Param('marketId', ParseUUIDPipe) marketId: string,
         @Body() data: UpdateMarketVariantDto,
     ) {
         return this.productService.updateMarketVariant(
-            id,
             variantId,
             marketId,
             data,
@@ -141,17 +139,15 @@ export class ProductController {
         );
     }
 
-    @Delete(':id/variants/:variantId/markets/:marketId')
+    @Delete('variants/:variantId/markets/:marketId')
     @RequirePermission(StaffPermission.ProductsApprove)
     @ResponseMessage('Variant removed from market successfully')
     removeVariantFromMarket(
         @CurrentStaff() staff: StaffJwtPayload,
-        @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,
         @Param('marketId', ParseUUIDPipe) marketId: string,
     ) {
         return this.productService.removeVariantFromMarket(
-            id,
             variantId,
             marketId,
             staff.market_ids,

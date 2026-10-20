@@ -224,17 +224,11 @@ export class ProductService {
                     'Only approved products can have variants added to a market',
                 );
             }
+
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             const market = await this.fetchMarket(data.market_id, accessToken);
             if (!market.is_active) {
                 throw new BadRequestException('Market is inactive');
-            }
-            const variant = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
-            );
-            if (!variant) {
-                throw new NotFoundException('Variant not found');
             }
 
             const marketVariant =
@@ -262,7 +256,6 @@ export class ProductService {
     }
 
     async updateMarketVariant(
-        productId: string,
         variantId: string,
         marketId: string,
         data: UpdateMarketVariantDto,
@@ -273,13 +266,6 @@ export class ProductService {
                 `Updating market variant for variant ${variantId} in market ${marketId}`,
             );
             assertStaffHasMarkets(staffMarketIds, [marketId]);
-            const variant = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
-            );
-            if (!variant) {
-                throw new NotFoundException('Variant not found');
-            }
             const marketVariant =
                 await this.productRepository.updateMarketVariant(
                     variantId,
@@ -296,7 +282,6 @@ export class ProductService {
     }
 
     async removeVariantFromMarket(
-        productId: string,
         variantId: string,
         marketId: string,
         staffMarketIds: string[],
@@ -306,13 +291,6 @@ export class ProductService {
                 `Removing variant ${variantId} from market ${marketId}`,
             );
             assertStaffHasMarkets(staffMarketIds, [marketId]);
-            const variant = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
-            );
-            if (!variant) {
-                throw new NotFoundException('Variant not found');
-            }
             const marketVariant =
                 await this.productRepository.deleteMarketVariant(
                     variantId,

@@ -184,7 +184,9 @@ export class ProductRepository {
                 name: data.name,
                 description: data.description,
                 specs: data.specs as Prisma.InputJsonValue,
-                category_id: data.category_id,
+                category: {
+                    connect: { id: data.category_id },
+                },
                 images: {
                     create: data.images.map((image) => ({
                         image_url: image.image_url,
@@ -404,7 +406,7 @@ export class ProductRepository {
     }
 
     async update(id: string, data: UpdateProductDto): Promise<Product> {
-        const updateData: Prisma.ProductUncheckedUpdateInput = {
+        const updateData: Prisma.ProductUpdateInput = {
             ...(data.name !== undefined && { name: data.name }),
             ...(data.description !== undefined && {
                 description: data.description,
@@ -413,7 +415,9 @@ export class ProductRepository {
                 specs: data.specs as Prisma.InputJsonValue,
             }),
             ...(data.category_id !== undefined && {
-                category_id: data.category_id,
+                category: {
+                    connect: { id: data.category_id },
+                },
             }),
         };
 
@@ -536,7 +540,9 @@ export class ProductRepository {
     }) {
         return await this.prisma.marketVariant.create({
             data: {
-                variant_id: data.variant_id,
+                variant: {
+                    connect: { id: data.variant_id },
+                },
                 market_id: data.market_id,
                 price: data.price,
                 currency: data.currency,
