@@ -99,6 +99,29 @@ async function seedCategories() {
     console.log(`Seeded ${CATEGORIES.length} categories`);
 }
 
+async function seedMarketCategories(markets: AccountMarket[]) {
+    for (const market of markets) {
+        for (const category of CATEGORIES) {
+            await prisma.marketCategory.upsert({
+                where: {
+                    market_id_category_id: {
+                        market_id: market.id,
+                        category_id: category.id,
+                    },
+                },
+                create: {
+                    market_id: market.id,
+                    category_id: category.id,
+                },
+                update: {},
+            });
+        }
+    }
+    console.log(
+        `Seeded market categories for ${markets.length} market(s)`,
+    );
+}
+
 async function seedWarehouses(
     markets: AccountMarket[],
     manager: AccountStaff,
@@ -135,11 +158,26 @@ async function seedWarehouses(
 }
 
 async function seedProducts(markets: AccountMarket[]) {
-    const apparel = await prisma.category.findUniqueOrThrow({
-        where: { name: 'Apparel' },
+    const primaryMarket = markets[0];
+    if (!primaryMarket) {
+        throw new Error('No markets available to seed products');
+    }
+
+    const apparel = await prisma.marketCategory.findUniqueOrThrow({
+        where: {
+            market_id_category_id: {
+                market_id: primaryMarket.id,
+                category_id: CATEGORIES[0].id,
+            },
+        },
     });
-    const footwear = await prisma.category.findUniqueOrThrow({
-        where: { name: 'Footwear' },
+    const footwear = await prisma.marketCategory.findUniqueOrThrow({
+        where: {
+            market_id_category_id: {
+                market_id: primaryMarket.id,
+                category_id: CATEGORIES[1].id,
+            },
+        },
     });
 
     const products = [
@@ -149,7 +187,7 @@ async function seedProducts(markets: AccountMarket[]) {
             description: 'Soft cotton tee for everyday wear.',
             specs: { material: '100% cotton', fit: 'regular' },
             status: ProductStatus.ACTIVE,
-            category_id: apparel.id,
+            market_category_id: apparel.id,
             images: [
                 {
                     image_url:
@@ -188,7 +226,7 @@ async function seedProducts(markets: AccountMarket[]) {
             description: 'Lightweight everyday running shoe.',
             specs: { material: 'mesh', cushioning: 'mid' },
             status: ProductStatus.ACTIVE,
-            category_id: footwear.id,
+            market_category_id: footwear.id,
             images: [
                 {
                     image_url:
@@ -216,7 +254,7 @@ async function seedProducts(markets: AccountMarket[]) {
             description: 'Product awaiting approval.',
             specs: { material: 'fleece' },
             status: ProductStatus.PENDING_REVIEW,
-            category_id: apparel.id,
+            market_category_id: apparel.id,
             images: [
                 {
                     image_url:
@@ -253,7 +291,7 @@ async function seedProducts(markets: AccountMarket[]) {
                 description: product.description,
                 specs: product.specs,
                 status: product.status,
-                category_id: product.category_id,
+                market_category_id: product.market_category_id,
                 images: {
                     create: product.images.map((image) => ({
                         image_url: image.image_url,
@@ -281,7 +319,7 @@ async function seedProducts(markets: AccountMarket[]) {
                 description: product.description,
                 specs: product.specs,
                 status: product.status,
-                category_id: product.category_id,
+                market_category_id: product.market_category_id,
             },
         });
 
@@ -359,6 +397,7 @@ async function main() {
 
     const manager = await loadAccountManager();
     await seedCategories();
+    await seedMarketCategories(markets);
     await seedWarehouses(markets, manager);
     await seedProducts(markets);
 }

@@ -20,7 +20,7 @@ export class FindStaffProductsDto {
 
     @IsOptional()
     @IsUUID()
-    category_id?: string;
+    market_category_id?: string;
 
     @IsOptional()
     @IsString()

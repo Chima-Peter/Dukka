@@ -14,7 +14,7 @@ export type CreateProductRecord = {
     name: string;
     description: string;
     specs: Record<string, unknown>;
-    category_id: string;
+    market_category_id: string;
     images: {
         image_url: string;
         sort_order: number;
@@ -34,10 +34,14 @@ function productListSummarySelect(marketId?: string) {
         name: true,
         description: true,
         status: true,
-        category_id: true,
-        category: {
+        market_category_id: true,
+        market_category: {
             select: {
-                name: true,
+                category: {
+                    select: {
+                        name: true,
+                    },
+                },
             },
         },
         created_at: true,
@@ -78,7 +82,7 @@ function productListSummarySelect(marketId?: string) {
 
 function toProductListItem<
     T extends {
-        category: { name: string };
+        market_category: { category: { name: string } };
         images: Array<{ image_url: string }>;
         variants: Array<{
             market_variants: Array<{
@@ -89,11 +93,11 @@ function toProductListItem<
         }>;
     },
 >(product: T) {
-    const { category, images, variants, ...rest } = product;
+    const { market_category, images, variants, ...rest } = product;
     const marketVariant = variants[0]?.market_variants[0];
     return {
         ...rest,
-        category_name: category.name,
+        category_name: market_category.category.name,
         image_url: images[0]?.image_url ?? null,
         price: marketVariant?.price ?? null,
         currency: marketVariant?.currency ?? null,
@@ -107,12 +111,16 @@ const productDetailSelect = {
     description: true,
     specs: true,
     status: true,
-    category_id: true,
+    market_category_id: true,
     created_at: true,
     updated_at: true,
-    category: {
+    market_category: {
         select: {
-            name: true,
+            category: {
+                select: {
+                    name: true,
+                },
+            },
         },
     },
     images: {
@@ -178,7 +186,7 @@ function productDetailWithMarketSelect(marketId?: string) {
 
 function toProductDetail<
     T extends {
-        category: { name: string };
+        market_category: { category: { name: string } };
         variants: Array<{
             image: { image_url: string } | null;
             market_variants?: Array<{
@@ -190,10 +198,10 @@ function toProductDetail<
         }>;
     },
 >(product: T) {
-    const { category, variants, ...rest } = product;
+    const { market_category, variants, ...rest } = product;
     return {
         ...rest,
-        category_name: category.name,
+        category_name: market_category.category.name,
         variants: variants.map(({ image, market_variants, ...variant }) => {
             const marketVariant = market_variants?.[0];
             return {
@@ -220,8 +228,8 @@ export class ProductRepository {
                 name: data.name,
                 description: data.description,
                 specs: data.specs as Prisma.InputJsonValue,
-                category: {
-                    connect: { id: data.category_id },
+                market_category: {
+                    connect: { id: data.market_category_id },
                 },
                 images: {
                     create: data.images.map((image) => ({
@@ -262,9 +270,12 @@ export class ProductRepository {
                 ...(nameMatchedIds !== undefined && {
                     id: { in: nameMatchedIds },
                 }),
-                ...(query.category_id !== undefined && {
-                    category_id: query.category_id,
+                ...(query.market_category_id !== undefined && {
+                    market_category_id: query.market_category_id,
                 }),
+                market_category: {
+                    market_id: query.market_id,
+                },
                 status: ProductStatus.ACTIVE,
                 variants: {
                     some: {
@@ -319,8 +330,13 @@ export class ProductRepository {
                 ...(nameMatchedIds !== undefined && {
                     id: { in: nameMatchedIds },
                 }),
-                ...(query.category_id !== undefined && {
-                    category_id: query.category_id,
+                ...(query.market_category_id !== undefined && {
+                    market_category_id: query.market_category_id,
+                }),
+                ...(query.market_id !== undefined && {
+                    market_category: {
+                        market_id: query.market_id,
+                    },
                 }),
                 ...(query.status !== undefined && { status: query.status }),
                 ...(query.market_id !== undefined || hasPriceFilter
@@ -450,9 +466,9 @@ export class ProductRepository {
             ...(data.specs !== undefined && {
                 specs: data.specs as Prisma.InputJsonValue,
             }),
-            ...(data.category_id !== undefined && {
-                category: {
-                    connect: { id: data.category_id },
+            ...(data.market_category_id !== undefined && {
+                market_category: {
+                    connect: { id: data.market_category_id },
                 },
             }),
         };

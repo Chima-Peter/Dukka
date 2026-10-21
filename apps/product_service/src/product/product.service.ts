@@ -92,7 +92,7 @@ export class ProductService {
                 name: data.name,
                 description: data.description,
                 specs: data.specs,
-                category_id: data.category_id,
+                market_category_id: data.market_category_id,
                 images: data.images.map((image) => ({
                     image_url: this.supabaseService.getPublicURL(
                         image.image_path,
@@ -466,7 +466,7 @@ export class ProductService {
                     `Foreign key constraint on product: ${error.message}`,
                 );
                 throw new ConflictException(
-                    'Referenced category does not exist',
+                    'Referenced market category does not exist',
                 );
             }
             if (error.code === 'P2025') {

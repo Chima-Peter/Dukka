@@ -14,10 +14,11 @@ describe('CategoryService', () => {
                     provide: CategoryRepository,
                     useValue: {
                         create: vi.fn(),
-                        findAll: vi.fn(),
-                        findById: vi.fn(),
                         update: vi.fn(),
                         delete: vi.fn(),
+                        addToMarket: vi.fn(),
+                        findAllByMarket: vi.fn(),
+                        removeFromMarket: vi.fn(),
                     },
                 },
             ],

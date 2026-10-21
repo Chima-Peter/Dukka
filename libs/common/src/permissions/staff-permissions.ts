@@ -98,7 +98,7 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     },
     {
         name: 'categories:create',
-        description: 'Create product categories',
+        description: 'Create product categories and add them to markets',
     },
     {
         name: 'categories:update',
@@ -106,7 +106,7 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     },
     {
         name: 'categories:delete',
-        description: 'Delete product categories',
+        description: 'Delete product categories or remove them from markets',
     },
     {
         name: 'products:create',

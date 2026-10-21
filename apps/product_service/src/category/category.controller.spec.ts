@@ -14,9 +14,10 @@ describe('CategoryController', () => {
                     provide: CategoryService,
                     useValue: {
                         create: vi.fn(),
+                        addToMarket: vi.fn(),
                         findAll: vi.fn(),
-                        findOne: vi.fn(),
                         update: vi.fn(),
+                        removeFromMarket: vi.fn(),
                         delete: vi.fn(),
                     },
                 },

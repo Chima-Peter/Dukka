@@ -17,7 +17,22 @@ model Category {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  product Product[]
+  market_categories MarketCategory[]
+}
+
+model MarketCategory {
+  id String @id @default(uuid())
+
+  market_id   String
+  category_id String
+  category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
+
+  products Product[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([market_id, category_id])
 }
 
 enum ProductStatus {
@@ -37,8 +52,8 @@ model Product {
   images   ProductImage[]
   variants Variant[]
 
-  category_id String
-  category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  market_category_id String
+  market_category    MarketCategory @relation(fields: [market_category_id], references: [id], onDelete: Restrict)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
