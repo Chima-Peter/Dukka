@@ -104,14 +104,16 @@ export class CategoryService {
         }
     }
 
-    async findAll(query: FindCategoriesDto): Promise<MarketCategoryItem[]> {
+    async findAll(query: FindCategoriesDto) {
         try {
             this.logger.log(
                 `Fetching categories for market ${query.market_id}`,
             );
-            return await this.categoryRepository.findAllByMarket(
-                query.market_id,
-            );
+            const page = await this.categoryRepository.findAllByMarket(query);
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }

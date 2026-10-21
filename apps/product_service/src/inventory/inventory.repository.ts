@@ -1,6 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { WarehouseStatus } from '../../generated/prisma/client.js';
+import {
+    Prisma,
+    WarehouseStatus,
+} from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import {
     inventoryRowSelect,
     toInventoryItem,
@@ -146,44 +150,94 @@ export class InventoryRepository {
         };
     }
 
-    async findByVariantId(
-        variantId: string,
-        marketId: string,
-    ): Promise<InventoryItem[]> {
-        const rows = await this.prisma.inventory.findMany({
-            where: {
+    async findByVariantId(variantId: string, query: FindInventoryDto) {
+        return this.findPage(
+            {
                 market_variant: {
                     variant_id: variantId,
-                    market_id: marketId,
+                    market_id: query.market_id,
                 },
                 warehouse: {
-                    market_id: marketId,
+                    market_id: query.market_id,
                 },
             },
-            select: inventoryRowSelect,
-            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-        });
-        return rows.map(toInventoryItem);
+            query,
+        );
     }
 
-    async findByProductId(
-        productId: string,
-        marketId: string,
-    ): Promise<InventoryItem[]> {
-        const rows = await this.prisma.inventory.findMany({
-            where: {
+    async findByProductId(productId: string, query: FindInventoryDto) {
+        return this.findPage(
+            {
                 market_variant: {
-                    market_id: marketId,
+                    market_id: query.market_id,
                     variant: { product_id: productId },
                 },
                 warehouse: {
-                    market_id: marketId,
+                    market_id: query.market_id,
                 },
             },
+            query,
+        );
+    }
+
+    async findByWarehouseId(warehouseId: string, query: FindInventoryDto) {
+        return this.findPage(
+            {
+                warehouse: {
+                    id: warehouseId,
+                    market_id: query.market_id,
+                },
+                market_variant: {
+                    market_id: query.market_id,
+                },
+            },
+            query,
+        );
+    }
+
+    async findByMarketVariantId(
+        marketVariantId: string,
+        query: FindInventoryDto,
+    ) {
+        return this.findPage(
+            {
+                market_variant: {
+                    id: marketVariantId,
+                    market_id: query.market_id,
+                },
+                warehouse: {
+                    market_id: query.market_id,
+                },
+            },
+            query,
+        );
+    }
+
+    private async findPage(
+        where: Prisma.InventoryWhereInput,
+        query: FindInventoryDto,
+    ) {
+        const limit = query.limit ?? 50;
+        const records = await this.prisma.inventory.findMany({
+            where,
             select: inventoryRowSelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
         });
-        return rows.map(toInventoryItem);
+
+        const hasMore = records.length > limit;
+        const items = (hasMore ? records.slice(0, limit) : records).map(
+            toInventoryItem,
+        );
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1].id : null,
+        };
     }
 
     async reserveItems(

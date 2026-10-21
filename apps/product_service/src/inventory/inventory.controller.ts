@@ -63,6 +63,34 @@ export class InventoryController {
         return this.inventoryService.reserve(data);
     }
 
+    @Get('warehouses/:warehouseId')
+    @ResponseMessage('Warehouse inventory retrieved successfully')
+    findByWarehouse(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('warehouseId', ParseUUIDPipe) warehouseId: string,
+        @Query() query: FindInventoryDto,
+    ) {
+        return this.inventoryService.findByWarehouse(
+            warehouseId,
+            query,
+            staff.market_ids,
+        );
+    }
+
+    @Get('market-variants/:marketVariantId')
+    @ResponseMessage('Market variant inventory retrieved successfully')
+    findByMarketVariant(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('marketVariantId', ParseUUIDPipe) marketVariantId: string,
+        @Query() query: FindInventoryDto,
+    ) {
+        return this.inventoryService.findByMarketVariant(
+            marketVariantId,
+            query,
+            staff.market_ids,
+        );
+    }
+
     @Get('variants/:variantId')
     @Public()
     @ResponseMessage('Variant inventory retrieved successfully')

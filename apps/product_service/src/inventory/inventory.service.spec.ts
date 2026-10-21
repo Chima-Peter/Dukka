@@ -20,6 +20,8 @@ describe('InventoryService', () => {
                         findProductAvailability: vi.fn(),
                         findByVariantId: vi.fn(),
                         findByProductId: vi.fn(),
+                        findByWarehouseId: vi.fn(),
+                        findByMarketVariantId: vi.fn(),
                         reserveItems: vi.fn(),
                     },
                 },

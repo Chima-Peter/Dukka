@@ -19,6 +19,8 @@ describe('InventoryController', () => {
                         reserve: vi.fn(),
                         findByVariant: vi.fn(),
                         findByProduct: vi.fn(),
+                        findByWarehouse: vi.fn(),
+                        findByMarketVariant: vi.fn(),
                     },
                 },
             ],

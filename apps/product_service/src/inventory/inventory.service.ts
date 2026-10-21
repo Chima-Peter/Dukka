@@ -183,31 +183,77 @@ export class InventoryService {
         }
     }
 
-    async findByVariant(
-        variantId: string,
-        query: FindInventoryDto,
-    ): Promise<InventoryItem[]> {
+    async findByVariant(variantId: string, query: FindInventoryDto) {
         try {
             this.logger.log(`Fetching inventory for variant ${variantId}`);
-            return await this.inventoryRepository.findByVariantId(
+            const page = await this.inventoryRepository.findByVariantId(
                 variantId,
-                query.market_id,
+                query,
             );
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async findByProduct(
-        productId: string,
-        query: FindInventoryDto,
-    ): Promise<InventoryItem[]> {
+    async findByProduct(productId: string, query: FindInventoryDto) {
         try {
             this.logger.log(`Fetching inventory for product ${productId}`);
-            return await this.inventoryRepository.findByProductId(
+            const page = await this.inventoryRepository.findByProductId(
                 productId,
-                query.market_id,
+                query,
             );
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findByWarehouse(
+        warehouseId: string,
+        query: FindInventoryDto,
+        staffMarketIds: string[],
+    ) {
+        try {
+            this.logger.log(`Fetching inventory for warehouse ${warehouseId}`);
+            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            const page = await this.inventoryRepository.findByWarehouseId(
+                warehouseId,
+                query,
+            );
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findByMarketVariant(
+        marketVariantId: string,
+        query: FindInventoryDto,
+        staffMarketIds: string[],
+    ) {
+        try {
+            this.logger.log(
+                `Fetching inventory for market variant ${marketVariantId}`,
+            );
+            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            const page = await this.inventoryRepository.findByMarketVariantId(
+                marketVariantId,
+                query,
+            );
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
