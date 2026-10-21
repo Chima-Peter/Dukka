@@ -16,7 +16,6 @@ import {
 } from '@nestjs/http-client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
-    ALLOWED_PRODUCT_CONTENT_TYPES,
     PRODUCT_BUCKET,
     SupabaseService,
     type ApiResponse,
@@ -27,6 +26,7 @@ import {
 } from '../../generated/prisma/client.js';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import { assertValidImage } from '../shared/assert-valid-image.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { CreateVariantDto } from './dto/create-variant.dto.js';
@@ -97,7 +97,11 @@ export class ProductService {
                 [
                     ...data.images.map((image) => image.image_path),
                     ...variantImagePaths,
-                ].map((path) => this.assertValidProductImage(path)),
+                ].map((path) =>
+                    assertValidImage(this.supabaseService, path, {
+                        logger: this.logger,
+                    }),
+                ),
             );
 
             const product = await this.productRepository.create({
@@ -239,7 +243,9 @@ export class ProductService {
                     };
                 }
 
-                await this.assertValidProductImage(image.image_path);
+                await assertValidImage(this.supabaseService, image.image_path, {
+                    logger: this.logger,
+                });
                 return {
                     image_url: this.supabaseService.getPublicURL(
                         image.image_path,
@@ -255,7 +261,9 @@ export class ProductService {
         try {
             this.logger.log(`Adding variant to product ${productId}`);
             if (data.image_path) {
-                await this.assertValidProductImage(data.image_path);
+                await assertValidImage(this.supabaseService, data.image_path, {
+                    logger: this.logger,
+                });
             }
             const variant = await this.productRepository.createVariant(
                 productId,
@@ -311,7 +319,9 @@ export class ProductService {
 
             let image_url: string | undefined;
             if (data.image_path) {
-                await this.assertValidProductImage(data.image_path);
+                await assertValidImage(this.supabaseService, data.image_path, {
+                    logger: this.logger,
+                });
                 image_url = this.supabaseService.getPublicURL(
                     data.image_path,
                     PRODUCT_BUCKET,
@@ -345,40 +355,6 @@ export class ProductService {
             };
         } catch (error) {
             this.handleError(error, 'Variant not found');
-        }
-    }
-
-    private async assertValidProductImage(image_path: string): Promise<void> {
-        const objectInfo = await this.supabaseService.getObjectInfo(
-            image_path,
-            PRODUCT_BUCKET,
-        );
-        if (!objectInfo) {
-            this.logger.warn(`Product image not found at ${image_path}`);
-            throw new BadRequestException('Invalid image filepath');
-        }
-
-        if (objectInfo.size <= 0) {
-            this.logger.warn(`Product image at ${image_path} is empty`);
-            await this.supabaseService.deleteFile(
-                [image_path],
-                PRODUCT_BUCKET,
-            );
-            throw new BadRequestException('Image file is empty');
-        }
-
-        const contentType = objectInfo.contentType.toLowerCase();
-        if (!ALLOWED_PRODUCT_CONTENT_TYPES.has(contentType)) {
-            this.logger.warn(
-                `Product image at ${image_path} has invalid content type ${objectInfo.contentType}`,
-            );
-            await this.supabaseService.deleteFile(
-                [image_path],
-                PRODUCT_BUCKET,
-            );
-            throw new BadRequestException(
-                'Image must be a JPEG, PNG, WebP, or GIF',
-            );
         }
     }
 

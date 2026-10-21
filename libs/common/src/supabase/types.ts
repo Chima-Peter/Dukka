@@ -2,6 +2,7 @@ import type { Readable } from 'node:stream';
 
 export const AVATAR_BUCKET = 'avatar';
 export const PRODUCT_BUCKET = 'products';
+export const REVIEWS_BUCKET = 'reviews';
 export const QUALIFICATIONS_BUCKET = 'qualifications';
 
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;

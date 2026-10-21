@@ -110,6 +110,7 @@ model MarketVariant {
   variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
 
   inventories Inventory[]
+  reviews     Reviews[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -150,4 +151,32 @@ model Inventory {
   warehouse         Warehouse     @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
 
   @@unique([market_variant_id, warehouse_id])
+}
+
+model Reviews {
+  id          String  @id @default(uuid())
+  customer_id String
+  title       String
+  review      String
+  rating      Int
+  likes       Int?    @default(0)
+  dislikes    Int?    @default(0)
+
+  review_images ReviewsImages[]
+
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+}
+
+model ReviewsImages {
+  id        String @id @default(uuid())
+  image_url String
+
+  review_id String
+  review    Reviews @relation(fields: [review_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }

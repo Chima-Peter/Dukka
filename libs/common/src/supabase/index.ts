@@ -15,6 +15,7 @@ export {
     MAX_QUALIFICATION_BYTES,
     PRODUCT_BUCKET,
     QUALIFICATIONS_BUCKET,
+    REVIEWS_BUCKET,
     type StorageObjectInfo,
     type UploadBody,
     type UploadOptions,
