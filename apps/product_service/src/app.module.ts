@@ -20,7 +20,8 @@ import type { ConfigType } from './config/env.interface.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductModule } from './product/product.module.js';
 import { WarehouseModule } from './warehouse/warehouse.module.js';
-import { InventoryModule } from './inventory/inventory.module';
+import { InventoryModule } from './inventory/inventory.module.js';
+import { CategoryModule } from './category/category.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -128,6 +129,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         ProductModule,
         WarehouseModule,
         InventoryModule,
+        CategoryModule,
     ],
     providers: [
         {

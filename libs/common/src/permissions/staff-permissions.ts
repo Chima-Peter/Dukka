@@ -97,6 +97,18 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete currencies',
     },
     {
+        name: 'categories:create',
+        description: 'Create product categories',
+    },
+    {
+        name: 'categories:update',
+        description: 'Update product categories',
+    },
+    {
+        name: 'categories:delete',
+        description: 'Delete product categories',
+    },
+    {
         name: 'products:create',
         description: 'Create products',
     },
@@ -166,6 +178,9 @@ export const StaffPermission = {
     CurrenciesCreate: 'currencies:create',
     CurrenciesUpdate: 'currencies:update',
     CurrenciesDelete: 'currencies:delete',
+    CategoriesCreate: 'categories:create',
+    CategoriesUpdate: 'categories:update',
+    CategoriesDelete: 'categories:delete',
     ProductsCreate: 'products:create',
     ProductsUpdate: 'products:update',
     ProductsApprove: 'products:approve',
