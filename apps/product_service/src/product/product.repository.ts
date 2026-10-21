@@ -329,9 +329,9 @@ export class ProductRepository {
     async updateVariant(
         productId: string,
         variantId: string,
-        data: UpdateVariantDto,
+        data: UpdateVariantDto & { image_url?: string },
     ) {
-        const updateData: Prisma.VariantUncheckedUpdateInput = {
+        const updateData: Prisma.VariantUpdateInput = {
             ...(data.variant_code !== undefined && {
                 variant_code: data.variant_code,
             }),
@@ -339,6 +339,14 @@ export class ProductRepository {
             ...(data.size !== undefined && { size: data.size }),
             ...(data.variant_info !== undefined && {
                 variant_info: data.variant_info as Prisma.InputJsonValue,
+            }),
+            ...(data.image_url !== undefined && {
+                image: {
+                    upsert: {
+                        create: { image_url: data.image_url },
+                        update: { image_url: data.image_url },
+                    },
+                },
             }),
         };
 
@@ -348,6 +356,20 @@ export class ProductRepository {
                 product_id: productId,
             },
             data: updateData,
+            select: {
+                id: true,
+                variant_code: true,
+                color: true,
+                size: true,
+                variant_info: true,
+                created_at: true,
+                updated_at: true,
+                image: {
+                    select: {
+                        image_url: true,
+                    },
+                },
+            },
         });
     }
 
@@ -356,6 +378,14 @@ export class ProductRepository {
             where: {
                 id: variantId,
                 product_id: productId,
+            },
+            select: {
+                id: true,
+                image: {
+                    select: {
+                        image_url: true,
+                    },
+                },
             },
         });
     }

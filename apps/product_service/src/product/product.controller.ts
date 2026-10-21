@@ -40,11 +40,8 @@ export class ProductController {
     @Post('upload-url')
     @RequirePermission(StaffPermission.ProductsCreate)
     @ResponseMessage('Product image upload URLs generated successfully')
-    getImageUploadURLs(
-        @CurrentStaff() staff: StaffJwtPayload,
-        @Body() data: UploadFileDto,
-    ) {
-        return this.productService.getImageUploadURLs(staff.sub, data);
+    getImageUploadURLs(@Body() data: UploadFileDto) {
+        return this.productService.getImageUploadURLs(data);
     }
 
     @Post()

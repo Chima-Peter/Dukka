@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
     BadRequestException,
     ConflictException,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/http-client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    ALLOWED_PRODUCT_CONTENT_TYPES,
     PRODUCT_BUCKET,
     SupabaseService,
     type ApiResponse,
@@ -49,17 +51,14 @@ export class ProductService {
         private readonly accountHttp: HttpClient,
     ) {}
 
-    async getImageUploadURLs(
-        staffId: string,
-        data: UploadFileDto,
-    ): Promise<ImageUploadUrls> {
+    async getImageUploadURLs(data: UploadFileDto): Promise<ImageUploadUrls> {
         try {
             this.logger.log(
-                `Generating upload URLs for staff ${staffId}: ${data.product_images.length} product image(s), ${data.variant_images.length} variant image(s)`,
+                `Generating upload URLs: ${data.product_images.length} product image(s), ${data.variant_images.length} variant image(s)`,
             );
             const [product_images, variant_images] = await Promise.all([
-                this.createUploadMap(staffId, data.product_images),
-                this.createUploadMap(staffId, data.variant_images),
+                this.createUploadMap(data.product_images),
+                this.createUploadMap(data.variant_images),
             ]);
             return { product_images, variant_images };
         } catch (error) {
@@ -68,13 +67,12 @@ export class ProductService {
     }
 
     private async createUploadMap(
-        staffId: string,
         names: string[],
     ): Promise<Record<string, SignedUpload>> {
         const entries = await Promise.all(
             names.map(async (name) => {
                 const upload = await this.supabaseService.createSignedUploadUrl(
-                    staffId,
+                    randomUUID(),
                     name,
                     PRODUCT_BUCKET,
                 );
@@ -89,6 +87,17 @@ export class ProductService {
             this.logger.log(
                 `Creating product ${data.name} with ${data.variants.length} variant(s)`,
             );
+
+            const variantImagePaths = data.variants
+                .map((variant) => variant.image_path)
+                .filter((path): path is string => path !== undefined);
+            await Promise.all(
+                [
+                    ...data.images.map((image) => image.image_path),
+                    ...variantImagePaths,
+                ].map((path) => this.assertValidProductImage(path)),
+            );
+
             const product = await this.productRepository.create({
                 name: data.name,
                 description: data.description,
@@ -187,6 +196,9 @@ export class ProductService {
     async addVariant(productId: string, data: CreateVariantDto) {
         try {
             this.logger.log(`Adding variant to product ${productId}`);
+            if (data.image_path) {
+                await this.assertValidProductImage(data.image_path);
+            }
             const variant = await this.productRepository.createVariant(
                 productId,
                 {
@@ -230,16 +242,115 @@ export class ProductService {
             this.logger.log(
                 `Updating variant ${variantId} on product ${productId}`,
             );
+
+            const existing = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!existing) {
+                throw new NotFoundException('Variant not found');
+            }
+
+            let image_url: string | undefined;
+            if (data.image_path) {
+                await this.assertValidProductImage(data.image_path);
+                image_url = this.supabaseService.getPublicURL(
+                    data.image_path,
+                    PRODUCT_BUCKET,
+                );
+            }
+
+            const { image_path: _, ...fields } = data;
             const variant = await this.productRepository.updateVariant(
                 productId,
                 variantId,
-                data,
+                {
+                    ...fields,
+                    ...(image_url !== undefined && { image_url }),
+                },
             );
+
+            const previousUrl = existing.image?.image_url;
+            if (
+                image_url !== undefined &&
+                previousUrl &&
+                previousUrl !== image_url
+            ) {
+                await this.safeDeleteProductImage(previousUrl);
+            }
+
             this.logger.log(`Variant updated ${variantId}`);
-            return variant;
+            const { image, ...rest } = variant;
+            return {
+                ...rest,
+                image_url: image?.image_url ?? null,
+            };
         } catch (error) {
             this.handleError(error, 'Variant not found');
         }
+    }
+
+    private async assertValidProductImage(image_path: string): Promise<void> {
+        const objectInfo = await this.supabaseService.getObjectInfo(
+            image_path,
+            PRODUCT_BUCKET,
+        );
+        if (!objectInfo) {
+            this.logger.warn(`Product image not found at ${image_path}`);
+            throw new BadRequestException('Invalid image filepath');
+        }
+
+        if (objectInfo.size <= 0) {
+            this.logger.warn(`Product image at ${image_path} is empty`);
+            await this.supabaseService.deleteFile(
+                [image_path],
+                PRODUCT_BUCKET,
+            );
+            throw new BadRequestException('Image file is empty');
+        }
+
+        const contentType = objectInfo.contentType.toLowerCase();
+        if (!ALLOWED_PRODUCT_CONTENT_TYPES.has(contentType)) {
+            this.logger.warn(
+                `Product image at ${image_path} has invalid content type ${objectInfo.contentType}`,
+            );
+            await this.supabaseService.deleteFile(
+                [image_path],
+                PRODUCT_BUCKET,
+            );
+            throw new BadRequestException(
+                'Image must be a JPEG, PNG, WebP, or GIF',
+            );
+        }
+    }
+
+    private async safeDeleteProductImage(publicUrl: string): Promise<void> {
+        const storagePath = this.toStoragePath(publicUrl);
+        if (!storagePath) {
+            this.logger.warn(
+                `Could not resolve storage path from image URL ${publicUrl}`,
+            );
+            return;
+        }
+
+        try {
+            await this.supabaseService.deleteFile(
+                [storagePath],
+                PRODUCT_BUCKET,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `Failed to delete previous product image ${storagePath}: ${error}`,
+            );
+        }
+    }
+
+    private toStoragePath(publicUrl: string): string | null {
+        const prefix = this.supabaseService.getPublicURL('', PRODUCT_BUCKET);
+        if (!publicUrl.startsWith(prefix)) {
+            return null;
+        }
+        return decodeURIComponent(publicUrl.slice(prefix.length));
     }
 
     async addVariantToMarket(

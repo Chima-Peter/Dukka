@@ -26,4 +26,10 @@ export class UpdateVariantDto {
     @IsOptional()
     @IsObject()
     variant_info?: Record<string, unknown>;
+
+    @IsOptional()
+    @IsString()
+    @MinLength(1)
+    @MaxLength(1024)
+    image_path?: string;
 }
