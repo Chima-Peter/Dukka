@@ -89,6 +89,7 @@ model MarketVariant {
   id       String  @id @default(uuid())
   price    Decimal @db.Decimal(12, 2)
   currency String
+  sold_out Boolean @default(false)
 
   market_id  String
   variant_id String

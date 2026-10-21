@@ -18,7 +18,7 @@ import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
 import {
     InventoryRepository,
-    type InventoryDetail,
+    type InventoryItem,
 } from './inventory.repository.js';
 
 @Injectable()
@@ -34,7 +34,7 @@ export class InventoryService {
     async create(
         data: CreateInventoryDto,
         staffMarketIds: string[],
-    ): Promise<InventoryDetail> {
+    ): Promise<InventoryItem> {
         try {
             this.logger.log(
                 `Creating inventory for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}`,
@@ -119,46 +119,15 @@ export class InventoryService {
                 );
             }
 
-            const marketVariantIds = [
-                ...new Set(data.items.map((item) => item.market_variant_id)),
-            ];
-            const marketVariants =
-                await this.productRepository.findMarketVariantsByIds(
-                    marketVariantIds,
-                );
-            const marketVariantsById = new Map(
-                marketVariants.map((marketVariant) => [
-                    marketVariant.id,
-                    marketVariant,
-                ]),
-            );
-
-            const missingIds = marketVariantIds.filter(
-                (id) => !marketVariantsById.has(id),
-            );
-            if (missingIds.length > 0) {
-                throw new NotFoundException(
-                    `Market variant(s) not found: ${missingIds.join(', ')}`,
-                );
-            }
-
-            const wrongMarketIds = marketVariantIds.filter(
-                (id) => marketVariantsById.get(id)?.market_id !== data.market_id,
-            );
-            if (wrongMarketIds.length > 0) {
-                throw new BadRequestException(
-                    `Market variant(s) do not belong to the specified market: ${wrongMarketIds.join(', ')}`,
-                );
-            }
-
-            const reserved = await this.inventoryRepository.reserveItems(
+            await this.inventoryRepository.reserveItems(
+                data.market_id,
                 data.warehouse_id,
                 data.items,
             );
             this.logger.log(
-                `Reserved inventory for ${reserved.length} market variant(s) in warehouse ${data.warehouse_id}`,
+                `Reserved inventory for ${data.items.length} item(s) in warehouse ${data.warehouse_id}`,
             );
-            return reserved;
+            return { reserved: true };
         } catch (error) {
             this.handleError(error);
         }
@@ -167,36 +136,13 @@ export class InventoryService {
     async findByVariant(
         variantId: string,
         query: FindInventoryDto,
-    ): Promise<{
-        variant_id: string;
-        market_id: string;
-        available_quantity: number;
-        reserved_quantity: number;
-        items: InventoryDetail[];
-    }> {
+    ): Promise<InventoryItem[]> {
         try {
             this.logger.log(`Fetching inventory for variant ${variantId}`);
-
-            await this.productRepository.findVariantByIdOrThrow(variantId);
-
-            const items = await this.inventoryRepository.findByVariantId(
+            return await this.inventoryRepository.findByVariantId(
                 variantId,
                 query.market_id,
             );
-
-            return {
-                variant_id: variantId,
-                market_id: query.market_id,
-                available_quantity: items.reduce(
-                    (sum, row) => sum + row.available_quantity,
-                    0,
-                ),
-                reserved_quantity: items.reduce(
-                    (sum, row) => sum + row.reserved_quantity,
-                    0,
-                ),
-                items,
-            };
         } catch (error) {
             this.handleError(error);
         }
@@ -205,36 +151,13 @@ export class InventoryService {
     async findByProduct(
         productId: string,
         query: FindInventoryDto,
-    ): Promise<{
-        product_id: string;
-        market_id: string;
-        available_quantity: number;
-        reserved_quantity: number;
-        items: InventoryDetail[];
-    }> {
+    ): Promise<InventoryItem[]> {
         try {
             this.logger.log(`Fetching inventory for product ${productId}`);
-
-            await this.productRepository.findByIdOrThrow(productId);
-
-            const items = await this.inventoryRepository.findByProductId(
+            return await this.inventoryRepository.findByProductId(
                 productId,
                 query.market_id,
             );
-
-            return {
-                product_id: productId,
-                market_id: query.market_id,
-                available_quantity: items.reduce(
-                    (sum, row) => sum + row.available_quantity,
-                    0,
-                ),
-                reserved_quantity: items.reduce(
-                    (sum, row) => sum + row.reserved_quantity,
-                    0,
-                ),
-                items,
-            };
         } catch (error) {
             this.handleError(error);
         }

@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
     Prisma,
     ProductStatus,
-    WarehouseStatus,
     type Product,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -36,15 +35,18 @@ function productListSummarySelect(marketId?: string) {
         description: true,
         status: true,
         category_id: true,
+        category: {
+            select: {
+                name: true,
+            },
+        },
         created_at: true,
         updated_at: true,
         images: {
             orderBy: { sort_order: 'asc' as const },
             take: 1,
             select: {
-                id: true,
                 image_url: true,
-                sort_order: true,
             },
         },
         variants: {
@@ -58,7 +60,6 @@ function productListSummarySelect(marketId?: string) {
             orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
             take: 1,
             select: {
-                id: true,
                 market_variants: {
                     ...(marketId !== undefined && {
                         where: { market_id: marketId },
@@ -67,6 +68,7 @@ function productListSummarySelect(marketId?: string) {
                     select: {
                         price: true,
                         currency: true,
+                        sold_out: true,
                     },
                 },
             },
@@ -74,101 +76,135 @@ function productListSummarySelect(marketId?: string) {
     } satisfies Prisma.ProductSelect;
 }
 
-function withFirstVariantPrice<
+function toProductListItem<
     T extends {
+        category: { name: string };
+        images: Array<{ image_url: string }>;
         variants: Array<{
             market_variants: Array<{
                 price: unknown;
                 currency: string;
+                sold_out: boolean;
             }>;
         }>;
     },
 >(product: T) {
-    const { variants, ...rest } = product;
+    const { category, images, variants, ...rest } = product;
     const marketVariant = variants[0]?.market_variants[0];
     return {
         ...rest,
+        category_name: category.name,
+        image_url: images[0]?.image_url ?? null,
         price: marketVariant?.price ?? null,
         currency: marketVariant?.currency ?? null,
+        sold_out: marketVariant?.sold_out ?? false,
     };
 }
 
-const productDetailInclude = {
+const productDetailSelect = {
+    id: true,
+    name: true,
+    description: true,
+    specs: true,
+    status: true,
+    category_id: true,
+    created_at: true,
+    updated_at: true,
+    category: {
+        select: {
+            name: true,
+        },
+    },
     images: {
         orderBy: { sort_order: 'asc' as const },
+        select: {
+            id: true,
+            image_url: true,
+            sort_order: true,
+        },
     },
     variants: {
-        include: { image: true },
-    },
-} as const;
-
-function productDetailWithMarketVariantsInclude(marketId?: string) {
-    return {
-        images: {
-            orderBy: { sort_order: 'asc' as const },
+        orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
+        select: {
+            id: true,
+            variant_code: true,
+            color: true,
+            size: true,
+            variant_info: true,
+            created_at: true,
+            updated_at: true,
+            image: {
+                select: {
+                    image_url: true,
+                },
+            },
         },
+    },
+} satisfies Prisma.ProductSelect;
+
+function productDetailWithMarketSelect(marketId?: string) {
+    return {
+        ...productDetailSelect,
         variants: {
-            include: {
-                image: true,
+            orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
+            select: {
+                id: true,
+                variant_code: true,
+                color: true,
+                size: true,
+                variant_info: true,
+                created_at: true,
+                updated_at: true,
+                image: {
+                    select: {
+                        image_url: true,
+                    },
+                },
                 market_variants: {
                     ...(marketId !== undefined && {
                         where: { market_id: marketId },
                     }),
-                    include: {
-                        inventories: {
-                            ...(marketId !== undefined && {
-                                where: {
-                                    warehouse: {
-                                        market_id: marketId,
-                                        status: WarehouseStatus.OPEN,
-                                    },
-                                },
-                            }),
-                            select: {
-                                available_quantity: true,
-                            },
-                        },
+                    select: {
+                        id: true,
+                        price: true,
+                        currency: true,
+                        sold_out: true,
                     },
                 },
             },
         },
-    } as const;
+    } satisfies Prisma.ProductSelect;
 }
 
-function withMarketVariantAvailability<
+function toProductDetail<
     T extends {
+        category: { name: string };
         variants: Array<{
-            market_variants: Array<{
-                inventories: Array<{ available_quantity: number }>;
+            image: { image_url: string } | null;
+            market_variants?: Array<{
+                id: string;
+                price: unknown;
+                currency: string;
+                sold_out: boolean;
             }>;
         }>;
     },
 >(product: T) {
+    const { category, variants, ...rest } = product;
     return {
-        ...product,
-        variants: product.variants.map(({ market_variants, ...variant }) => {
-            const available_quantity = market_variants.reduce(
-                (variantSum, marketVariant) =>
-                    variantSum +
-                    marketVariant.inventories.reduce(
-                        (sum, row) => sum + row.available_quantity,
-                        0,
-                    ),
-                0,
-            );
-
+        ...rest,
+        category_name: category.name,
+        variants: variants.map(({ image, market_variants, ...variant }) => {
+            const marketVariant = market_variants?.[0];
             return {
                 ...variant,
-                available_quantity,
-                market_variants: market_variants.map(
-                    ({ inventories, ...marketVariant }) => ({
-                        ...marketVariant,
-                        available_quantity: inventories.reduce(
-                            (sum, row) => sum + row.available_quantity,
-                            0,
-                        ),
-                    }),
-                ),
+                image_url: image?.image_url ?? null,
+                ...(market_variants !== undefined && {
+                    market_variant_id: marketVariant?.id ?? null,
+                    price: marketVariant?.price ?? null,
+                    currency: marketVariant?.currency ?? null,
+                    sold_out: marketVariant?.sold_out ?? false,
+                }),
             };
         }),
     };
@@ -208,8 +244,8 @@ export class ProductRepository {
                     })),
                 },
             },
-            include: productDetailInclude,
-        });
+            select: productDetailSelect,
+        }).then(toProductDetail);
     }
 
     async findAllPublic(query: FindProductsDto) {
@@ -261,7 +297,7 @@ export class ProductRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(withFirstVariantPrice);
+        const items = page.map(toProductListItem);
 
         return {
             items,
@@ -327,7 +363,7 @@ export class ProductRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(withFirstVariantPrice);
+        const items = page.map(toProductListItem);
 
         return {
             items,
@@ -338,7 +374,7 @@ export class ProductRepository {
     async findById(id: string) {
         return await this.prisma.product.findUnique({
             where: { id },
-            include: productDetailInclude,
+            select: { id: true, status: true },
         });
     }
 
@@ -353,14 +389,14 @@ export class ProductRepository {
     async findDetailedById(id: string) {
         const product = await this.prisma.product.findUnique({
             where: { id },
-            include: productDetailWithMarketVariantsInclude(),
+            select: productDetailSelect,
         });
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return withMarketVariantAvailability(product);
+        return toProductDetail(product);
     }
 
     async findByIdInMarket(
@@ -380,14 +416,14 @@ export class ProductRepository {
                     },
                 },
             },
-            include: productDetailWithMarketVariantsInclude(marketId),
+            select: productDetailWithMarketSelect(marketId),
         });
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return withMarketVariantAvailability(product);
+        return toProductDetail(product);
     }
 
     private async findNameMatchedIds(name?: string) {

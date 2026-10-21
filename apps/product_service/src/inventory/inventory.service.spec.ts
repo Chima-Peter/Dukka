@@ -25,10 +25,7 @@ describe('InventoryService', () => {
                 {
                     provide: ProductRepository,
                     useValue: {
-                        findByIdOrThrow: vi.fn(),
                         findMarketVariantByIdOrThrow: vi.fn(),
-                        findMarketVariantsByIds: vi.fn(),
-                        findVariantByIdOrThrow: vi.fn(),
                     },
                 },
                 {
