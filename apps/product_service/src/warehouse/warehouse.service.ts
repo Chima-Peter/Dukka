@@ -153,6 +153,22 @@ export class WarehouseService {
         }
     }
 
+    async open(id: string, staffMarketIds: string[]): Promise<Warehouse> {
+        try {
+            this.logger.log(`Opening warehouse ${id}`);
+            const existing = await this.warehouseRepository.findByIdOrThrow(id);
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            if (existing.status === WarehouseStatus.OPEN) {
+                throw new BadRequestException('Warehouse is already open');
+            }
+            const warehouse = await this.warehouseRepository.open(id);
+            this.logger.log(`Warehouse opened ${id}`);
+            return warehouse;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     private async assertMarketsValid(
         marketIds: string[],
         accessToken?: string,

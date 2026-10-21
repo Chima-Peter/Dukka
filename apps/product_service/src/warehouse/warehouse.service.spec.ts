@@ -20,6 +20,7 @@ describe('WarehouseService', () => {
                         findByIdOrThrow: vi.fn(),
                         updateManager: vi.fn(),
                         close: vi.fn(),
+                        open: vi.fn(),
                     },
                 },
                 {

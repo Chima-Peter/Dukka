@@ -93,4 +93,14 @@ export class WarehouseController {
     ) {
         return this.warehouseService.close(id, staff.market_ids);
     }
+
+    @Post(':id/open')
+    @RequirePermission(StaffPermission.WarehousesOpen)
+    @ResponseMessage('Warehouse opened successfully')
+    open(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.warehouseService.open(id, staff.market_ids);
+    }
 }

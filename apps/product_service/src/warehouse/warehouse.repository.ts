@@ -98,4 +98,11 @@ export class WarehouseRepository {
             data: { status: WarehouseStatus.CLOSED },
         });
     }
+
+    async open(id: string): Promise<Warehouse> {
+        return await this.prisma.warehouse.update({
+            where: { id },
+            data: { status: WarehouseStatus.OPEN },
+        });
+    }
 }

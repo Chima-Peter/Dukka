@@ -64,6 +64,7 @@ export class InventoryController {
     }
 
     @Get('variants/:variantId')
+    @Public()
     @ResponseMessage('Variant inventory retrieved successfully')
     findByVariant(
         @Param('variantId', ParseUUIDPipe) variantId: string,
@@ -73,6 +74,7 @@ export class InventoryController {
     }
 
     @Get('products/:productId')
+    @Public()
     @ResponseMessage('Product inventory retrieved successfully')
     findByProduct(
         @Param('productId', ParseUUIDPipe) productId: string,
