@@ -21,7 +21,6 @@ model Category {
 }
 
 enum ProductStatus {
-  DRAFT
   PENDING_REVIEW
   ACTIVE
   REJECTED
@@ -33,7 +32,7 @@ model Product {
   name        String
   description String
   specs       Json
-  status      ProductStatus @default(DRAFT)
+  status      ProductStatus @default(PENDING_REVIEW)
 
   images   ProductImage[]
   variants Variant[]

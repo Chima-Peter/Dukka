@@ -212,10 +212,10 @@ async function seedProducts(markets: AccountMarket[]) {
         },
         {
             id: '22222222-2222-4222-8222-222222222203',
-            name: 'Dukka Draft Hoodie',
-            description: 'Draft product awaiting approval.',
+            name: 'Dukka Pending Hoodie',
+            description: 'Product awaiting approval.',
             specs: { material: 'fleece' },
-            status: ProductStatus.DRAFT,
+            status: ProductStatus.PENDING_REVIEW,
             category_id: apparel.id,
             images: [
                 {

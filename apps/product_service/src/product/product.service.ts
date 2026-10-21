@@ -376,8 +376,8 @@ export class ProductService {
         return this.transitionStatus(
             id,
             ProductStatus.ACTIVE,
-            [ProductStatus.DRAFT],
-            'Only draft products can be approved',
+            [ProductStatus.PENDING_REVIEW],
+            'Only products pending review can be approved',
             'Approving',
             'approved',
         );
@@ -387,8 +387,8 @@ export class ProductService {
         return this.transitionStatus(
             id,
             ProductStatus.REJECTED,
-            [ProductStatus.DRAFT],
-            'Only draft products can be rejected',
+            [ProductStatus.PENDING_REVIEW],
+            'Only products pending review can be rejected',
             'Rejecting',
             'rejected',
         );
@@ -398,7 +398,7 @@ export class ProductService {
         return this.transitionStatus(
             id,
             ProductStatus.ARCHIVED,
-            [ProductStatus.ACTIVE, ProductStatus.REJECTED, ProductStatus.DRAFT],
+            [ProductStatus.ACTIVE, ProductStatus.REJECTED, ProductStatus.PENDING_REVIEW],
             'Product is already archived or cannot be archived from its current status',
             'Archiving',
             'archived',
