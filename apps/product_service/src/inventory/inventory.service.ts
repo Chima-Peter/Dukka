@@ -16,6 +16,7 @@ import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
+import type { UpdateStockDto } from './dto/update-stock.dto.js';
 import {
     InventoryRepository,
     type InventoryItem,
@@ -73,6 +74,57 @@ export class InventoryService {
             });
             this.logger.log(`Inventory created ${inventory.id}`);
             return inventory;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async updateStock(
+        data: UpdateStockDto,
+        staffMarketIds: string[],
+    ): Promise<{ available_quantity: number; sold_out: boolean }> {
+        try {
+            this.logger.log(
+                `Updating stock for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}: ${data.type} ${data.quantity}`,
+            );
+
+            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+
+            const marketVariant =
+                await this.productRepository.findMarketVariantByIdOrThrow(
+                    data.market_variant_id,
+                );
+            if (marketVariant.market_id !== data.market_id) {
+                throw new BadRequestException(
+                    'Market variant does not belong to the specified market',
+                );
+            }
+
+            const warehouse = await this.warehouseRepository.findByIdOrThrow(
+                data.warehouse_id,
+            );
+            if (warehouse.market_id !== data.market_id) {
+                throw new BadRequestException(
+                    'Warehouse does not belong to the specified market',
+                );
+            }
+            if (warehouse.status === WarehouseStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Cannot update stock in a closed warehouse',
+                );
+            }
+
+            const result = await this.inventoryRepository.updateStock(
+                data.market_id,
+                data.market_variant_id,
+                data.warehouse_id,
+                data.type,
+                data.quantity,
+            );
+            this.logger.log(
+                `Stock updated to ${result.available_quantity} (sold_out=${result.sold_out})`,
+            );
+            return result;
         } catch (error) {
             this.handleError(error);
         }

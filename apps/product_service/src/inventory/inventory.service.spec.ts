@@ -16,6 +16,7 @@ describe('InventoryService', () => {
                     provide: InventoryRepository,
                     useValue: {
                         create: vi.fn(),
+                        updateStock: vi.fn(),
                         findProductAvailability: vi.fn(),
                         findByVariantId: vi.fn(),
                         findByProductId: vi.fn(),

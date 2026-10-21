@@ -4,6 +4,7 @@ import {
     Get,
     Param,
     ParseUUIDPipe,
+    Patch,
     Post,
     Query,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import { FindInventoryDto } from './dto/find-inventory.dto.js';
 import { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
+import { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryService } from './inventory.service.js';
 
 @Auth('staff')
@@ -35,6 +37,16 @@ export class InventoryController {
         @Body() data: CreateInventoryDto,
     ) {
         return this.inventoryService.create(data, staff.market_ids);
+    }
+
+    @Patch('stock')
+    @RequirePermission(StaffPermission.InventoryCreate)
+    @ResponseMessage('Stock updated successfully')
+    updateStock(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: UpdateStockDto,
+    ) {
+        return this.inventoryService.updateStock(data, staff.market_ids);
     }
 
     @Post('check-availability')

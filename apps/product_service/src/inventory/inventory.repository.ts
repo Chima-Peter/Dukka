@@ -16,6 +16,8 @@ export type ReserveInventoryItem = {
     quantity: number;
 };
 
+export type StockUpdateType = 'increment' | 'decrement';
+
 const inventoryRowSelect = {
     id: true,
     available_quantity: true,
@@ -107,6 +109,64 @@ export class InventoryRepository {
             select: inventoryRowSelect,
         });
         return toInventoryItem(row);
+    }
+
+    async updateStock(
+        marketId: string,
+        marketVariantId: string,
+        warehouseId: string,
+        type: StockUpdateType,
+        quantity: number,
+    ): Promise<{ available_quantity: number; sold_out: boolean }> {
+        const scope = {
+            warehouse: { id: warehouseId, market_id: marketId },
+            market_variant: { id: marketVariantId, market_id: marketId },
+        };
+
+        return await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.inventory.updateMany({
+                where: {
+                    ...scope,
+                    ...(type === 'decrement' && {
+                        available_quantity: { gte: quantity },
+                    }),
+                },
+                data: {
+                    available_quantity:
+                        type === 'decrement'
+                            ? { decrement: quantity }
+                            : { increment: quantity },
+                },
+            });
+
+            if (updated.count === 0) {
+                const existing = await tx.inventory.findFirst({
+                    where: scope,
+                    select: { id: true },
+                });
+                throw new BadRequestException(
+                    existing
+                        ? 'Insufficient available quantity'
+                        : `No inventory for market variant ${marketVariantId} in warehouse ${warehouseId}`,
+                );
+            }
+
+            const row = await tx.inventory.findFirstOrThrow({
+                where: scope,
+                select: { available_quantity: true },
+            });
+
+            const soldOut = row.available_quantity === 0;
+            await tx.marketVariant.update({
+                where: { id: marketVariantId },
+                data: { sold_out: soldOut },
+            });
+
+            return {
+                available_quantity: row.available_quantity,
+                sold_out: soldOut,
+            };
+        });
     }
 
     async findProductAvailability(productId: string, marketId: string) {

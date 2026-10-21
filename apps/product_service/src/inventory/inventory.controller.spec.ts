@@ -14,6 +14,7 @@ describe('InventoryController', () => {
                     provide: InventoryService,
                     useValue: {
                         create: vi.fn(),
+                        updateStock: vi.fn(),
                         checkAvailability: vi.fn(),
                         reserve: vi.fn(),
                         findByVariant: vi.fn(),
