@@ -7,13 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
-
-export type CreateWarehouseRecord = {
-    market_id: string;
-    name: string;
-    manager_id: string;
-    address: string;
-};
+import type { CreateWarehouseRecord } from './types/warehouse.type.js';
 
 @Injectable()
 export class WarehouseRepository {

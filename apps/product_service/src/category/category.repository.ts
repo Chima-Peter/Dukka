@@ -1,44 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Category } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-export type MarketCategoryItem = {
-    id: string;
-    market_id: string;
-    category_id: string;
-    name: string;
-    created_at: Date;
-    updated_at: Date;
-};
-
-const marketCategorySelect = {
-    id: true,
-    market_id: true,
-    category_id: true,
-    created_at: true,
-    updated_at: true,
-    category: {
-        select: { name: true },
-    },
-} as const;
-
-function toMarketCategoryItem(row: {
-    id: string;
-    market_id: string;
-    category_id: string;
-    created_at: Date;
-    updated_at: Date;
-    category: { name: string };
-}): MarketCategoryItem {
-    return {
-        id: row.id,
-        market_id: row.market_id,
-        category_id: row.category_id,
-        name: row.category.name,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    };
-}
+import type { MarketCategoryItem } from './types/market-category.type.js';
 
 @Injectable()
 export class CategoryRepository {
@@ -72,22 +35,45 @@ export class CategoryRepository {
                 market_id: marketId,
                 category_id: categoryId,
             },
-            select: marketCategorySelect,
+            include: {
+                category: {
+                    select: { name: true },
+                },
+            },
         });
-        return toMarketCategoryItem(row);
+
+        return {
+            id: row.id,
+            market_id: row.market_id,
+            category_id: row.category_id,
+            name: row.category.name,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        };
     }
 
     async findAllByMarket(marketId: string): Promise<MarketCategoryItem[]> {
         const rows = await this.prisma.marketCategory.findMany({
             where: { market_id: marketId },
-            select: marketCategorySelect,
+            include: {
+                category: {
+                    select: { name: true },
+                },
+            },
             orderBy: [
                 { category: { name: 'asc' } },
                 { id: 'asc' },
             ],
         });
 
-        return rows.map(toMarketCategoryItem);
+        return rows.map((row) => ({
+            id: row.id,
+            market_id: row.market_id,
+            category_id: row.category_id,
+            name: row.category.name,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }));
     }
 
     async removeFromMarket(
@@ -101,8 +87,20 @@ export class CategoryRepository {
                     category_id: categoryId,
                 },
             },
-            select: marketCategorySelect,
+            include: {
+                category: {
+                    select: { name: true },
+                },
+            },
         });
-        return toMarketCategoryItem(row);
+
+        return {
+            id: row.id,
+            market_id: row.market_id,
+            category_id: row.category_id,
+            name: row.category.name,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        };
     }
 }

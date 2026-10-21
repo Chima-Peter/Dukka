@@ -14,24 +14,19 @@ import {
     type HttpClient,
 } from '@nestjs/http-client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { StaffPermission, type ApiResponse } from '@app/common';
+import { type ApiResponse } from '@app/common';
 import {
     WarehouseStatus,
     type Warehouse,
 } from '../../generated/prisma/client.js';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import { WAREHOUSE_MANAGER_PERMISSIONS } from './constants/warehouse.constants.js';
 import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
 import { WarehouseRepository } from './warehouse.repository.js';
-
-const WAREHOUSE_MANAGER_PERMISSIONS = [
-    StaffPermission.WarehousesCreate,
-    StaffPermission.WarehousesUpdate,
-    StaffPermission.WarehousesClose,
-] as const;
 
 @Injectable()
 export class WarehouseService {

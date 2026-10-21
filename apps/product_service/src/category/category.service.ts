@@ -9,19 +9,13 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Category } from '../../generated/prisma/client.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
-import {
-    CategoryRepository,
-    type MarketCategoryItem,
-} from './category.repository.js';
+import { CategoryRepository } from './category.repository.js';
 import type { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
 import type { CreateCategoryDto } from './dto/create-category.dto.js';
 import type { FindCategoriesDto } from './dto/find-categories.dto.js';
 import type { UpdateCategoryDto } from './dto/update-category.dto.js';
-
-type PrismaErrorMap = {
-    notFound?: Partial<Record<'P2003' | 'P2025', string>>;
-    conflict?: Partial<Record<'P2002' | 'P2003' | 'P2014', string>>;
-};
+import type { MarketCategoryItem } from './types/market-category.type.js';
+import type { PrismaErrorMap } from './types/prisma-error.type.js';
 
 @Injectable()
 export class CategoryService {

@@ -1,94 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import {
-    Prisma,
-    WarehouseStatus,
-} from '../../generated/prisma/client.js';
+import { WarehouseStatus } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-export type CreateInventoryRecord = {
-    market_variant_id: string;
-    warehouse_id: string;
-    available_quantity: number;
-};
-
-export type ReserveInventoryItem = {
-    market_variant_id: string;
-    quantity: number;
-};
-
-export type StockUpdateType = 'increment' | 'decrement';
-
-const inventoryRowSelect = {
-    id: true,
-    available_quantity: true,
-    reserved_quantity: true,
-    market_variant_id: true,
-    warehouse_id: true,
-    created_at: true,
-    updated_at: true,
-    warehouse: {
-        select: {
-            name: true,
-            market_id: true,
-        },
-    },
-    market_variant: {
-        select: {
-            price: true,
-            currency: true,
-            sold_out: true,
-            variant_id: true,
-            variant: {
-                select: {
-                    variant_code: true,
-                    product_id: true,
-                },
-            },
-        },
-    },
-} satisfies Prisma.InventorySelect;
-
-type InventoryRow = Prisma.InventoryGetPayload<{
-    select: typeof inventoryRowSelect;
-}>;
-
-export type InventoryItem = {
-    id: string;
-    available_quantity: number;
-    reserved_quantity: number;
-    market_variant_id: string;
-    warehouse_id: string;
-    warehouse_name: string;
-    market_id: string;
-    variant_id: string;
-    variant_code: string;
-    product_id: string;
-    price: InventoryRow['market_variant']['price'];
-    currency: string;
-    sold_out: boolean;
-    created_at: Date;
-    updated_at: Date;
-};
-
-function toInventoryItem(row: InventoryRow): InventoryItem {
-    return {
-        id: row.id,
-        available_quantity: row.available_quantity,
-        reserved_quantity: row.reserved_quantity,
-        market_variant_id: row.market_variant_id,
-        warehouse_id: row.warehouse_id,
-        warehouse_name: row.warehouse.name,
-        market_id: row.warehouse.market_id,
-        variant_id: row.market_variant.variant_id,
-        variant_code: row.market_variant.variant.variant_code,
-        product_id: row.market_variant.variant.product_id,
-        price: row.market_variant.price,
-        currency: row.market_variant.currency,
-        sold_out: row.market_variant.sold_out,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    };
-}
+import {
+    inventoryRowSelect,
+    toInventoryItem,
+} from './mappers/inventory.mapper.js';
+import type {
+    CreateInventoryRecord,
+    InventoryItem,
+    ReserveInventoryItem,
+    StockUpdateType,
+} from './types/inventory.type.js';
 
 @Injectable()
 export class InventoryRepository {

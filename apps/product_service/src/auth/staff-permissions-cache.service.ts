@@ -11,10 +11,6 @@ import {
 } from '@app/common';
 import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 
-/** Same key account_service writes when caching staff permissions. */
-const staffPermissionsKey = (staffId: string) =>
-    `staff_permissions:${staffId}`;
-
 @Injectable()
 export class StaffPermissionsCacheService implements StaffPermissionsReader {
     constructor(
@@ -28,7 +24,7 @@ export class StaffPermissionsCacheService implements StaffPermissionsReader {
         accessToken?: string,
     ): Promise<string[]> {
         const cached = await this.redisService.getObject<string[]>(
-            staffPermissionsKey(staffId),
+            this.staffPermissionsKey(staffId),
         );
         if (cached !== null) {
             return cached;
@@ -62,5 +58,10 @@ export class StaffPermissionsCacheService implements StaffPermissionsReader {
         }
 
         return body.data;
+    }
+
+    /** Same key account_service writes when caching staff permissions. */
+    private staffPermissionsKey(staffId: string): string {
+        return `staff_permissions:${staffId}`;
     }
 }

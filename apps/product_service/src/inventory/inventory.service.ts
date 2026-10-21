@@ -17,10 +17,8 @@ import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
 import type { UpdateStockDto } from './dto/update-stock.dto.js';
-import {
-    InventoryRepository,
-    type InventoryItem,
-} from './inventory.repository.js';
+import { InventoryRepository } from './inventory.repository.js';
+import type { InventoryItem } from './types/inventory.type.js';
 
 @Injectable()
 export class InventoryService {
