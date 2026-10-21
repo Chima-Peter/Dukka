@@ -177,7 +177,11 @@ export class InventoryService {
             this.logger.log(
                 `Reserved inventory for ${data.items.length} item(s) in warehouse ${data.warehouse_id}`,
             );
-            return { reserved: true };
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+            return {
+                reserved: true,
+                expires_at: expiresAt.toISOString(),
+            };
         } catch (error) {
             this.handleError(error);
         }

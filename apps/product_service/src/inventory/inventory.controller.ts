@@ -49,16 +49,16 @@ export class InventoryController {
         return this.inventoryService.updateStock(data, staff.market_ids);
     }
 
-    @Post('check-availability')
+    @Get('check-availability')
     @Public()
     @ResponseMessage('Inventory availability checked successfully')
-    checkAvailability(@Body() data: CheckAvailabilityDto) {
-        return this.inventoryService.checkAvailability(data);
+    checkAvailability(@Query() query: CheckAvailabilityDto) {
+        return this.inventoryService.checkAvailability(query);
     }
 
     @Post('reserve')
     @Auth('customer')
-    @ResponseMessage('Inventory reserved successfully')
+    @ResponseMessage('Inventory reserved successfully for 1 hour')
     reserve(@Body() data: ReserveInventoryDto) {
         return this.inventoryService.reserve(data);
     }
