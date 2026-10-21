@@ -27,6 +27,7 @@ import { ACCOUNT_HTTP_CLIENT } from '../shared/account-http.constants.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
+import type { CreateVariantDto } from './dto/create-variant.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
@@ -180,6 +181,43 @@ export class ProductService {
             return product;
         } catch (error) {
             this.handleError(error);
+        }
+    }
+
+    async addVariant(productId: string, data: CreateVariantDto) {
+        try {
+            this.logger.log(`Adding variant to product ${productId}`);
+            const variant = await this.productRepository.createVariant(
+                productId,
+                {
+                    variant_code: data.variant_code,
+                    color: data.color,
+                    size: data.size,
+                    variant_info: data.variant_info,
+                    ...(data.image_path !== undefined && {
+                        image_url: this.supabaseService.getPublicURL(
+                            data.image_path,
+                            PRODUCT_BUCKET,
+                        ),
+                    }),
+                },
+            );
+            this.logger.log(
+                `Variant ${variant.id} added to product ${productId}`,
+            );
+            const { image, ...rest } = variant;
+            return {
+                ...rest,
+                image_url: image?.image_url ?? null,
+            };
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2003'
+            ) {
+                throw new NotFoundException('Product not found');
+            }
+            this.handleError(error, 'Product not found');
         }
     }
 

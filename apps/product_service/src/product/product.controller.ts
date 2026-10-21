@@ -22,6 +22,7 @@ import {
 import { extractBearerToken } from '../shared/extract-bearer-token.js';
 import { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
+import { CreateVariantDto } from './dto/create-variant.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductsDto } from './dto/find-products.dto.js';
 import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
@@ -90,6 +91,16 @@ export class ProductController {
         @Body() data: UpdateProductDto,
     ) {
         return this.productService.update(id, data);
+    }
+
+    @Post(':id/variants')
+    @RequirePermission(StaffPermission.ProductsUpdate)
+    @ResponseMessage('Variant added successfully')
+    addVariant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: CreateVariantDto,
+    ) {
+        return this.productService.addVariant(id, data);
     }
 
     @Patch(':id/variants/:variantId')

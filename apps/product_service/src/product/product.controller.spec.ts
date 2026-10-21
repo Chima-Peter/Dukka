@@ -33,6 +33,7 @@ describe('ProductController', () => {
                         findOne: vi.fn(),
                         findOneForStaff: vi.fn(),
                         update: vi.fn(),
+                        addVariant: vi.fn(),
                         updateVariant: vi.fn(),
                         addVariantToMarket: vi.fn(),
                         updateMarketVariant: vi.fn(),

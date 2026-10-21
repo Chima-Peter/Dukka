@@ -286,6 +286,46 @@ export class ProductRepository {
         });
     }
 
+    async createVariant(
+        productId: string,
+        data: {
+            variant_code: string;
+            color?: string;
+            size?: string;
+            variant_info: Record<string, unknown>;
+            image_url?: string;
+        },
+    ) {
+        return await this.prisma.variant.create({
+            data: {
+                product: { connect: { id: productId } },
+                variant_code: data.variant_code,
+                color: data.color,
+                size: data.size,
+                variant_info: data.variant_info as Prisma.InputJsonValue,
+                ...(data.image_url !== undefined && {
+                    image: {
+                        create: { image_url: data.image_url },
+                    },
+                }),
+            },
+            select: {
+                id: true,
+                variant_code: true,
+                color: true,
+                size: true,
+                variant_info: true,
+                created_at: true,
+                updated_at: true,
+                image: {
+                    select: {
+                        image_url: true,
+                    },
+                },
+            },
+        });
+    }
+
     async updateVariant(
         productId: string,
         variantId: string,
