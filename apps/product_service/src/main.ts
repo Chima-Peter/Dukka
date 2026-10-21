@@ -1,6 +1,7 @@
 import { ConsoleLogger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import type { ConfigType } from './config/env.interface.js';
 
@@ -42,6 +43,17 @@ async function bootstrap() {
             forbidNonWhitelisted: false,
             transform: true,
         }),
+    );
+
+    const swaggerConfig = new DocumentBuilder()
+        .setTitle('Product Service')
+        .setVersion('1.0')
+        .addBearerAuth()
+        .build();
+    SwaggerModule.setup(
+        'docs',
+        app,
+        SwaggerModule.createDocument(app, swaggerConfig),
     );
 
     const configService = app.get(ConfigService<ConfigType, true>);
