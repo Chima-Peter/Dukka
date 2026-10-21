@@ -28,6 +28,7 @@ import { FindProductsDto } from './dto/find-products.dto.js';
 import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
+import { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
 import { ProductService } from './product.service.js';
@@ -88,6 +89,16 @@ export class ProductController {
         @Body() data: UpdateProductDto,
     ) {
         return this.productService.update(id, data);
+    }
+
+    @Patch(':id/images')
+    @RequirePermission(StaffPermission.ProductsUpdate)
+    @ResponseMessage('Product images updated successfully')
+    updateImages(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: UpdateProductImagesDto,
+    ) {
+        return this.productService.updateImages(id, data);
     }
 
     @Post(':id/variants')

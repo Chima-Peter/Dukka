@@ -279,6 +279,74 @@ export class ProductRepository {
         });
     }
 
+    async syncProductImages(
+        productId: string,
+        desired: { image_url: string; sort_order: number }[],
+    ) {
+        return await this.prisma.$transaction(async (tx) => {
+            const product = await tx.product.findUnique({
+                where: { id: productId },
+                select: { id: true },
+            });
+            if (!product) {
+                throw new NotFoundException('Product not found');
+            }
+
+            const existing = await tx.productImage.findMany({
+                where: { product_id: productId },
+                select: {
+                    id: true,
+                    image_url: true,
+                    sort_order: true,
+                },
+            });
+
+            const desiredByUrl = new Map(
+                desired.map((image) => [image.image_url, image]),
+            );
+            const existingByUrl = new Map(
+                existing.map((image) => [image.image_url, image]),
+            );
+
+            const toDelete = existing.filter(
+                (image) => !desiredByUrl.has(image.image_url),
+            );
+            if (toDelete.length > 0) {
+                await tx.productImage.deleteMany({
+                    where: {
+                        id: { in: toDelete.map((image) => image.id) },
+                    },
+                });
+            }
+
+            await Promise.all(
+                desired.map((image) => {
+                    const current = existingByUrl.get(image.image_url);
+                    if (!current) {
+                        return tx.productImage.create({
+                            data: {
+                                product_id: productId,
+                                image_url: image.image_url,
+                                sort_order: image.sort_order,
+                            },
+                        });
+                    }
+
+                    if (current.sort_order !== image.sort_order) {
+                        return tx.productImage.update({
+                            where: { id: current.id },
+                            data: { sort_order: image.sort_order },
+                        });
+                    }
+
+                    return undefined;
+                }),
+            );
+
+            return toDelete;
+        });
+    }
+
     async updateStatus(id: string, status: ProductStatus): Promise<Product> {
         return await this.prisma.product.update({
             where: { id },

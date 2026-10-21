@@ -15,6 +15,15 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
             get: (_target, property) => String(property),
         },
     ),
+    PRODUCT_BUCKET: 'products',
+    ALLOWED_PRODUCT_CONTENT_TYPES: new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+    ]),
+    SupabaseService: class SupabaseService {},
 }));
 
 describe('ProductController', () => {
@@ -33,6 +42,7 @@ describe('ProductController', () => {
                         findOne: vi.fn(),
                         findOneForStaff: vi.fn(),
                         update: vi.fn(),
+                        updateImages: vi.fn(),
                         addVariant: vi.fn(),
                         updateVariant: vi.fn(),
                         addVariantToMarket: vi.fn(),

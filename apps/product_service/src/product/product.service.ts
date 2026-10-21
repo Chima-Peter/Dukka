@@ -33,8 +33,10 @@ import type { CreateVariantDto } from './dto/create-variant.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
+import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
 import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
+import type { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
 import type { UploadFileDto } from './dto/upload-file.dto.js';
 import { ProductRepository } from './product.repository.js';
@@ -193,6 +195,62 @@ export class ProductService {
         }
     }
 
+    async updateImages(productId: string, data: UpdateProductImagesDto) {
+        try {
+            this.logger.log(`Updating images for product ${productId}`);
+
+            const desired = await this.resolveProductImages(data.images);
+            const desiredUrls = new Set(desired.map((image) => image.image_url));
+            if (desiredUrls.size !== desired.length) {
+                throw new BadRequestException('Duplicate image URLs are not allowed');
+            }
+
+            const removed = await this.productRepository.syncProductImages(
+                productId,
+                desired,
+            );
+
+            if (removed.length > 0) {
+                await this.safeDeleteProductImages(
+                    removed.map((image) => image.image_url),
+                );
+            }
+
+            this.logger.log(`Product images updated for ${productId}`);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private async resolveProductImages(
+        images: CreateProductImageDto[],
+    ): Promise<{ image_url: string; sort_order: number }[]> {
+        const publicPrefix = this.supabaseService.getPublicURL(
+            '',
+            PRODUCT_BUCKET,
+        );
+
+        return Promise.all(
+            images.map(async (image) => {
+                if (image.image_path.startsWith(publicPrefix)) {
+                    return {
+                        image_url: image.image_path,
+                        sort_order: image.sort_order,
+                    };
+                }
+
+                await this.assertValidProductImage(image.image_path);
+                return {
+                    image_url: this.supabaseService.getPublicURL(
+                        image.image_path,
+                        PRODUCT_BUCKET,
+                    ),
+                    sort_order: image.sort_order,
+                };
+            }),
+        );
+    }
+
     async addVariant(productId: string, data: CreateVariantDto) {
         try {
             this.logger.log(`Adding variant to product ${productId}`);
@@ -325,22 +383,26 @@ export class ProductService {
     }
 
     private async safeDeleteProductImage(publicUrl: string): Promise<void> {
-        const storagePath = this.toStoragePath(publicUrl);
-        if (!storagePath) {
-            this.logger.warn(
-                `Could not resolve storage path from image URL ${publicUrl}`,
-            );
+        await this.safeDeleteProductImages([publicUrl]);
+    }
+
+    private async safeDeleteProductImages(publicUrls: string[]): Promise<void> {
+        const storagePaths = publicUrls
+            .map((url) => this.toStoragePath(url))
+            .filter((path): path is string => path !== null);
+
+        if (storagePaths.length === 0) {
             return;
         }
 
         try {
             await this.supabaseService.deleteFile(
-                [storagePath],
+                storagePaths,
                 PRODUCT_BUCKET,
             );
         } catch (error) {
             this.logger.warn(
-                `Failed to delete previous product image ${storagePath}: ${error}`,
+                `Failed to delete product image(s) ${storagePaths.join(',')}: ${error}`,
             );
         }
     }
