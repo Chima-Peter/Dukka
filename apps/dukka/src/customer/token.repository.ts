@@ -24,6 +24,18 @@ export class TokenRepository {
         });
     }
 
+    async createMany(data: CreateTokenInput[]): Promise<number> {
+        const result = await this.prisma.token.createMany({
+            data: data.map((item) => ({
+                token: item.token,
+                type: item.type,
+                customerId: item.customerId,
+            })),
+        });
+
+        return result.count;
+    }
+
     async findAllByCustomerId(customerId: string): Promise<Token[]> {
         return this.prisma.token.findMany({ where: { customerId } });
     }
@@ -35,6 +47,15 @@ export class TokenRepository {
         return this.prisma.token.findFirst({ where: { customerId, token } });
     }
 
+    async findRefreshToken(token: string): Promise<Token | null> {
+        return this.prisma.token.findFirst({
+            where: {
+                token,
+                type: 'REFRESH',
+            },
+        });
+    }
+
     async deleteByToken(customerId: string, token: string): Promise<number> {
         const result = await this.prisma.token.deleteMany({
             where: { customerId, token },
@@ -43,15 +64,26 @@ export class TokenRepository {
         return result.count;
     }
 
-    async deleteAllByCustomerId(customerId: string): Promise<Token[]> {
-        return this.prisma.$transaction(async (tx) => {
-            const tokens = await tx.token.findMany({ where: { customerId } });
-            if (tokens.length === 0) {
-                return [];
-            }
-
-            await tx.token.deleteMany({ where: { customerId } });
-            return tokens;
+    async deleteRefreshToken(
+        customerId: string,
+        token: string,
+    ): Promise<number> {
+        const result = await this.prisma.token.deleteMany({
+            where: {
+                customerId,
+                token,
+                type: 'REFRESH',
+            },
         });
+
+        return result.count;
+    }
+
+    async deleteAllByCustomerId(customerId: string): Promise<number> {
+        const result = await this.prisma.token.deleteMany({
+            where: { customerId },
+        });
+
+        return result.count;
     }
 }

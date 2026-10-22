@@ -51,6 +51,7 @@ describe('StaffAuthService', () => {
     let staffJwtService: {
         signAsync: ReturnType<typeof vi.fn>;
         decode: ReturnType<typeof vi.fn>;
+        verifyAsync: ReturnType<typeof vi.fn>;
     };
     let passwordHasher: {
         hash: ReturnType<typeof vi.fn>;
@@ -63,6 +64,10 @@ describe('StaffAuthService', () => {
     };
     let tokenRepository: {
         create: ReturnType<typeof vi.fn>;
+        createMany: ReturnType<typeof vi.fn>;
+        findRefreshToken: ReturnType<typeof vi.fn>;
+        findAllByStaffId: ReturnType<typeof vi.fn>;
+        deleteRefreshToken: ReturnType<typeof vi.fn>;
         deleteByToken: ReturnType<typeof vi.fn>;
         deleteAllByStaffId: ReturnType<typeof vi.fn>;
     };
@@ -129,6 +134,7 @@ describe('StaffAuthService', () => {
         staffJwtService = {
             signAsync: vi.fn(),
             decode: vi.fn(),
+            verifyAsync: vi.fn(),
         };
         passwordHasher = {
             hash: vi.fn(),
@@ -141,6 +147,10 @@ describe('StaffAuthService', () => {
         };
         tokenRepository = {
             create: vi.fn(),
+            createMany: vi.fn(),
+            findRefreshToken: vi.fn(),
+            findAllByStaffId: vi.fn(),
+            deleteRefreshToken: vi.fn(),
             deleteByToken: vi.fn(),
             deleteAllByStaffId: vi.fn(),
         };
@@ -185,11 +195,13 @@ describe('StaffAuthService', () => {
     });
 
     describe('login', () => {
-        it('returns access token and public staff', async () => {
+        it('returns access and refresh tokens with public staff', async () => {
             staffService.findByEmail.mockResolvedValue(staffRecord);
             passwordHasher.verify.mockResolvedValue(true);
             staffService.toPublicStaff.mockReturnValue(publicStaff);
-            staffJwtService.signAsync.mockResolvedValue('staff.jwt.token');
+            staffJwtService.signAsync
+                .mockResolvedValueOnce('staff.access.token')
+                .mockResolvedValueOnce('staff.refresh.token');
             permissionsService.extractPermissionNames.mockReturnValue([
                 'staff:create',
                 'staff:read',
@@ -197,7 +209,7 @@ describe('StaffAuthService', () => {
             permissionsService.cacheStaffPermissions.mockResolvedValue(
                 undefined,
             );
-            tokenRepository.create.mockResolvedValue({ id: 'token-1' });
+            tokenRepository.createMany.mockResolvedValue(2);
 
             const result = await service.login({
                 email: 'staff@example.com',
@@ -205,7 +217,8 @@ describe('StaffAuthService', () => {
             });
 
             expect(result).toEqual({
-                accessToken: 'staff.jwt.token',
+                accessToken: 'staff.access.token',
+                refreshToken: 'staff.refresh.token',
                 staff: publicStaff,
             });
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
@@ -218,14 +231,36 @@ describe('StaffAuthService', () => {
                     role_name: 'Admin',
                     hierarchy: 1,
                     market_ids: ['market-1', 'market-2'],
+                    tokenUse: 'access',
                 },
                 { expiresIn: expect.any(Number) },
             );
-            expect(tokenRepository.create).toHaveBeenCalledWith({
-                token: 'staff.jwt.token',
-                type: TokenType.ACCESS,
-                staffId: 'staff-1',
-            });
+            expect(staffJwtService.signAsync).toHaveBeenCalledWith(
+                {
+                    sub: 'staff-1',
+                    email: 'staff@example.com',
+                    type: 'staff',
+                    name: 'Ada Staff',
+                    role_id: 'role-1',
+                    role_name: 'Admin',
+                    hierarchy: 1,
+                    market_ids: ['market-1', 'market-2'],
+                    tokenUse: 'refresh',
+                },
+                { expiresIn: expect.any(Number) },
+            );
+            expect(tokenRepository.createMany).toHaveBeenCalledWith([
+                {
+                    token: 'staff.access.token',
+                    type: TokenType.ACCESS,
+                    staffId: 'staff-1',
+                },
+                {
+                    token: 'staff.refresh.token',
+                    type: TokenType.REFRESH,
+                    staffId: 'staff-1',
+                },
+            ]);
             expect(
                 permissionsService.cacheStaffPermissions,
             ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
@@ -259,31 +294,129 @@ describe('StaffAuthService', () => {
         });
     });
 
+    describe('refresh', () => {
+        it('rotates tokens when refresh token is valid', async () => {
+            staffJwtService.verifyAsync.mockResolvedValue({
+                sub: 'staff-1',
+                email: 'staff@example.com',
+                type: 'staff',
+                name: 'Ada Staff',
+                role_id: 'role-1',
+                role_name: 'Admin',
+                hierarchy: 1,
+                market_ids: ['market-1', 'market-2'],
+                tokenUse: 'refresh',
+            });
+            tokenRepository.findRefreshToken.mockResolvedValue({
+                staffId: 'staff-1',
+                token: 'old.refresh',
+                type: TokenType.REFRESH,
+            });
+            tokenRepository.deleteRefreshToken.mockResolvedValue(1);
+            staffJwtService.signAsync
+                .mockResolvedValueOnce('new.access')
+                .mockResolvedValueOnce('new.refresh');
+            tokenRepository.createMany.mockResolvedValue(2);
+
+            const result = await service.refresh('old.refresh');
+
+            expect(result).toEqual({
+                accessToken: 'new.access',
+                refreshToken: 'new.refresh',
+            });
+            expect(tokenRepository.findRefreshToken).toHaveBeenCalledWith(
+                'old.refresh',
+            );
+            expect(tokenRepository.deleteRefreshToken).toHaveBeenCalledWith(
+                'staff-1',
+                'old.refresh',
+            );
+            expect(staffService.findByEmail).not.toHaveBeenCalled();
+            expect(staffJwtService.signAsync).toHaveBeenCalledWith(
+                {
+                    sub: 'staff-1',
+                    email: 'staff@example.com',
+                    type: 'staff',
+                    name: 'Ada Staff',
+                    role_id: 'role-1',
+                    role_name: 'Admin',
+                    hierarchy: 1,
+                    market_ids: ['market-1', 'market-2'],
+                    tokenUse: 'access',
+                },
+                { expiresIn: expect.any(Number) },
+            );
+        });
+
+        it('rejects unknown refresh tokens', async () => {
+            staffJwtService.verifyAsync.mockResolvedValue({
+                sub: 'staff-1',
+                email: 'staff@example.com',
+                type: 'staff',
+                tokenUse: 'refresh',
+            });
+            tokenRepository.findRefreshToken.mockResolvedValue(null);
+
+            await expect(
+                service.refresh('missing.refresh'),
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+        });
+    });
+
     describe('logout', () => {
-        it('deletes token and blacklists it', async () => {
+        it('deletes tokens and blacklists access in redis', async () => {
+            staffJwtService.verifyAsync.mockResolvedValue({
+                sub: 'staff-1',
+                email: 'staff@example.com',
+                type: 'staff',
+                tokenUse: 'refresh',
+            });
+            tokenRepository.deleteRefreshToken.mockResolvedValue(1);
             tokenRepository.deleteByToken.mockResolvedValue(1);
             staffJwtService.decode.mockReturnValue({
                 exp: Math.floor(Date.now() / 1000) + 3600,
             });
 
-            await service.logout('staff-1', 'staff.jwt.token');
+            await service.logout(
+                'staff-1',
+                'staff.access.token',
+                'staff.refresh.token',
+            );
 
+            expect(staffJwtService.verifyAsync).toHaveBeenCalledWith(
+                'staff.refresh.token',
+                { algorithms: ['RS256'] },
+            );
+            expect(tokenRepository.deleteRefreshToken).toHaveBeenCalledWith(
+                'staff-1',
+                'staff.refresh.token',
+            );
             expect(tokenRepository.deleteByToken).toHaveBeenCalledWith(
                 'staff-1',
-                'staff.jwt.token',
+                'staff.access.token',
             );
             expect(redisService.set).toHaveBeenCalledWith(
-                'blacklisted:token:staff.jwt.token',
+                'blacklisted:token:staff.access.token',
                 '1',
                 expect.any(Number),
             );
         });
 
-        it('rejects missing token records', async () => {
-            tokenRepository.deleteByToken.mockResolvedValue(0);
+        it('rejects missing refresh token records', async () => {
+            staffJwtService.verifyAsync.mockResolvedValue({
+                sub: 'staff-1',
+                email: 'staff@example.com',
+                type: 'staff',
+                tokenUse: 'refresh',
+            });
+            tokenRepository.deleteRefreshToken.mockResolvedValue(0);
 
             await expect(
-                service.logout('staff-1', 'missing.token'),
+                service.logout(
+                    'staff-1',
+                    'staff.access.token',
+                    'missing.refresh',
+                ),
             ).rejects.toBeInstanceOf(UnauthorizedException);
         });
     });

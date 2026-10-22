@@ -1,8 +1,10 @@
 export type JwtSubjectType = 'customer' | 'staff';
+export type JwtTokenUse = 'access' | 'refresh';
 
 interface JwtPayloadBase {
     sub: string;
     email: string;
+    tokenUse: JwtTokenUse;
     iat?: number;
     exp?: number;
 }

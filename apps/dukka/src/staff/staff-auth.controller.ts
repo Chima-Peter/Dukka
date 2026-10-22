@@ -36,19 +36,39 @@ export class StaffAuthController {
         return this.staffAuthService.login(data);
     }
 
+    @Post('refresh')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Tokens refreshed successfully')
+    refresh(@Headers('x-refresh-token') refreshToken?: string) {
+        if (!refreshToken) {
+            throw new UnauthorizedException('Missing refresh token');
+        }
+
+        return this.staffAuthService.refresh(refreshToken);
+    }
+
     @Post('logout')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Logout successful')
     logout(
         @CurrentStaff() staff: StaffJwtPayload,
         @Headers('authorization') authorization?: string,
+        @Headers('x-refresh-token') refreshToken?: string,
     ) {
         const accessToken = this.extractBearerToken(authorization);
         if (!accessToken) {
             throw new UnauthorizedException('Missing authentication token');
         }
+        if (!refreshToken) {
+            throw new UnauthorizedException('Missing refresh token');
+        }
 
-        return this.staffAuthService.logout(staff.sub, accessToken);
+        return this.staffAuthService.logout(
+            staff.sub,
+            accessToken,
+            refreshToken,
+        );
     }
 
     @Post('password-reset/initiate')

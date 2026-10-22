@@ -17,15 +17,22 @@ import {
     PASSWORD_RESET_VERIFIED_TTL_SECONDS,
     RedisKeys,
 } from '../shared/index.js';
-import type { LoginData, PublicCustomer } from './types/index.js';
+import type { AuthTokens, LoginData, PublicCustomer } from './types/index.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
-import { RedisService, type JwtPayload } from '@app/common';
+import {
+    RedisService,
+    type CustomerJwtPayload,
+    type JwtPayload,
+} from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { VerifyPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
 import { ChangePasswordDto } from './dto/change_password.dto.js';
-import { ACCESS_TOKEN_TTL_SECONDS } from '../shared/redis.constants.js';
+import {
+    ACCESS_TOKEN_TTL_SECONDS,
+    REFRESH_TOKEN_TTL_SECONDS,
+} from '../shared/redis.constants.js';
 import { TokenType } from '../../generated/prisma/client.js';
 import { TokenRepository } from './token.repository.js';
 
@@ -99,27 +106,9 @@ export class CustomerAuthService {
             } = customer;
             this.logger.log(`Customer ${data.email} password verified`);
 
-            const accessToken = await this.jwtService.signAsync(
-                {
-                    sub: customer.id,
-                    email: customer.email,
-                    type: 'customer',
-                    name: customer.name,
-                },
-                { expiresIn: ACCESS_TOKEN_TTL_SECONDS },
-            );
+            const tokens = await this.issueTokenPair(customer);
 
-            this.logger.log(
-                `Access token generated for customer ${data.email}`,
-            );
-
-            await this.tokenRepository.create({
-                token: accessToken,
-                type: TokenType.ACCESS,
-                customerId: customer.id,
-            });
-
-            return { accessToken, customer: publicCustomer };
+            return { ...tokens, customer: publicCustomer };
         } catch (error) {
             if (error instanceof HttpException) {
                 this.logger.warn(`HTTP exception: ${error.message}`);
@@ -140,23 +129,88 @@ export class CustomerAuthService {
         }
     }
 
-    async logout(customerId: string, accessToken: string): Promise<object> {
+    async refresh(refreshToken: string): Promise<AuthTokens> {
         try {
-            this.logger.log(`Logging out customer ${customerId}`);
+            this.logger.log('Refreshing customer tokens');
 
-            const deletedCount = await this.tokenRepository.deleteByToken(
-                customerId,
-                accessToken,
+            const payload =
+                await this.jwtService.verifyAsync<CustomerJwtPayload>(
+                    refreshToken,
+                    { algorithms: ['RS256'] },
+                );
+
+            if (
+                payload.type !== 'customer' ||
+                payload.tokenUse !== 'refresh'
+            ) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const storedToken =
+                await this.tokenRepository.findRefreshToken(refreshToken);
+            if (!storedToken || storedToken.customerId !== payload.sub) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const deletedCount = await this.tokenRepository.deleteRefreshToken(
+                payload.sub,
+                refreshToken,
             );
             if (deletedCount === 0) {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 
-            await this.blacklistToken(accessToken);
+            return this.issueTokenPair({
+                id: payload.sub,
+                email: payload.email,
+                name: payload.name,
+            });
+        } catch (error) {
+            if (error instanceof HttpException) {
+                this.logger.warn(`HTTP exception: ${error.message}`);
+                throw error;
+            }
 
-            this.logger.log(
-                `Access token blacklisted for customer ${customerId}`,
-            );
+            this.logger.error(`Internal server error: ${error}`);
+            throw new UnauthorizedException('Invalid or expired token');
+        }
+    }
+
+    async logout(
+        customerId: string,
+        accessToken: string,
+        refreshToken: string,
+    ): Promise<object> {
+        try {
+            this.logger.log(`Logging out customer ${customerId}`);
+
+            const payload =
+                await this.jwtService.verifyAsync<CustomerJwtPayload>(
+                    refreshToken,
+                    { algorithms: ['RS256'] },
+                );
+
+            if (
+                payload.type !== 'customer' ||
+                payload.tokenUse !== 'refresh' ||
+                payload.sub !== customerId
+            ) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const deletedRefresh =
+                await this.tokenRepository.deleteRefreshToken(
+                    customerId,
+                    refreshToken,
+                );
+            if (deletedRefresh === 0) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            await this.tokenRepository.deleteByToken(customerId, accessToken);
+            await this.blacklistAccessToken(accessToken);
+
+            this.logger.log(`Tokens revoked for customer ${customerId}`);
             return { data: null };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -165,9 +219,7 @@ export class CustomerAuthService {
             }
 
             this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
-            );
+            throw new UnauthorizedException('Invalid or expired token');
         }
     }
 
@@ -302,13 +354,7 @@ export class CustomerAuthService {
                 password,
             );
 
-            const activeTokens =
-                await this.tokenRepository.deleteAllByCustomerId(customer.id);
-
-            await Promise.all(
-                activeTokens.map((token) => this.blacklistToken(token.token)),
-            );
-
+            await this.revokeAllTokens(customer.id);
             await this.redisService.delete(redis_key);
 
             this.logger.log(`Password reset for ${email}`);
@@ -350,12 +396,7 @@ export class CustomerAuthService {
                 data.newPassword,
             );
 
-            const activeTokens =
-                await this.tokenRepository.deleteAllByCustomerId(customerId);
-
-            await Promise.all(
-                activeTokens.map((token) => this.blacklistToken(token.token)),
-            );
+            await this.revokeAllTokens(customerId);
 
             this.logger.log(`Password changed for customer ${customerId}`);
 
@@ -383,7 +424,59 @@ export class CustomerAuthService {
         }
     }
 
-    private async blacklistToken(token: string): Promise<void> {
+    private async revokeAllTokens(customerId: string): Promise<void> {
+        const activeTokens =
+            await this.tokenRepository.findAllByCustomerId(customerId);
+        await Promise.all(
+            activeTokens
+                .filter((token) => token.type === TokenType.ACCESS)
+                .map((token) => this.blacklistAccessToken(token.token)),
+        );
+        await this.tokenRepository.deleteAllByCustomerId(customerId);
+    }
+
+    private async issueTokenPair(customer: {
+        id: string;
+        email: string;
+        name: string;
+    }): Promise<AuthTokens> {
+        const basePayload = {
+            sub: customer.id,
+            email: customer.email,
+            type: 'customer' as const,
+            name: customer.name,
+        };
+
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwtService.signAsync(
+                { ...basePayload, tokenUse: 'access' },
+                { expiresIn: ACCESS_TOKEN_TTL_SECONDS },
+            ),
+            this.jwtService.signAsync(
+                { ...basePayload, tokenUse: 'refresh' },
+                { expiresIn: REFRESH_TOKEN_TTL_SECONDS },
+            ),
+        ]);
+
+        await this.tokenRepository.createMany([
+            {
+                token: accessToken,
+                type: TokenType.ACCESS,
+                customerId: customer.id,
+            },
+            {
+                token: refreshToken,
+                type: TokenType.REFRESH,
+                customerId: customer.id,
+            },
+        ]);
+
+        this.logger.log(`Token pair issued for customer ${customer.email}`);
+
+        return { accessToken, refreshToken };
+    }
+
+    private async blacklistAccessToken(token: string): Promise<void> {
         const remainingTtlSeconds = this.getRemainingTtlSeconds(token);
         if (remainingTtlSeconds <= 0) {
             return;

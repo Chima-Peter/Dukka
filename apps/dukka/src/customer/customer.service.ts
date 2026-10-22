@@ -11,7 +11,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { randomInt, timingSafeEqual } from 'node:crypto';
-import type { Customer } from '../../generated/prisma/client.js';
+import {
+    TokenType,
+    type Customer,
+} from '../../generated/prisma/client.js';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
@@ -363,10 +366,13 @@ export class CustomerService {
             }
 
             const activeTokens =
-                await this.tokenRepository.deleteAllByCustomerId(customer_id);
+                await this.tokenRepository.findAllByCustomerId(customer_id);
             await Promise.all(
-                activeTokens.map((token) => this.blacklistToken(token.token)),
+                activeTokens
+                    .filter((token) => token.type === TokenType.ACCESS)
+                    .map((token) => this.blacklistAccessToken(token.token)),
             );
+            await this.tokenRepository.deleteAllByCustomerId(customer_id);
 
             await this.delete(customer_id);
             await this.redisService.delete(key);
@@ -438,7 +444,7 @@ export class CustomerService {
         }
     }
 
-    private async blacklistToken(token: string): Promise<void> {
+    private async blacklistAccessToken(token: string): Promise<void> {
         const payload = this.jwtService.decode<JwtPayload>(token);
         if (!payload?.exp) {
             return;

@@ -88,8 +88,11 @@ describe('CustomerAuthService', () => {
                     provide: TokenRepository,
                     useValue: {
                         create: vi.fn(),
+                        createMany: vi.fn(),
                         findAllByCustomerId: vi.fn(),
                         findByToken: vi.fn(),
+                        findRefreshToken: vi.fn(),
+                        deleteRefreshToken: vi.fn(),
                         deleteByToken: vi.fn(),
                         deleteAllByCustomerId: vi.fn(),
                     },

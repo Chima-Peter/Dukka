@@ -36,6 +36,7 @@ describe('StaffAuthController', () => {
     let controller: StaffAuthController;
     let staffAuthService: {
         login: ReturnType<typeof vi.fn>;
+        refresh: ReturnType<typeof vi.fn>;
         logout: ReturnType<typeof vi.fn>;
         initiatePasswordReset: ReturnType<typeof vi.fn>;
         verifyPasswordReset: ReturnType<typeof vi.fn>;
@@ -45,6 +46,7 @@ describe('StaffAuthController', () => {
     beforeEach(async () => {
         staffAuthService = {
             login: vi.fn(),
+            refresh: vi.fn(),
             logout: vi.fn(),
             initiatePasswordReset: vi.fn(),
             verifyPasswordReset: vi.fn(),
@@ -70,7 +72,8 @@ describe('StaffAuthController', () => {
 
     it('logs in staff', async () => {
         staffAuthService.login.mockResolvedValue({
-            accessToken: 'token',
+            accessToken: 'access',
+            refreshToken: 'refresh',
             staff: { id: 'staff-1' },
         });
 
@@ -80,7 +83,8 @@ describe('StaffAuthController', () => {
                 password: 'password',
             }),
         ).resolves.toEqual({
-            accessToken: 'token',
+            accessToken: 'access',
+            refreshToken: 'refresh',
             staff: { id: 'staff-1' },
         });
     });

@@ -24,6 +24,18 @@ export class StaffTokenRepository {
         });
     }
 
+    async createMany(data: CreateStaffTokenInput[]): Promise<number> {
+        const result = await this.prisma.staffToken.createMany({
+            data: data.map((item) => ({
+                token: item.token,
+                type: item.type,
+                staffId: item.staffId,
+            })),
+        });
+
+        return result.count;
+    }
+
     async findAllByStaffId(staffId: string): Promise<StaffToken[]> {
         return this.prisma.staffToken.findMany({ where: { staffId } });
     }
@@ -35,6 +47,15 @@ export class StaffTokenRepository {
         return this.prisma.staffToken.findFirst({ where: { staffId, token } });
     }
 
+    async findRefreshToken(token: string): Promise<StaffToken | null> {
+        return this.prisma.staffToken.findFirst({
+            where: {
+                token,
+                type: 'REFRESH',
+            },
+        });
+    }
+
     async deleteByToken(staffId: string, token: string): Promise<number> {
         const result = await this.prisma.staffToken.deleteMany({
             where: { staffId, token },
@@ -43,15 +64,23 @@ export class StaffTokenRepository {
         return result.count;
     }
 
-    async deleteAllByStaffId(staffId: string): Promise<StaffToken[]> {
-        return this.prisma.$transaction(async (tx) => {
-            const tokens = await tx.staffToken.findMany({ where: { staffId } });
-            if (tokens.length === 0) {
-                return [];
-            }
-
-            await tx.staffToken.deleteMany({ where: { staffId } });
-            return tokens;
+    async deleteRefreshToken(staffId: string, token: string): Promise<number> {
+        const result = await this.prisma.staffToken.deleteMany({
+            where: {
+                staffId,
+                token,
+                type: 'REFRESH',
+            },
         });
+
+        return result.count;
+    }
+
+    async deleteAllByStaffId(staffId: string): Promise<number> {
+        const result = await this.prisma.staffToken.deleteMany({
+            where: { staffId },
+        });
+
+        return result.count;
     }
 }

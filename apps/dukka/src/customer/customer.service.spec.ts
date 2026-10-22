@@ -89,6 +89,7 @@ describe('CustomerService', () => {
                 {
                     provide: TokenRepository,
                     useValue: {
+                        findAllByCustomerId: vi.fn(),
                         deleteAllByCustomerId: vi.fn(),
                     },
                 },

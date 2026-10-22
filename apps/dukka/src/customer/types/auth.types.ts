@@ -5,7 +5,11 @@ export type PublicCustomer = Omit<
     'password' | 'createdAt' | 'updatedAt'
 >;
 
-export type LoginData = {
+export type AuthTokens = {
     accessToken: string;
+    refreshToken: string;
+};
+
+export type LoginData = AuthTokens & {
     customer: PublicCustomer;
 };

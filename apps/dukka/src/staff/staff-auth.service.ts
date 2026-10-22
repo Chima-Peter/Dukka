@@ -24,7 +24,10 @@ import {
     PASSWORD_RESET_VERIFIED_TTL_SECONDS,
     RedisKeys,
 } from '../shared/index.js';
-import { ACCESS_TOKEN_TTL_SECONDS } from '../shared/redis.constants.js';
+import {
+    STAFF_ACCESS_TOKEN_TTL_SECONDS,
+    STAFF_REFRESH_TOKEN_TTL_SECONDS,
+} from '../shared/redis.constants.js';
 import type { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import type { InitiateStaffPasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import type { StaffLoginDto } from './dto/login.dto.js';
@@ -33,7 +36,7 @@ import type { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_res
 import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
-import type { StaffLoginData } from './types/index.js';
+import type { AuthTokens, StaffLoginData } from './types/index.js';
 
 @Injectable()
 export class StaffAuthService {
@@ -78,9 +81,7 @@ export class StaffAuthService {
             this.logger.log(`Staff ${data.email} password verified`);
 
             const publicStaff = this.staffService.toPublicStaff(staff);
-            const market_ids = staff.staff_markets.map((sm) => sm.market_id);
-
-            const payload: Omit<StaffJwtPayload, 'iat' | 'exp'> = {
+            const tokens = await this.issueTokenPair({
                 sub: staff.id,
                 email: staff.email,
                 type: 'staff',
@@ -88,19 +89,7 @@ export class StaffAuthService {
                 role_id: staff.role_id,
                 role_name: staff.role?.name ?? null,
                 hierarchy: staff.role?.hierarchy ?? null,
-                market_ids,
-            };
-
-            const accessToken = await this.staffJwtService.signAsync(payload, {
-                expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-            });
-
-            this.logger.log(`Access token generated for staff ${data.email}`);
-
-            await this.tokenRepository.create({
-                token: accessToken,
-                type: TokenType.ACCESS,
-                staffId: staff.id,
+                market_ids: staff.staff_markets.map((sm) => sm.market_id),
             });
 
             const permissions =
@@ -114,7 +103,7 @@ export class StaffAuthService {
                 `Cached ${permissions.length} permission(s) for staff ${data.email}`,
             );
 
-            return { accessToken, staff: publicStaff };
+            return { ...tokens, staff: publicStaff };
         } catch (error) {
             if (error instanceof HttpException) {
                 this.logger.warn(`HTTP exception: ${error.message}`);
@@ -135,21 +124,90 @@ export class StaffAuthService {
         }
     }
 
-    async logout(staffId: string, accessToken: string): Promise<object> {
+    async refresh(refreshToken: string): Promise<AuthTokens> {
         try {
-            this.logger.log(`Logging out staff ${staffId}`);
+            this.logger.log('Refreshing staff tokens');
 
-            const deletedCount = await this.tokenRepository.deleteByToken(
-                staffId,
-                accessToken,
+            const payload =
+                await this.staffJwtService.verifyAsync<StaffJwtPayload>(
+                    refreshToken,
+                    { algorithms: ['RS256'] },
+                );
+
+            if (payload.type !== 'staff' || payload.tokenUse !== 'refresh') {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const storedToken =
+                await this.tokenRepository.findRefreshToken(refreshToken);
+            if (!storedToken || storedToken.staffId !== payload.sub) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const deletedCount = await this.tokenRepository.deleteRefreshToken(
+                payload.sub,
+                refreshToken,
             );
             if (deletedCount === 0) {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 
-            await this.blacklistToken(accessToken);
+            return this.issueTokenPair({
+                sub: payload.sub,
+                email: payload.email,
+                type: 'staff',
+                name: payload.name,
+                role_id: payload.role_id,
+                role_name: payload.role_name,
+                hierarchy: payload.hierarchy,
+                market_ids: payload.market_ids,
+            });
+        } catch (error) {
+            if (error instanceof HttpException) {
+                this.logger.warn(`HTTP exception: ${error.message}`);
+                throw error;
+            }
 
-            this.logger.log(`Access token blacklisted for staff ${staffId}`);
+            this.logger.error(`Internal server error: ${error}`);
+            throw new UnauthorizedException('Invalid or expired token');
+        }
+    }
+
+    async logout(
+        staffId: string,
+        accessToken: string,
+        refreshToken: string,
+    ): Promise<object> {
+        try {
+            this.logger.log(`Logging out staff ${staffId}`);
+
+            const payload =
+                await this.staffJwtService.verifyAsync<StaffJwtPayload>(
+                    refreshToken,
+                    { algorithms: ['RS256'] },
+                );
+
+            if (
+                payload.type !== 'staff' ||
+                payload.tokenUse !== 'refresh' ||
+                payload.sub !== staffId
+            ) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            const deletedRefresh =
+                await this.tokenRepository.deleteRefreshToken(
+                    staffId,
+                    refreshToken,
+                );
+            if (deletedRefresh === 0) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+
+            await this.tokenRepository.deleteByToken(staffId, accessToken);
+            await this.blacklistAccessToken(accessToken);
+
+            this.logger.log(`Tokens revoked for staff ${staffId}`);
             return { data: null };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -158,9 +216,7 @@ export class StaffAuthService {
             }
 
             this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
-            );
+            throw new UnauthorizedException('Invalid or expired token');
         }
     }
 
@@ -295,13 +351,7 @@ export class StaffAuthService {
                 password,
             );
 
-            const activeTokens =
-                await this.tokenRepository.deleteAllByStaffId(staff.id);
-
-            await Promise.all(
-                activeTokens.map((token) => this.blacklistToken(token.token)),
-            );
-
+            await this.revokeAllTokens(staff.id);
             await this.redisService.delete(redis_key);
 
             this.logger.log(`Password reset for ${email}`);
@@ -345,12 +395,7 @@ export class StaffAuthService {
                 data.newPassword,
             );
 
-            const activeTokens =
-                await this.tokenRepository.deleteAllByStaffId(staffId);
-
-            await Promise.all(
-                activeTokens.map((token) => this.blacklistToken(token.token)),
-            );
+            await this.revokeAllTokens(staffId);
 
             this.logger.log(`Password changed for staff ${staffId}`);
 
@@ -378,7 +423,50 @@ export class StaffAuthService {
         }
     }
 
-    private async blacklistToken(token: string): Promise<void> {
+    private async revokeAllTokens(staffId: string): Promise<void> {
+        const activeTokens =
+            await this.tokenRepository.findAllByStaffId(staffId);
+        await Promise.all(
+            activeTokens
+                .filter((token) => token.type === TokenType.ACCESS)
+                .map((token) => this.blacklistAccessToken(token.token)),
+        );
+        await this.tokenRepository.deleteAllByStaffId(staffId);
+    }
+
+    private async issueTokenPair(
+        claims: Omit<StaffJwtPayload, 'iat' | 'exp' | 'tokenUse'>,
+    ): Promise<AuthTokens> {
+        const [accessToken, refreshToken] = await Promise.all([
+            this.staffJwtService.signAsync(
+                { ...claims, tokenUse: 'access' },
+                { expiresIn: STAFF_ACCESS_TOKEN_TTL_SECONDS },
+            ),
+            this.staffJwtService.signAsync(
+                { ...claims, tokenUse: 'refresh' },
+                { expiresIn: STAFF_REFRESH_TOKEN_TTL_SECONDS },
+            ),
+        ]);
+
+        await this.tokenRepository.createMany([
+            {
+                token: accessToken,
+                type: TokenType.ACCESS,
+                staffId: claims.sub,
+            },
+            {
+                token: refreshToken,
+                type: TokenType.REFRESH,
+                staffId: claims.sub,
+            },
+        ]);
+
+        this.logger.log(`Token pair issued for staff ${claims.email}`);
+
+        return { accessToken, refreshToken };
+    }
+
+    private async blacklistAccessToken(token: string): Promise<void> {
         const remainingTtlSeconds = this.getRemainingTtlSeconds(token);
         if (remainingTtlSeconds <= 0) {
             return;
