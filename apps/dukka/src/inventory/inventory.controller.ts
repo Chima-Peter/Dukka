@@ -12,11 +12,13 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentCustomer,
     CurrentStaff,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { CheckAvailabilityDto } from './dto/check-availability.dto.js';
@@ -62,8 +64,11 @@ export class InventoryController {
     @Auth('customer')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Inventory reserved successfully for 1 hour')
-    reserve(@Body() data: ReserveInventoryDto) {
-        return this.inventoryService.reserve(data);
+    reserve(
+        @CurrentCustomer() customer: CustomerJwtPayload,
+        @Body() data: ReserveInventoryDto,
+    ) {
+        return this.inventoryService.reserve(customer.sub, data);
     }
 
     @Get('warehouses/:warehouseId')

@@ -5,6 +5,7 @@ import { InventoryService } from './inventory.service.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
+    CurrentCustomer: () => () => undefined,
     CurrentStaff: () => () => undefined,
     Public: () => () => undefined,
     RequirePermission: () => () => undefined,
@@ -15,6 +16,10 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
             get: (_target, property) => String(property),
         },
     ),
+}));
+
+vi.mock('../warehouse/service-state.service.js', () => ({
+    ServiceStateService: class ServiceStateService {},
 }));
 
 describe('InventoryController', () => {

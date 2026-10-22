@@ -117,6 +117,7 @@ export class ServiceStateRepository {
             },
             include: {
                 warehouse: true,
+                service_state: true
             },
             orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
         });

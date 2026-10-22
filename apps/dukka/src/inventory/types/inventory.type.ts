@@ -11,14 +11,12 @@ export type ReserveInventoryItem = {
     quantity: number;
 };
 
-export type ReserveWarehouseBooking = {
+export type ReserveInventoryResult = {
+    order_id: string;
+    order_inventory_id: string;
     warehouse_id: string;
-    quantity: number;
-};
-
-export type ReserveInventoryResultItem = {
-    market_variant_id: string;
-    warehouses: ReserveWarehouseBooking[];
+    expires_at: Date;
+    items: ReserveInventoryItem[];
 };
 
 export type StockUpdateType = 'increment' | 'decrement';
@@ -26,7 +24,6 @@ export type StockUpdateType = 'increment' | 'decrement';
 export type InventoryItem = {
     id: string;
     available_quantity: number;
-    reserved_quantity: number;
     market_variant_id: string;
     warehouse_id: string;
     warehouse_name: string;

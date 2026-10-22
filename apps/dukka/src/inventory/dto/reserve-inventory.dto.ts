@@ -20,7 +20,13 @@ export class ReserveInventoryItemDto {
 
 export class ReserveInventoryDto {
     @IsUUID()
+    order_id!: string;
+
+    @IsUUID()
     market_id!: string;
+
+    @IsUUID()
+    service_state_id!: string;
 
     @IsArray()
     @ArrayMinSize(1)

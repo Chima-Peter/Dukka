@@ -40,6 +40,7 @@ model Customer {
   tokens Token[]
   shipping_address    ShippingAddress[]
   reviews Reviews[]
+  orders  Order[]
 }
 
 model Token {
@@ -469,8 +470,9 @@ model MarketVariant {
   variant_id String
   variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
 
-  inventories Inventory[]
-  reviews     Reviews[]
+  inventories          Inventory[]
+  inventory_line_items InventoryLineItem[]
+  reviews              Reviews[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -494,6 +496,7 @@ model Warehouse {
   status     WarehouseStatus @default(OPEN)
 
   inventory                Inventory[]
+  order_inventories        OrderInventory[]
   warehouse_service_states WarehouseServiceState[]
 
   created_at DateTime @default(now())
@@ -532,7 +535,6 @@ model WarehouseServiceState {
 model Inventory {
   id                 String @id @default(uuid())
   available_quantity Int    @default(0)
-  reserved_quantity  Int    @default(0)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -543,6 +545,59 @@ model Inventory {
   warehouse         Warehouse     @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
 
   @@unique([market_variant_id, warehouse_id])
+}
+
+model Order {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  customer_id   String
+  customer      Customer    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  order_inventories OrderInventory[]
+}
+
+enum OrderInventoryStatus {
+  PENDING
+  CLOSED
+  SUCCESS
+}
+
+model OrderInventory {
+  id         String   @id @default(uuid())
+  status     OrderInventoryStatus   @default(PENDING)
+
+  created_at  DateTime @default(now())
+  expires_at  DateTime
+  updated_at  DateTime @updatedAt
+
+  order_id String
+  order    Order  @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  warehouse_id String
+  warehouse    Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Restrict)
+
+  line_items InventoryLineItem[]
+
+  @@unique([order_id, warehouse_id])
+  @@index([warehouse_id])
+}
+
+model InventoryLineItem {
+  id         String   @id @default(uuid())
+  quantity   Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  order_inventory_id String
+  order_inventory    OrderInventory @relation(fields: [order_inventory_id], references: [id], onDelete: Cascade)
+
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Restrict)
+
+  @@unique([order_inventory_id, market_variant_id])
+  @@index([market_variant_id])
 }
 
 model Reviews {
