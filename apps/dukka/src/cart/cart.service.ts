@@ -30,11 +30,10 @@ export class CartService {
 
     constructor(private readonly cartRepository: CartRepository) {}
 
-    async getTotalForCustomer(customerId: string): Promise<CartTotalView> {
+    async getTotalForCustomer(cartId: string): Promise<CartTotalView> {
         try {
-            this.logger.log(`Calculating total for customer ${customerId}`);
-            const cart =
-                await this.cartRepository.findByCustomerId(customerId);
+            this.logger.log(`Calculating total for cart ${cartId}`);
+            const cart = await this.cartRepository.findByCartId(cartId);
             return await this.syncTotal(cart);
         } catch (error) {
             this.handleError(error);
@@ -52,21 +51,19 @@ export class CartService {
     }
 
     async addItemForCustomer(
-        customerId: string,
+        cartId: string,
         data: AddCartItemDto,
     ): Promise<CartView> {
         try {
             this.logger.log(
-                `Adding item ${data.market_variant_id} x${data.quantity} for customer ${customerId}`,
+                `Adding item ${data.market_variant_id} x${data.quantity} to cart ${cartId}`,
             );
             const cart = await this.cartRepository.addItemForCustomer(
-                customerId,
+                cartId,
                 data.market_variant_id,
                 data.quantity,
             );
-            this.logger.log(
-                `Cart ${cart.id} updated for customer ${customerId}`,
-            );
+            this.logger.log(`Cart ${cart.id} updated`);
             return cart;
         } catch (error) {
             this.handleError(error);
@@ -91,16 +88,14 @@ export class CartService {
     }
 
     async updateItemQuantityForCustomer(
-        customerId: string,
+        cartId: string,
         itemId: string,
         data: UpdateCartItemQuantityDto,
     ): Promise<CartView> {
         try {
             this.logger.log(
-                `Updating cart item ${itemId} quantity to ${data.quantity} for customer ${customerId}`,
+                `Updating cart item ${itemId} quantity to ${data.quantity} in cart ${cartId}`,
             );
-            const cartId =
-                await this.cartRepository.findCartIdByCustomerId(customerId);
             const cart = await this.cartRepository.updateItemQuantity(
                 cartId,
                 itemId,
@@ -136,17 +131,15 @@ export class CartService {
     }
 
     async deleteItemsForCustomer(
-        customerId: string,
+        cartId: string,
         data: DeleteCartItemsDto,
     ): Promise<object> {
         try {
             this.logger.log(
-                `Deleting ${data.item_ids.length} item(s) for customer ${customerId}`,
+                `Deleting ${data.item_ids.length} item(s) from cart ${cartId}`,
             );
-            const cartId =
-                await this.cartRepository.findCartIdByCustomerId(customerId);
             await this.cartRepository.deleteItems(cartId, data.item_ids);
-            this.logger.log(`Cart items deleted for customer ${customerId}`);
+            this.logger.log(`Cart items deleted from cart ${cartId}`);
             return { data: null };
         } catch (error) {
             this.handleError(error);
@@ -164,7 +157,9 @@ export class CartService {
                 data.cart_id,
                 data.item_ids,
             );
-            this.logger.log(`Cart items deleted from guest cart ${data.cart_id}`);
+            this.logger.log(
+                `Cart items deleted from guest cart ${data.cart_id}`,
+            );
             return { data: null };
         } catch (error) {
             this.handleError(error);

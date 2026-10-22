@@ -15,7 +15,6 @@ import {
     CurrentCustomer,
     Public,
     ResponseMessage,
-    type CustomerJwtPayload,
 } from '@app/common';
 import { CartService } from './cart.service.js';
 import { AddCartItemDto } from './dto/add-cart-item.dto.js';
@@ -32,8 +31,8 @@ export class CartController {
     @Get('total')
     @Auth('customer')
     @ResponseMessage('Cart total calculated successfully')
-    getTotal(@CurrentCustomer() customer: CustomerJwtPayload) {
-        return this.cartService.getTotalForCustomer(customer.sub);
+    getTotal(@CurrentCustomer('cart_id') cartId: string) {
+        return this.cartService.getTotalForCustomer(cartId);
     }
 
     @Get('guest/:id/total')
@@ -47,10 +46,10 @@ export class CartController {
     @Auth('customer')
     @ResponseMessage('Item added to cart successfully')
     addItem(
-        @CurrentCustomer() customer: CustomerJwtPayload,
+        @CurrentCustomer('cart_id') cartId: string,
         @Body() data: AddCartItemDto,
     ) {
-        return this.cartService.addItemForCustomer(customer.sub, data);
+        return this.cartService.addItemForCustomer(cartId, data);
     }
 
     @Post('guest/items')
@@ -64,12 +63,12 @@ export class CartController {
     @Auth('customer')
     @ResponseMessage('Cart item quantity updated successfully')
     updateQuantity(
-        @CurrentCustomer() customer: CustomerJwtPayload,
+        @CurrentCustomer('cart_id') cartId: string,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateCartItemQuantityDto,
     ) {
         return this.cartService.updateItemQuantityForCustomer(
-            customer.sub,
+            cartId,
             id,
             data,
         );
@@ -90,10 +89,10 @@ export class CartController {
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Cart items deleted successfully')
     deleteItems(
-        @CurrentCustomer() customer: CustomerJwtPayload,
+        @CurrentCustomer('cart_id') cartId: string,
         @Body() data: DeleteCartItemsDto,
     ) {
-        return this.cartService.deleteItemsForCustomer(customer.sub, data);
+        return this.cartService.deleteItemsForCustomer(cartId, data);
     }
 
     @Delete('guest/items')

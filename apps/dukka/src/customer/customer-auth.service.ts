@@ -34,6 +34,7 @@ import {
     REFRESH_TOKEN_TTL_SECONDS,
 } from '../shared/redis.constants.js';
 import { TokenType } from '../../generated/prisma/client.js';
+import { CartRepository } from '../cart/cart.repository.js';
 import { TokenRepository } from './token.repository.js';
 
 @Injectable()
@@ -46,6 +47,7 @@ export class CustomerAuthService {
         private readonly redisService: RedisService,
         private readonly tokenRepository: TokenRepository,
         private readonly mailQueueService: MailQueueService,
+        private readonly cartRepository: CartRepository,
     ) {}
 
     async register(data: CreateCustomerDto): Promise<PublicCustomer> {
@@ -106,7 +108,16 @@ export class CustomerAuthService {
             } = customer;
             this.logger.log(`Customer ${data.email} password verified`);
 
-            const tokens = await this.issueTokenPair(customer);
+            const cart_id =
+                await this.cartRepository.findOrCreateCartIdForCustomer(
+                    customer.id,
+                );
+            const tokens = await this.issueTokenPair({
+                id: customer.id,
+                email: customer.email,
+                name: customer.name,
+                cart_id,
+            });
 
             return { ...tokens, customer: publicCustomer };
         } catch (error) {
@@ -164,6 +175,7 @@ export class CustomerAuthService {
                 id: payload.sub,
                 email: payload.email,
                 name: payload.name,
+                cart_id: payload.cart_id,
             });
         } catch (error) {
             if (error instanceof HttpException) {
@@ -439,12 +451,14 @@ export class CustomerAuthService {
         id: string;
         email: string;
         name: string;
+        cart_id: string;
     }): Promise<AuthTokens> {
         const basePayload = {
             sub: customer.id,
             email: customer.email,
             type: 'customer' as const,
             name: customer.name,
+            cart_id: customer.cart_id,
         };
 
         const [accessToken, refreshToken] = await Promise.all([

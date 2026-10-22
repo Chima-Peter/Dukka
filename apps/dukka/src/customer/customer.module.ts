@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { ConfigType } from '../config/env.interface.js';
+import { CartModule } from '../cart/cart.module.js';
 import { PasswordHasher } from '../shared/index.js';
 import { CustomerAuthController } from './customer-auth.controller.js';
 import { CustomerAuthService } from './customer-auth.service.js';
@@ -13,6 +14,7 @@ import { TokenRepository } from './token.repository.js';
 
 @Module({
     imports: [
+        CartModule,
         JwtModule.registerAsync({
             global: true,
             inject: [ConfigService],

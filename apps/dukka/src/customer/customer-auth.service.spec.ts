@@ -1,6 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CartRepository } from '../cart/cart.repository.js';
 import { PasswordHasher } from '../shared/index.js';
 import { CustomerAuthService } from './customer-auth.service.js';
 import { CustomerService } from './customer.service.js';
@@ -102,6 +103,12 @@ describe('CustomerAuthService', () => {
                     useValue: {
                         enqueueSend: vi.fn(),
                         enqueueSendMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: CartRepository,
+                    useValue: {
+                        findOrCreateCartIdForCustomer: vi.fn(),
                     },
                 },
             ],

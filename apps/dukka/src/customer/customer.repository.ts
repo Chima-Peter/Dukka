@@ -9,7 +9,16 @@ export class CustomerRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(data: CreateCustomerDto): Promise<Customer> {
-        return await this.prisma.customer.create({ data });
+        return await this.prisma.customer.create({
+            data: {
+                name: data.name,
+                email: data.email,
+                password: data.password,
+                cart: {
+                    create: {},
+                },
+            },
+        });
     }
 
     async findByEmail(email: string): Promise<Customer | null> {

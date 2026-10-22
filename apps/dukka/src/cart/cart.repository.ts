@@ -56,6 +56,26 @@ export class CartRepository {
         return cart.id;
     }
 
+    async findOrCreateCartIdForCustomer(customerId: string): Promise<string> {
+        const existing = await this.prisma.cart.findUnique({
+            where: { customer_id: customerId },
+            select: { id: true },
+        });
+
+        if (existing) {
+            return existing.id;
+        }
+
+        const cart = await this.prisma.cart.create({
+            data: {
+                customer: { connect: { id: customerId } },
+            },
+            select: { id: true },
+        });
+
+        return cart.id;
+    }
+
     async setTotal(
         cartId: string,
         total: Prisma.Decimal,
@@ -70,7 +90,7 @@ export class CartRepository {
     }
 
     async addItemForCustomer(
-        customerId: string,
+        cartId: string,
         marketVariantId: string,
         quantity: number,
     ): Promise<CartView> {
@@ -80,24 +100,14 @@ export class CartRepository {
                 tx,
             );
 
-            const cart = await tx.cart.upsert({
-                where: { customer_id: customerId },
-                create: {
-                    id: customerId,
-                    customer: { connect: { id: customerId } },
-                    items: {
-                        create: {
-                            market_variant_id: marketVariantId,
-                            quantity,
-                        },
-                    },
-                },
-                update: {
+            const cart = await tx.cart.update({
+                where: { id: cartId },
+                data: {
                     items: {
                         upsert: {
                             where: {
                                 cart_id_market_variant_id: {
-                                    cart_id: customerId,
+                                    cart_id: cartId,
                                     market_variant_id: marketVariantId,
                                 },
                             },
@@ -192,31 +202,39 @@ export class CartRepository {
         itemId: string,
         quantity: number,
     ): Promise<CartView> {
-        return await this.prisma.$transaction(async (tx) => {
-            const result = await tx.cartItems.updateManyAndReturn({
-                where: { id: itemId, cart_id: cartId },
-                data: { quantity },
-                select: cartSelect,
-            });
-
-            if (result.length === 0) {
-                throw new NotFoundException('Cart item not found');
-            }
-
-            return toCartView(result[0])
-        });
-    }
-
-    async deleteItems(cartId: string, itemIds: string[]): Promise<void> {
-        const result = await this.prisma.cartItems.deleteMany({
-            where: {
-                cart_id: cartId,
-                id: { in: itemIds },
+        const updated = await this.prisma.cartItems.updateManyAndReturn({
+            where: { id: itemId, cart_id: cartId },
+            data: { quantity },
+            include: {
+                cart: { select: cartSelect },
             },
         });
 
-        if (result.count !== itemIds.length) {
-            throw new NotFoundException('One or more cart items not found');
+        if (updated.length === 0) {
+            throw new NotFoundException('Cart item not found');
         }
+
+        return toCartView(updated[0].cart);
+    }
+
+    async deleteItems(cartId: string, itemIds: string[]): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            const items = await tx.cartItems.findMany({
+                where: {
+                    cart_id: cartId,
+                    id: { in: itemIds, },
+                },
+                select: { cart_id: true }
+            })
+            if (items.length != itemIds.length) {
+                throw new NotFoundException('One or more cart items not found');
+            }
+            const result = await this.prisma.cartItems.deleteMany({
+                where: {
+                    cart_id: cartId,
+                    id: { in: itemIds },
+                },
+            });
+        })
     }
 }

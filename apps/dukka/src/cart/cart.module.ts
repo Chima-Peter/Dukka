@@ -8,6 +8,6 @@ import { CartService } from './cart.service.js';
     imports: [ProductModule],
     controllers: [CartController],
     providers: [CartService, CartRepository],
-    exports: [CartService],
+    exports: [CartService, CartRepository],
 })
 export class CartModule {}

@@ -12,6 +12,7 @@ interface JwtPayloadBase {
 export interface CustomerJwtPayload extends JwtPayloadBase {
     type: 'customer';
     name: string;
+    cart_id: string;
 }
 
 export interface StaffJwtPayload extends JwtPayloadBase {
