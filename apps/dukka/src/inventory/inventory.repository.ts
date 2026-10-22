@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import {
     OrderInventoryStatus,
     Prisma,
@@ -8,11 +12,14 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import {
     inventoryRowSelect,
+    orderInventoryRowSelect,
     toInventoryItem,
+    toOrderInventoryItem,
 } from './mappers/inventory.mapper.js';
 import type {
     CreateInventoryRecord,
     InventoryItem,
+    OrderInventoryItem,
     ReserveInventoryItem,
     ReserveInventoryResult,
     StockUpdateType,
@@ -355,6 +362,85 @@ export class InventoryRepository {
                 expires_at: expiresAt,
                 items,
             };
+        });
+    }
+
+    async findOrderInventoryById(
+        id: string,
+    ): Promise<OrderInventoryItem | null> {
+        const row = await this.prisma.orderInventory.findUnique({
+            where: { id },
+            select: orderInventoryRowSelect,
+        });
+        return row ? toOrderInventoryItem(row) : null;
+    }
+
+    async updateOrderInventoryStatus(
+        id: string,
+        status:
+            | typeof OrderInventoryStatus.SUCCESS
+            | typeof OrderInventoryStatus.CLOSED,
+    ): Promise<OrderInventoryItem> {
+        return await this.prisma.$transaction(async (tx) => {
+            const claimed = await tx.orderInventory.updateManyAndReturn({
+                where: { id, status: OrderInventoryStatus.PENDING },
+                data: { status },
+                select: {
+                    id: true,
+                    order_id: true,
+                    warehouse_id: true,
+                    status: true,
+                    expires_at: true,
+                    created_at: true,
+                    updated_at: true,
+                    warehouse: {
+                        select: {
+                            market_id: true,
+                        },
+                    },
+                },
+            });
+
+            if (claimed.length === 0) {
+                throw new BadRequestException(
+                    `Cannot change status of ${id}`,
+                );
+            }
+
+            const row = claimed[0];
+
+            if (status === OrderInventoryStatus.CLOSED) {
+                const lineItems = await tx.inventoryLineItem.findMany({
+                    where: { order_inventory_id: row.id },
+                    select: {
+                        market_variant_id: true,
+                        quantity: true,
+                    },
+                });
+
+                for (const line of lineItems) {
+                    const updated = await tx.inventory.updateManyAndReturn({
+                        where: {
+                            warehouse_id: row.warehouse_id,
+                            market_variant_id: line.market_variant_id,
+                        },
+                        data: {
+                            available_quantity: { increment: line.quantity },
+                        },
+                        select: {
+                            available_quantity: true,
+                        },
+                    });
+
+                    if (updated.length === 0) {
+                        throw new BadRequestException(
+                            `No inventory for market variant ${line.market_variant_id} in warehouse ${row.warehouse_id}`,
+                        );
+                    }
+                }
+            }
+
+            return toOrderInventoryItem(row);
         });
     }
 }

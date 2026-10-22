@@ -21,10 +21,12 @@ import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
+import type { UpdateOrderInventoryStatusDto } from './dto/update-order-inventory-status.dto.js';
 import type { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryRepository } from './inventory.repository.js';
 import type {
     InventoryItem,
+    OrderInventoryItem,
     ReserveInventoryResult,
 } from './types/inventory.type.js';
 
@@ -303,6 +305,40 @@ export class InventoryService {
                 items: page.items,
                 next_cursor: page.next_cursor,
             };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async updateOrderInventoryStatus(
+        id: string,
+        data: UpdateOrderInventoryStatusDto,
+        staffMarketIds: string[],
+    ): Promise<OrderInventoryItem> {
+        try {
+            this.logger.log(
+                `Setting order inventory ${id} status to ${data.status}`,
+            );
+
+            const existing =
+                await this.inventoryRepository.findOrderInventoryById(id);
+            if (!existing) {
+                throw new NotFoundException('Order inventory not found');
+            }
+            if (existing.status != 'PENDING') {
+                throw new BadRequestException(`Cannot change status from ${existing.status}`)
+            }
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+
+            const updated =
+                await this.inventoryRepository.updateOrderInventoryStatus(
+                    id,
+                    data.status,
+                );
+            this.logger.log(
+                `Order inventory ${id} status set to ${updated.status}`,
+            );
+            return updated;
         } catch (error) {
             this.handleError(error);
         }

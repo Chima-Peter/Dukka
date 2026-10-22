@@ -25,6 +25,7 @@ import { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import { FindInventoryDto } from './dto/find-inventory.dto.js';
 import { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
+import { UpdateOrderInventoryStatusDto } from './dto/update-order-inventory-status.dto.js';
 import { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryService } from './inventory.service.js';
 
@@ -69,6 +70,21 @@ export class InventoryController {
         @Body() data: ReserveInventoryDto,
     ) {
         return this.inventoryService.reserve(customer.sub, data);
+    }
+
+    @Patch('order-inventories/:id/status')
+    @RequirePermission(StaffPermission.InventoryCreate)
+    @ResponseMessage('Order inventory status updated successfully')
+    updateOrderInventoryStatus(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: UpdateOrderInventoryStatusDto,
+    ) {
+        return this.inventoryService.updateOrderInventoryStatus(
+            id,
+            data,
+            staff.market_ids,
+        );
     }
 
     @Get('warehouses/:warehouseId')

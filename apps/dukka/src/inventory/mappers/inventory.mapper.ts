@@ -1,5 +1,8 @@
 import type { Prisma } from '../../../generated/prisma/client.js';
-import type { InventoryItem } from '../types/inventory.type.js';
+import type {
+    InventoryItem,
+    OrderInventoryItem,
+} from '../types/inventory.type.js';
 
 export const inventoryRowSelect = {
     id: true,
@@ -30,8 +33,27 @@ export const inventoryRowSelect = {
     },
 } satisfies Prisma.InventorySelect;
 
+export const orderInventoryRowSelect = {
+    id: true,
+    order_id: true,
+    warehouse_id: true,
+    status: true,
+    expires_at: true,
+    created_at: true,
+    updated_at: true,
+    warehouse: {
+        select: {
+            market_id: true,
+        },
+    },
+} satisfies Prisma.OrderInventorySelect;
+
 type InventoryRow = Prisma.InventoryGetPayload<{
     select: typeof inventoryRowSelect;
+}>;
+
+type OrderInventoryRow = Prisma.OrderInventoryGetPayload<{
+    select: typeof orderInventoryRowSelect;
 }>;
 
 export function toInventoryItem(row: InventoryRow): InventoryItem {
@@ -48,6 +70,21 @@ export function toInventoryItem(row: InventoryRow): InventoryItem {
         price: row.market_variant.price,
         currency: row.market_variant.currency,
         sold_out: row.market_variant.sold_out,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toOrderInventoryItem(
+    row: OrderInventoryRow,
+): OrderInventoryItem {
+    return {
+        id: row.id,
+        order_id: row.order_id,
+        warehouse_id: row.warehouse_id,
+        market_id: row.warehouse.market_id,
+        status: row.status,
+        expires_at: row.expires_at,
         created_at: row.created_at,
         updated_at: row.updated_at,
     };

@@ -36,6 +36,7 @@ describe('InventoryController', () => {
                         updateStock: vi.fn(),
                         checkAvailability: vi.fn(),
                         reserve: vi.fn(),
+                        updateOrderInventoryStatus: vi.fn(),
                         findByVariant: vi.fn(),
                         findByProduct: vi.fn(),
                         findByWarehouse: vi.fn(),
