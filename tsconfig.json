@@ -46,16 +46,10 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/account_service/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/product_service/tsconfig.app.json"
+      "path": "./apps/dukka/tsconfig.app.json"
     },
     {
       "path": "./apps/mail_worker/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/notifications_service/tsconfig.app.json"
     }
   ]
 }

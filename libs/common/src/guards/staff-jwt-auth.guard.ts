@@ -49,7 +49,7 @@ export class StaffJwtAuthGuard implements CanActivate {
                 },
             );
 
-            if (payload.type !== 'staff') {
+            if (payload.type !== 'staff' || payload.tokenUse !== 'access') {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 

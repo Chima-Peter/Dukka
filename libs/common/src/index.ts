@@ -25,6 +25,7 @@ export type {
     CustomerJwtPayload,
     JwtPayload,
     JwtSubjectType,
+    JwtTokenUse,
     StaffJwtPayload,
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';

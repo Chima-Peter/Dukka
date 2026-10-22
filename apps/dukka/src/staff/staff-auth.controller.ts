@@ -1,0 +1,113 @@
+import {
+    Body,
+    Controller,
+    Headers,
+    HttpCode,
+    HttpStatus,
+    Post,
+    UnauthorizedException,
+} from '@nestjs/common';
+import {
+    Auth,
+    CurrentStaff,
+    Public,
+    ResponseMessage,
+    type StaffJwtPayload,
+} from '@app/common';
+import {
+    PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    PASSWORD_RESET_VERIFIED_TTL_SECONDS,
+} from '../shared/redis.constants.js';
+import { InitiateStaffPasswordResetDto } from './dto/initiate_password_reset.dto.js';
+import { StaffLoginDto } from './dto/login.dto.js';
+import { ResetStaffPasswordDto } from './dto/reset_password.dto.js';
+import { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
+import { StaffAuthService } from './staff-auth.service.js';
+
+@Auth('staff')
+@Controller('authentication/staff')
+export class StaffAuthController {
+    constructor(private readonly staffAuthService: StaffAuthService) {}
+
+    @Post('login')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Login successful')
+    login(@Body() data: StaffLoginDto) {
+        return this.staffAuthService.login(data);
+    }
+
+    @Post('refresh')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Tokens refreshed successfully')
+    refresh(@Headers('x-refresh-token') refreshToken?: string) {
+        if (!refreshToken) {
+            throw new UnauthorizedException('Missing refresh token');
+        }
+
+        return this.staffAuthService.refresh(refreshToken);
+    }
+
+    @Post('logout')
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Logout successful')
+    logout(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Headers('authorization') authorization?: string,
+        @Headers('x-refresh-token') refreshToken?: string,
+    ) {
+        const accessToken = this.extractBearerToken(authorization);
+        if (!accessToken) {
+            throw new UnauthorizedException('Missing authentication token');
+        }
+        if (!refreshToken) {
+            throw new UnauthorizedException('Missing refresh token');
+        }
+
+        return this.staffAuthService.logout(
+            staff.sub,
+            accessToken,
+            refreshToken,
+        );
+    }
+
+    @Post('password-reset/initiate')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage(
+        `Password reset initiated. Please check your email for the reset token. It will expire in ${PASSWORD_RESET_TOKEN_TTL_SECONDS / 60} minutes.`,
+    )
+    initiatePasswordReset(@Body() data: InitiateStaffPasswordResetDto) {
+        return this.staffAuthService.initiatePasswordReset(data);
+    }
+
+    @Post('password-reset/verify')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage(
+        `Password reset verified. This password reset is available for ${PASSWORD_RESET_VERIFIED_TTL_SECONDS / 60} minute.`,
+    )
+    verifyPasswordReset(@Body() data: VerifyStaffPasswordResetTokenDto) {
+        return this.staffAuthService.verifyPasswordReset(data);
+    }
+
+    @Post('password-reset/reset')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage(
+        'Password reset successful. You can now login with your new password.',
+    )
+    resetPassword(@Body() data: ResetStaffPasswordDto) {
+        return this.staffAuthService.resetPassword(data);
+    }
+
+    private extractBearerToken(authorization?: string): string | undefined {
+        if (!authorization) {
+            return undefined;
+        }
+
+        const [type, token] = authorization.split(' ');
+        return type === 'Bearer' ? token : undefined;
+    }
+}

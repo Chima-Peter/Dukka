@@ -46,7 +46,7 @@ export class CustomerJwtAuthGuard implements CanActivate {
                     algorithms: ['RS256'],
                 });
 
-            if (payload.type !== 'customer') {
+            if (payload.type !== 'customer' || payload.tokenUse !== 'access') {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 

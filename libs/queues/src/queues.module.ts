@@ -1,6 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { MailQueueService } from './mail-queue.service.js';
+import { MailQueueService } from './index.js';
 import { MAIL_JOB_OPTIONS, MAIL_QUEUE } from './queue.constants.js';
 import {
     ConfigurableModuleClass,

@@ -1,8 +1,10 @@
 export type JwtSubjectType = 'customer' | 'staff';
+export type JwtTokenUse = 'access' | 'refresh';
 
 interface JwtPayloadBase {
     sub: string;
     email: string;
+    tokenUse: JwtTokenUse;
     iat?: number;
     exp?: number;
 }
@@ -10,6 +12,7 @@ interface JwtPayloadBase {
 export interface CustomerJwtPayload extends JwtPayloadBase {
     type: 'customer';
     name: string;
+    cart_id: string;
 }
 
 export interface StaffJwtPayload extends JwtPayloadBase {
