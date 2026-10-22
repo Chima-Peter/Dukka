@@ -28,6 +28,7 @@ export class ReviewsController {
     constructor(private readonly reviewsService: ReviewsService) {}
 
     @Post('upload-url')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Review image upload URLs generated successfully')
     getImageUploadURLs(
         @CurrentCustomer() customer: CustomerJwtPayload,
@@ -53,12 +54,14 @@ export class ReviewsController {
     }
 
     @Post(':id/like')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Review liked successfully')
     like(@Param('id', ParseUUIDPipe) id: string) {
         return this.reviewsService.like(id);
     }
 
     @Post(':id/dislike')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Review disliked successfully')
     dislike(@Param('id', ParseUUIDPipe) id: string) {
         return this.reviewsService.dislike(id);

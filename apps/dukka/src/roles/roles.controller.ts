@@ -102,6 +102,7 @@ export class RolesController {
 
     @Post(':id/permissions')
     @RequirePermission(StaffPermission.RolesAssignPermissions)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Permissions assigned to role successfully')
     assignPermissions(
         @Param('id', ParseUUIDPipe) id: string,
@@ -125,6 +126,7 @@ export class RolesController {
 
     @Post(':id/markets')
     @RequirePermission(StaffPermission.RolesAssignMarkets)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Markets assigned to role successfully')
     assignMarkets(
         @Param('id', ParseUUIDPipe) id: string,

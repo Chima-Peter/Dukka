@@ -40,6 +40,7 @@ export class CategoryController {
 
     @Post(':categoryId/markets')
     @RequirePermission(StaffPermission.CategoriesCreate)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Category added to market successfully')
     addToMarket(
         @CurrentStaff() staff: StaffJwtPayload,

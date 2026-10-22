@@ -39,6 +39,7 @@ export class CustomerAuthController {
 
     @Post('login')
     @Public()
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Login successful')
     login(@Body() data: LoginDto) {
         return this.customerAuthService.login(data);
@@ -81,6 +82,7 @@ export class CustomerAuthController {
 
     @Post('password-reset/initiate')
     @Public()
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage(
         `Password reset initiated. Please check your email for the reset token. It will expire in ${PASSWORD_RESET_TOKEN_TTL_SECONDS / 60} minutes.`,
     )
@@ -90,16 +92,17 @@ export class CustomerAuthController {
 
     @Post('password-reset/verify')
     @Public()
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage(
         `Password reset verified. This password reset is available for ${PASSWORD_RESET_VERIFIED_TTL_SECONDS / 60} minute.`,
     )
-    @HttpCode(HttpStatus.OK)
     verifyPasswordReset(@Body() data: VerifyPasswordResetTokenDto) {
         return this.customerAuthService.verifyPasswordReset(data);
     }
 
     @Post('password-reset/reset')
     @Public()
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage(
         'Password reset successful. You can now login with your new password.',
     )

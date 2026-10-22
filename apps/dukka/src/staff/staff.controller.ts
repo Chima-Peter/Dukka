@@ -71,6 +71,7 @@ export class StaffController {
     }
 
     @Post('me/avatar/upload-url')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Avatar upload URL generated successfully')
     getAvatarUploadURL(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -104,6 +105,7 @@ export class StaffController {
     }
 
     @Post('me/qualifications/upload-url')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Qualification upload URL generated successfully')
     getQualificationUploadURL(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -159,6 +161,7 @@ export class StaffController {
     }
 
     @Post('validate')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Staff ids validated successfully')
     validate(@Body() data: ValidateStaffDto) {
         return this.staffService.validateIds(data);
@@ -205,6 +208,7 @@ export class StaffController {
 
     @Post(':id/role')
     @RequirePermission(StaffPermission.StaffAssignRole)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role assigned to staff successfully')
     assignRole(
         @Param('id', ParseUUIDPipe) id: string,
@@ -227,6 +231,7 @@ export class StaffController {
 
     @Post(':id/markets')
     @RequirePermission(StaffPermission.StaffAssignMarkets)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Markets assigned to staff successfully')
     assignMarkets(
         @Param('id', ParseUUIDPipe) id: string,
@@ -261,6 +266,7 @@ export class StaffController {
 
     @Post(':id/avatar/upload-url')
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Avatar upload URL generated successfully')
     getStaffAvatarUploadURL(
         @Param('id', ParseUUIDPipe) id: string,
@@ -304,6 +310,7 @@ export class StaffController {
 
     @Post(':id/qualifications/upload-url')
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Qualification upload URL generated successfully')
     getStaffQualificationUploadURL(
         @Param('id', ParseUUIDPipe) id: string,

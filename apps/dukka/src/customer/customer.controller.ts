@@ -56,6 +56,7 @@ export class CustomerController {
     }
 
     @Post('delete/initiate')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage(
         `Account deletion initiated. Please check your email for the confirmation token. It will expire in ${ACCOUNT_DELETION_TOKEN_TTL_SECONDS / 60} minutes.`,
     )

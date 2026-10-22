@@ -3,6 +3,8 @@ import {
     Controller,
     Delete,
     Get,
+    HttpCode,
+    HttpStatus,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -38,6 +40,7 @@ export class ProductController {
 
     @Post('upload-url')
     @RequirePermission(StaffPermission.ProductsCreate)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product image upload URLs generated successfully')
     getImageUploadURLs(@Body() data: UploadFileDto) {
         return this.productService.getImageUploadURLs(data);
@@ -122,6 +125,7 @@ export class ProductController {
 
     @Post(':id/variants/:variantId/markets')
     @RequirePermission(StaffPermission.ProductsApprove)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant added to market successfully')
     addVariantToMarket(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -182,6 +186,7 @@ export class ProductController {
 
     @Post(':id/approve')
     @RequirePermission(StaffPermission.ProductsApprove)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product approved successfully')
     approve(@Param('id', ParseUUIDPipe) id: string) {
         return this.productService.approve(id);
@@ -189,6 +194,7 @@ export class ProductController {
 
     @Post(':id/reject')
     @RequirePermission(StaffPermission.ProductsReject)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product rejected successfully')
     reject(@Param('id', ParseUUIDPipe) id: string) {
         return this.productService.reject(id);
@@ -196,6 +202,7 @@ export class ProductController {
 
     @Post(':id/archive')
     @RequirePermission(StaffPermission.ProductsArchive)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product archived successfully')
     archive(@Param('id', ParseUUIDPipe) id: string) {
         return this.productService.archive(id);

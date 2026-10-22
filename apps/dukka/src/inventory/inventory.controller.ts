@@ -2,6 +2,8 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
+    HttpStatus,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -58,6 +60,7 @@ export class InventoryController {
 
     @Post('reserve')
     @Auth('customer')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Inventory reserved successfully for 1 hour')
     reserve(@Body() data: ReserveInventoryDto) {
         return this.inventoryService.reserve(data);

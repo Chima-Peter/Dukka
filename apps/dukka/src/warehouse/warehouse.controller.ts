@@ -2,6 +2,8 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
+    HttpStatus,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -77,6 +79,7 @@ export class WarehouseController {
 
     @Post(':id/close')
     @RequirePermission(StaffPermission.WarehousesClose)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse closed successfully')
     close(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -87,6 +90,7 @@ export class WarehouseController {
 
     @Post(':id/open')
     @RequirePermission(StaffPermission.WarehousesOpen)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse opened successfully')
     open(
         @CurrentStaff() staff: StaffJwtPayload,

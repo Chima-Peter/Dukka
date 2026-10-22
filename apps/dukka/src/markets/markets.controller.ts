@@ -36,6 +36,7 @@ export class MarketsController {
     }
 
     @Post('validate')
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market ids validated successfully')
     validate(@Body() data: ValidateMarketsDto) {
         return this.marketsService.validateIds(data);
@@ -70,6 +71,7 @@ export class MarketsController {
 
     @Post(':id/activate')
     @RequirePermission(StaffPermission.MarketsUpdate)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market activated successfully')
     activate(@Param('id', ParseUUIDPipe) id: string) {
         return this.marketsService.activate(id);
@@ -77,6 +79,7 @@ export class MarketsController {
 
     @Post(':id/deactivate')
     @RequirePermission(StaffPermission.MarketsUpdate)
+    @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market deactivated successfully')
     deactivate(@Param('id', ParseUUIDPipe) id: string) {
         return this.marketsService.deactivate(id);
