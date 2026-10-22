@@ -125,6 +125,10 @@ export class ProductRepository {
         const limit = query.limit ?? 50;
         const hasPriceFilter =
             query.min_price !== undefined || query.max_price !== undefined;
+        const hasMarketVariantFilter =
+            query.market_id !== undefined ||
+            hasPriceFilter ||
+            query.sold_out !== undefined;
         const records = await this.prisma.product.findMany({
             where: {
                 ...(nameMatchedIds !== undefined && {
@@ -139,7 +143,7 @@ export class ProductRepository {
                     },
                 }),
                 ...(query.status !== undefined && { status: query.status }),
-                ...(query.market_id !== undefined || hasPriceFilter
+                ...(hasMarketVariantFilter
                     ? {
                           variants: {
                               some: {
@@ -160,6 +164,9 @@ export class ProductRepository {
                                                       lte: query.max_price,
                                                   }),
                                               },
+                                          }),
+                                          ...(query.sold_out !== undefined && {
+                                              sold_out: query.sold_out,
                                           }),
                                       },
                                   },

@@ -629,3 +629,15 @@ model ReviewsImages {
   updated_at DateTime @updatedAt
 }
 
+model Promos {
+  id    String    @id @default(uuid())
+}
+
+model Coupon {
+  id      String    @id @default(uuid())
+}
+
+model Cart {
+  id    String    @id  @default(uuid())
+}
+
