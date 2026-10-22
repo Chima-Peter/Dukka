@@ -1,0 +1,544 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TokenType {
+  ACCESS
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  avatar    String?
+  email     String   @unique
+  password  String
+  date_of_birth  DateTime?
+  gender        Gender?
+  phone_number  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  points    Points?
+  
+  tokens Token[]
+  shipping_address    ShippingAddress[]
+  reviews Reviews[]
+}
+
+model Token {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  type       TokenType
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([customerId, type])
+}
+
+model ShippingAddress {
+  id    String    @id @default(uuid())
+  first_name  String
+  last_name String
+  email String      @unique
+  phone_number    String
+  whatsapp_number    String?
+  state_province    String
+  street_address  String
+  
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  customer_id   String
+  customer    Customer  @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+}
+
+model Points {
+  id    String    @id @default(ulid())
+  balance   Int   @default(0)
+
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  points_history PointsHistory[]
+
+  customer_id   String    @unique
+  customer    Customer    @relation(fields: [customer_id], references: [id])
+}
+
+enum POINT_STATUS {
+  REDEEMED
+  EARNED
+}
+
+enum POINT_REASON {
+  COMPLETE_ORDER
+  PLACE_ORDER
+  GAME
+  APP_NOTIFICATION
+  SUBSCRIBED
+  REGISTERED
+}
+
+model PointsHistory {
+  id    String    @id @default(uuid())
+  status    POINT_STATUS
+  description   POINT_REASON
+  count     Int
+
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  points_id   String
+  points    Points    @relation(fields: [points_id], references: [id], onDelete: Cascade)
+}
+
+model Staff {
+  id            String   @id @default(uuid())
+  name          String
+  avatar        String?
+  email         String   @unique
+  password      String
+  phone_number  String?
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  role_id String?
+  role    Role?  @relation(fields: [role_id], references: [id])
+
+  profile          StaffProfile?
+  qualifications   Qualification[]
+  tokens           StaffToken[]
+  staff_markets    StaffMarket[]
+  invitations_sent StaffInvitation[] @relation("StaffInvitationsSent")
+  invitation       StaffInvitation?  @relation("StaffInvitationAccepted")
+  warehouses       Warehouse[]
+}
+
+model StaffToken {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  type       TokenType
+  staffId    String
+  staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([staffId, type])
+}
+
+model StaffProfile {
+  id            String    @id @default(uuid())
+  job_title     String?
+  bio           String?
+  date_of_birth DateTime?
+  gender        Gender?
+  address       String?
+  hire_date     DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  staff_id String @unique
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+}
+
+model Qualification {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  document_url String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  staff_id String
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  @@index([staff_id])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  hierarchy   Int      @default(1)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  staff            Staff[]
+  invitations      StaffInvitation[]
+  role_permissions RolePermission[]
+  role_markets     RoleMarket[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  role_permissions RolePermission[]
+}
+
+model Currency {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  name       String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  market Market?
+}
+
+model Market {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  currency_id String   @unique
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  currency           Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
+  role_markets       RoleMarket[]
+  staff_markets      StaffMarket[]
+  invitation_markets StaffInvitationMarket[]
+  market_categories  MarketCategory[]
+  market_variants    MarketVariant[]
+  warehouses         Warehouse[]
+}
+
+enum StaffInvitationStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
+model StaffInvitation {
+  id           String                @id @default(uuid())
+  email        String
+  name         String
+  phone_number String?
+  token        String                @unique
+  status       StaffInvitationStatus @default(PENDING)
+  expires_at   DateTime
+  accepted_at  DateTime?
+  cancelled_at DateTime?
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  invited_by_staff_id String
+  invited_by          Staff  @relation("StaffInvitationsSent", fields: [invited_by_staff_id], references: [id], onDelete: Restrict)
+
+  staff_id String? @unique
+  staff    Staff?  @relation("StaffInvitationAccepted", fields: [staff_id], references: [id], onDelete: SetNull)
+
+  invitation_markets StaffInvitationMarket[]
+
+  @@index([email])
+  @@index([status])
+  @@index([expires_at])
+  @@index([invited_by_staff_id])
+  @@index([role_id])
+}
+
+model StaffInvitationMarket {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  invitation_id String
+  invitation    StaffInvitation @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([invitation_id, market_id])
+  @@index([market_id])
+}
+
+model StaffMarket {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  staff_id String
+  staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([staff_id, market_id])
+  @@index([market_id])
+}
+
+model RoleMarket {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  @@unique([role_id, market_id])
+  @@index([market_id])
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role_id String
+  role    Role @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  permission_id String
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Restrict)
+
+  @@unique([role_id, permission_id])
+  @@index([permission_id])
+}
+
+enum StaffAuditAction {
+  STAFF_CREATED
+  STAFF_DELETED
+  ROLE_ASSIGNED
+  ROLE_CHANGED
+  ROLE_REVOKED
+  MARKET_ASSIGNED
+  MARKET_REMOVED
+  PERMISSION_ASSIGNED
+  PERMISSION_REMOVED
+}
+
+model StaffAudit {
+  id         String           @id @default(uuid())
+  action     StaffAuditAction
+  created_at DateTime         @default(now())
+
+  staff_id   String?
+  staff_name String?
+
+  performed_by_staff_id   String
+  performed_by_staff_name String
+
+  role_id   String?
+  role_name String?
+
+  previous_role_id   String?
+  previous_role_name String?
+
+  market_id       String?
+  market_name     String?
+  permission_id   String?
+  permission_name String?
+
+  @@index([staff_id])
+  @@index([performed_by_staff_id])
+  @@index([role_id])
+  @@index([created_at])
+  @@map("staff_audit")
+}
+
+model Category {
+  id   String @id @default(uuid())
+  name String @unique
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  market_categories MarketCategory[]
+}
+
+model MarketCategory {
+  id String @id @default(uuid())
+
+  market_id   String
+  market      Market   @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  category_id String
+  category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
+
+  products Product[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([market_id, category_id])
+}
+
+enum ProductStatus {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  description String
+  specs       Json
+  status      ProductStatus @default(PENDING_REVIEW)
+
+  images   ProductImage[]
+  variants Variant[]
+
+  market_category_id String
+  market_category    MarketCategory @relation(fields: [market_category_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model ProductImage {
+  id         String @id @default(uuid())
+  image_url  String
+  sort_order Int    @default(0)
+
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Variant {
+  id           String        @id @default(uuid())
+  variant_code String        @unique
+  image        VariantImage?
+  color        String?
+  size         String?
+  variant_info Json
+
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  market_variants MarketVariant[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model VariantImage {
+  id        String @id @default(uuid())
+  image_url String
+
+  variant_id String  @unique
+  variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model MarketVariant {
+  id       String  @id @default(uuid())
+  price    Decimal @db.Decimal(12, 2)
+  currency String
+  sold_out Boolean @default(false)
+
+  market_id  String
+  market     Market  @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  variant_id String
+  variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  inventories Inventory[]
+  reviews     Reviews[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([market_id, variant_id])
+}
+
+enum WarehouseStatus {
+  OPEN
+  CLOSED
+}
+
+model Warehouse {
+  id         String          @id @default(uuid())
+  market_id  String
+  market     Market          @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  name       String
+  manager_id String
+  manager    Staff           @relation(fields: [manager_id], references: [id], onDelete: Restrict)
+  address    String
+  status     WarehouseStatus @default(OPEN)
+
+  inventory Inventory[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Inventory {
+  id                 String @id @default(uuid())
+  available_quantity Int    @default(0)
+  reserved_quantity  Int    @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
+  warehouse_id      String
+  warehouse         Warehouse     @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
+
+  @@unique([market_variant_id, warehouse_id])
+}
+
+model Reviews {
+  id          String   @id @default(uuid())
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  title       String
+  review      String
+  rating      Int
+  likes       Int?     @default(0)
+  dislikes    Int?     @default(0)
+
+  review_images ReviewsImages[]
+
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+}
+
+model ReviewsImages {
+  id        String @id @default(uuid())
+  image_url String
+
+  review_id String
+  review    Reviews @relation(fields: [review_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+

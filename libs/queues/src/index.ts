@@ -6,8 +6,8 @@ export {
     type MailJobName,
     type MailTemplate,
 } from './queue.constants.js';
-export type { SendMailJobPayload } from './mail-queue.types.js';
-export { MailQueueService } from './mail-queue.service.js';
+export type { SendMailJobPayload } from './mail/index.js';
+export { MailQueueService } from './mail/index.js';
 export {
     QUEUES_MODULE_OPTIONS,
     type QueuesModuleAsyncOptions,

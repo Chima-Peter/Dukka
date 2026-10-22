@@ -1,22 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "apps/account_service/src",
+  "sourceRoot": "apps/dukka/src",
   "compilerOptions": {
     "deleteOutDir": true,
     "builder": "rspack",
-    "tsConfigPath": "apps/account_service/tsconfig.app.json"
+    "tsConfigPath": "apps/dukka/tsconfig.app.json"
   },
   "monorepo": true,
-  "root": "apps/account_service",
+  "root": "apps/dukka",
   "projects": {
-    "account_service": {
+    "dukka": {
       "type": "application",
-      "root": "apps/account_service",
+      "root": "apps/dukka",
       "entryFile": "main",
-      "sourceRoot": "apps/account_service/src",
+      "sourceRoot": "apps/dukka/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/account_service/tsconfig.app.json"
+        "tsConfigPath": "apps/dukka/tsconfig.app.json"
       }
     },
     "common": {
@@ -39,24 +39,6 @@
           "mail/templates/**/*"
         ],
         "watchAssets": true
-      }
-    },
-    "notifications_service": {
-      "type": "application",
-      "root": "apps/notifications_service",
-      "entryFile": "main",
-      "sourceRoot": "apps/notifications_service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/notifications_service/tsconfig.app.json"
-      }
-    },
-    "product_service": {
-      "type": "application",
-      "root": "apps/product_service",
-      "entryFile": "main",
-      "sourceRoot": "apps/product_service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/product_service/tsconfig.app.json"
       }
     },
     "queues": {
