@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
@@ -260,8 +261,7 @@ export class MarketsService {
                 this.logger.warn(
                     `Foreign key constraint on market: ${error.message}`,
                 );
-                const field = String(error.meta?.field_name ?? '');
-                if (field.includes('currency')) {
+                if (prismaHintIncludes(error, 'currency')) {
                     throw new NotFoundException('Currency not found');
                 }
                 throw new ConflictException(
@@ -269,6 +269,9 @@ export class MarketsService {
                 );
             }
             if (error.code === 'P2025') {
+                if (prismaHintIncludes(error, 'currency')) {
+                    throw new NotFoundException('Currency not found');
+                }
                 throw new NotFoundException('Market not found');
             }
         }

@@ -24,6 +24,10 @@ import type { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
+import {
     ROLES_REPO_ERROR,
     RolesRepository,
     type RoleWithDetails,
@@ -393,11 +397,18 @@ export class RolesService {
             }
             if (error.code === 'P2003') {
                 this.logger.warn(`Foreign key constraint: ${error.message}`);
-                throw new NotFoundException(
-                    'Role, permission, or staff not found',
-                );
+                throw this.permissionRelationNotFound(error);
             }
             if (error.code === 'P2025') {
+                if (
+                    prismaHintIncludes(
+                        error,
+                        'nested connect',
+                        'inline connect',
+                    )
+                ) {
+                    throw this.permissionRelationNotFound(error);
+                }
                 throw new NotFoundException(
                     'Permission is not assigned to this role',
                 );
@@ -429,9 +440,18 @@ export class RolesService {
             }
             if (error.code === 'P2003') {
                 this.logger.warn(`Foreign key constraint: ${error.message}`);
-                throw new NotFoundException('Role, market, or staff not found');
+                throw this.marketRelationNotFound(error);
             }
             if (error.code === 'P2025') {
+                if (
+                    prismaHintIncludes(
+                        error,
+                        'nested connect',
+                        'inline connect',
+                    )
+                ) {
+                    throw this.marketRelationNotFound(error);
+                }
                 throw new NotFoundException(
                     'Market is not assigned to this role',
                 );
@@ -478,5 +498,47 @@ export class RolesService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private permissionRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'permission':
+                return new NotFoundException('Permission not found');
+            case 'role':
+                return new NotFoundException('Role not found');
+            case 'staff':
+                return new NotFoundException('Staff not found');
+            default:
+                if (prismaHintIncludes(error, 'permission_id')) {
+                    return new NotFoundException('Permission not found');
+                }
+                if (prismaHintIncludes(error, 'role_id')) {
+                    return new NotFoundException('Role not found');
+                }
+                return new NotFoundException('Permission not found');
+        }
+    }
+
+    private marketRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'market':
+                return new NotFoundException('Market not found');
+            case 'role':
+                return new NotFoundException('Role not found');
+            case 'staff':
+                return new NotFoundException('Staff not found');
+            default:
+                if (prismaHintIncludes(error, 'market_id')) {
+                    return new NotFoundException('Market not found');
+                }
+                if (prismaHintIncludes(error, 'role_id')) {
+                    return new NotFoundException('Role not found');
+                }
+                return new NotFoundException('Market not found');
+        }
     }
 }

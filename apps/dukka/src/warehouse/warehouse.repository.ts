@@ -16,10 +16,10 @@ export class WarehouseRepository {
     async create(data: CreateWarehouseRecord): Promise<Warehouse> {
         return await this.prisma.warehouse.create({
             data: {
-                market_id: data.market_id,
                 name: data.name,
-                manager_id: data.manager_id,
                 address: data.address,
+                market: { connect: { id: data.market_id } },
+                manager: { connect: { id: data.manager_id } },
             },
         });
     }
@@ -88,7 +88,9 @@ export class WarehouseRepository {
     async updateManager(id: string, managerId: string): Promise<Warehouse> {
         return await this.prisma.warehouse.update({
             where: { id },
-            data: { manager_id: managerId },
+            data: {
+                manager: { connect: { id: managerId } },
+            },
         });
     }
 

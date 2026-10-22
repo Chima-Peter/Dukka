@@ -31,7 +31,9 @@ export class ReviewsRepository {
     ): Promise<ReviewItem> {
         return await this.prisma.reviews.create({
             data: {
-                customer_id: customerId,
+                customer: {
+                    connect: { id: customerId },
+                },
                 title: data.title,
                 review: data.review,
                 rating: data.rating,

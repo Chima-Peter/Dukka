@@ -17,6 +17,10 @@ import {
     STAFF_INVITATION_ACCEPT_PATH,
 } from '../shared/invitation.constants.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import type { AcceptStaffInvitationDto } from './dto/accept-staff-invitation.dto.js';
 import type { FindStaffInvitationsDto } from './dto/find-staff-invitations.dto.js';
 import type { InviteStaffDto } from './dto/invite-staff.dto.js';
@@ -321,25 +325,11 @@ export class InvitationsService {
                     'A pending invitation already exists for this email',
                 );
             }
-            if (error.code === 'P2003') {
-                this.logger.warn(`Foreign key constraint: ${error.message}`);
-                const field = String(error.meta?.field_name ?? '');
-                if (field.includes('role')) {
-                    throw new BadRequestException(
-                        'The role on this invitation is no longer available',
-                    );
-                }
-                if (field.includes('market')) {
-                    throw new BadRequestException(
-                        'One or more markets on this invitation are no longer available',
-                    );
-                }
-                throw new BadRequestException(
-                    'Invalid role or market reference',
+            if (error.code === 'P2003' || error.code === 'P2025') {
+                this.logger.warn(
+                    `Invitation relation error ${error.code}: ${error.message}`,
                 );
-            }
-            if (error.code === 'P2025') {
-                throw new NotFoundException('Invitation not found');
+                throw this.invitationRelationError(error);
             }
         }
 
@@ -347,5 +337,44 @@ export class InvitationsService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private invitationRelationError(
+        error: PrismaClientKnownRequestError,
+    ): BadRequestException | NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'role':
+                return new BadRequestException(
+                    'The role on this invitation is no longer available',
+                );
+            case 'market':
+                return new BadRequestException(
+                    'One or more markets on this invitation are no longer available',
+                );
+            case 'staff':
+                return new NotFoundException('Staff not found');
+            default:
+                if (prismaHintIncludes(error, 'role_id', 'role')) {
+                    return new BadRequestException(
+                        'The role on this invitation is no longer available',
+                    );
+                }
+                if (prismaHintIncludes(error, 'market_id', 'market')) {
+                    return new BadRequestException(
+                        'One or more markets on this invitation are no longer available',
+                    );
+                }
+                if (
+                    error.code === 'P2003' ||
+                    prismaHintIncludes(
+                        error,
+                        'nested connect',
+                        'inline connect',
+                    )
+                ) {
+                    return new BadRequestException('Role not found');
+                }
+                return new NotFoundException('Invitation not found');
+        }
     }
 }

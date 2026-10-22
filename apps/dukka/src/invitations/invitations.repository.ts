@@ -150,15 +150,15 @@ export class InvitationsRepository {
                     name: data.name,
                     email: data.email,
                     token: plain_token,
-                    role_id: role.id,
-                    invited_by_staff_id: actor.id,
+                    role: { connect: { id: role.id } },
+                    invited_by: { connect: { id: actor.id } },
                     expires_at,
                     ...(data.phone_number !== undefined && {
                         phone_number: data.phone_number,
                     }),
                     invitation_markets: {
                         create: data.market_ids.map((market_id) => ({
-                            market_id,
+                            market: { connect: { id: market_id } },
                         })),
                     },
                 },
@@ -419,13 +419,13 @@ export class InvitationsRepository {
                         name: invitation.name,
                         email: invitation.email,
                         password,
-                        role_id: invitation.role_id,
+                        role: { connect: { id: invitation.role_id } },
                         ...(invitation.phone_number !== null && {
                             phone_number: invitation.phone_number,
                         }),
                         staff_markets: {
                             create: market_ids.map((market_id) => ({
-                                market_id,
+                                market: { connect: { id: market_id } },
                             })),
                         },
                     },
@@ -439,10 +439,13 @@ export class InvitationsRepository {
                             INVITATION_REPO_ERROR.STAFF_EMAIL_EXISTS,
                         );
                     }
-                    if (error.code === 'P2003') {
+                    if (error.code === 'P2003' || error.code === 'P2025') {
                         await this.cancelInvitation(tx, invitation.id);
                         const field = String(error.meta?.field_name ?? '');
-                        if (field.includes('role')) {
+                        const cause = String(error.meta?.cause ?? '');
+                        const hint =
+                            `${field} ${cause} ${error.message}`.toLowerCase();
+                        if (hint.includes('role')) {
                             throw new Error(
                                 INVITATION_REPO_ERROR.INVITATION_ROLE_UNAVAILABLE,
                             );
@@ -486,7 +489,7 @@ export class InvitationsRepository {
                 data: {
                     status: StaffInvitationStatus.ACCEPTED,
                     accepted_at: new Date(),
-                    staff_id: staff.id,
+                    staff: { connect: { id: staff.id } },
                 },
                 include: invitationDetailsInclude,
             });

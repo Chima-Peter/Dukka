@@ -9,6 +9,10 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Category } from '../../generated/prisma/client.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import { CategoryRepository } from './category.repository.js';
 import type { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
 import type { CreateCategoryDto } from './dto/create-category.dto.js';
@@ -95,8 +99,13 @@ export class CategoryService {
             );
             return marketCategory;
         } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                (error.code === 'P2003' || error.code === 'P2025')
+            ) {
+                throw this.marketCategoryRelationNotFound(error);
+            }
             this.handleError(error, {
-                notFound: { P2003: 'Category not found' },
                 conflict: {
                     P2002: 'Category already exists in this market',
                 },
@@ -178,5 +187,24 @@ export class CategoryService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private marketCategoryRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'category':
+                return new NotFoundException('Category not found');
+            case 'market':
+                return new NotFoundException('Market not found');
+            default:
+                if (prismaHintIncludes(error, 'category_id')) {
+                    return new NotFoundException('Category not found');
+                }
+                if (prismaHintIncludes(error, 'market_id')) {
+                    return new NotFoundException('Market not found');
+                }
+                return new NotFoundException('Category not found');
+        }
     }
 }

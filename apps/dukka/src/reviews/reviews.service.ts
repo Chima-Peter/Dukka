@@ -10,6 +10,10 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { REVIEWS_BUCKET, SupabaseService } from '@app/common';
 import { assertValidImage } from '../shared/assert-valid-image.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import { safeDeleteImages } from '../shared/safe-delete-images.js';
 import type { CreateReviewDto } from './dto/create-review.dto.js';
 import type { FindReviewsDto } from './dto/find-reviews.dto.js';
@@ -87,9 +91,13 @@ export class ReviewsService {
             this.logger.log(`Review created ${review.id}`);
             return review;
         } catch (error) {
-            this.handleError(error, {
-                notFound: { P2003: 'Market variant not found' },
-            });
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                (error.code === 'P2003' || error.code === 'P2025')
+            ) {
+                throw this.createRelationNotFound(error);
+            }
+            this.handleError(error);
         }
     }
 
@@ -202,5 +210,30 @@ export class ReviewsService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private createRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'marketvariant':
+                return new NotFoundException('Market variant not found');
+            case 'customer':
+                return new NotFoundException('Customer not found');
+            default:
+                if (
+                    prismaHintIncludes(
+                        error,
+                        'market_variant',
+                        'marketvariant',
+                    )
+                ) {
+                    return new NotFoundException('Market variant not found');
+                }
+                if (prismaHintIncludes(error, 'customer')) {
+                    return new NotFoundException('Customer not found');
+                }
+                return new NotFoundException('Market variant not found');
+        }
     }
 }

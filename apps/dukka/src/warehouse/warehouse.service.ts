@@ -14,6 +14,10 @@ import {
 } from '../../generated/prisma/client.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import { StaffService } from '../staff/staff.service.js';
 import { WAREHOUSE_MANAGER_PERMISSIONS } from './constants/warehouse.constants.js';
 import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
@@ -225,25 +229,15 @@ export class WarehouseService {
         }
 
         if (error instanceof PrismaClientKnownRequestError) {
-            if (error.code === 'P2025') {
-                throw new NotFoundException('Warehouse not found');
-            }
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
                 throw new ConflictException('Warehouse conflict');
             }
-            if (error.code === 'P2003') {
+            if (error.code === 'P2003' || error.code === 'P2025') {
                 this.logger.warn(
-                    `Foreign key constraint on warehouse: ${error.message}`,
+                    `Warehouse relation error ${error.code}: ${error.message}`,
                 );
-                const field = String(error.meta?.field_name ?? '');
-                if (field.includes('market')) {
-                    throw new BadRequestException('Invalid market reference');
-                }
-                if (field.includes('manager')) {
-                    throw new BadRequestException('Invalid manager reference');
-                }
-                throw new BadRequestException('Invalid warehouse reference');
+                throw this.warehouseRelationNotFound(error);
             }
         }
 
@@ -251,5 +245,28 @@ export class WarehouseService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private warehouseRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'market':
+                return new NotFoundException('Market not found');
+            case 'staff':
+                return new NotFoundException('Manager not found');
+            case 'warehouse':
+                return new NotFoundException('Warehouse not found');
+            default:
+                break;
+        }
+
+        if (prismaHintIncludes(error, 'market_id', "'market'")) {
+            return new NotFoundException('Market not found');
+        }
+        if (prismaHintIncludes(error, 'manager', 'staff')) {
+            return new NotFoundException('Manager not found');
+        }
+        return new NotFoundException('Warehouse not found');
     }
 }

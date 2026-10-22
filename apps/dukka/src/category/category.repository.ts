@@ -33,8 +33,8 @@ export class CategoryRepository {
     ): Promise<MarketCategoryItem> {
         const row = await this.prisma.marketCategory.create({
             data: {
-                market_id: marketId,
-                category_id: categoryId,
+                market: { connect: { id: marketId } },
+                category: { connect: { id: categoryId } },
             },
             include: {
                 category: {

@@ -30,7 +30,14 @@ export class MarketsRepository {
 
     async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
         return await this.prisma.market.create({
-            data,
+            data: {
+                name: data.name,
+                code: data.code,
+                ...(data.is_active !== undefined && {
+                    is_active: data.is_active,
+                }),
+                currency: { connect: { id: data.currency_id } },
+            },
             include: marketWithCurrency,
         });
     }
@@ -84,7 +91,7 @@ export class MarketsRepository {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.code !== undefined && { code: data.code }),
                 ...(data.currency_id !== undefined && {
-                    currency_id: data.currency_id,
+                    currency: { connect: { id: data.currency_id } },
                 }),
             },
             include: marketWithCurrency,

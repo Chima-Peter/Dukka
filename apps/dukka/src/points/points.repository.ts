@@ -72,7 +72,7 @@ export class PointsRepository {
             if (!points) {
                 points = await tx.points.create({
                     data: {
-                        customer_id,
+                        customer: { connect: { id: customer_id } },
                         balance: 0,
                     },
                 });

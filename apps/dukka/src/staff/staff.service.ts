@@ -27,6 +27,7 @@ import type {
 } from '../../generated/prisma/client.js';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
+import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
@@ -942,6 +943,9 @@ export class StaffService {
                 throw new NotFoundException('Staff not found');
             }
             if (error.code === 'P2025') {
+                if (prismaHintIncludes(error, 'staff', 'nested connect')) {
+                    throw new NotFoundException('Staff not found');
+                }
                 throw new NotFoundException('Staff profile not found');
             }
         }
@@ -964,6 +968,9 @@ export class StaffService {
                 throw new NotFoundException('Staff not found');
             }
             if (error.code === 'P2025') {
+                if (prismaHintIncludes(error, 'staff', 'nested connect')) {
+                    throw new NotFoundException('Staff not found');
+                }
                 throw new NotFoundException('Qualification not found');
             }
         }
@@ -1041,9 +1048,25 @@ export class StaffService {
             }
             if (error.code === 'P2003') {
                 this.logger.warn(`Foreign key constraint: ${error.message}`);
-                throw new ConflictException('Invalid role reference');
+                if (prismaHintIncludes(error, 'role')) {
+                    throw new ConflictException('Invalid role reference');
+                }
+                if (prismaHintIncludes(error, 'market')) {
+                    throw new NotFoundException(
+                        'One or more markets not found',
+                    );
+                }
+                throw new ConflictException('Invalid staff reference');
             }
             if (error.code === 'P2025') {
+                if (prismaHintIncludes(error, 'role')) {
+                    throw new NotFoundException('Role not found');
+                }
+                if (prismaHintIncludes(error, 'market')) {
+                    throw new NotFoundException(
+                        'One or more markets not found',
+                    );
+                }
                 throw new NotFoundException('Staff not found');
             }
         }

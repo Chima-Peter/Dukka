@@ -91,7 +91,7 @@ export class PointsService {
         }
         if (
             error instanceof PrismaClientKnownRequestError &&
-            error.code === 'P2003'
+            (error.code === 'P2003' || error.code === 'P2025')
         ) {
             this.logger.warn(`Customer not found: ${error.message}`);
             throw new NotFoundException('Customer not found');

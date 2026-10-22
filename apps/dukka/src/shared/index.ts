@@ -11,6 +11,12 @@ export {
 export { assertMarketsActive } from './assert-markets-active.js';
 export { assertStaffHasMarkets } from './assert-staff-markets.js';
 export { assertValidImage } from './assert-valid-image.js';
+export {
+    isNestedConnectFailure,
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+    prismaRelationHint,
+} from './prisma-relation-error.js';
 export { PasswordHasher } from './password-hasher.service.js';
 export {
     ACCOUNT_DELETION_TOKEN_TTL_SECONDS,

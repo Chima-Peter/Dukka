@@ -462,7 +462,9 @@ export class StaffRepository {
 
             const staff = await tx.staff.update({
                 where: { id },
-                data: { role_id },
+                data: {
+                    role: { connect: { id: role_id } },
+                },
                 include: staffDetailsInclude,
             });
 
@@ -548,7 +550,9 @@ export class StaffRepository {
 
             const staff = await tx.staff.update({
                 where: { id },
-                data: { role_id: null },
+                data: {
+                    role: { disconnect: true },
+                },
                 include: staffDetailsInclude,
             });
 
@@ -815,7 +819,7 @@ export class StaffRepository {
                 where: { id },
                 data: {
                     is_active: false,
-                    role_id: null,
+                    role: { disconnect: true },
                     avatar: null,
                 },
             });
@@ -847,7 +851,7 @@ export class StaffRepository {
     ): Promise<StaffProfile> {
         return await this.prisma.staffProfile.create({
             data: {
-                staff_id,
+                staff: { connect: { id: staff_id } },
                 ...(data.job_title !== undefined && {
                     job_title: data.job_title,
                 }),
@@ -905,7 +909,7 @@ export class StaffRepository {
     ): Promise<Qualification> {
         return await this.prisma.qualification.create({
             data: {
-                staff_id,
+                staff: { connect: { id: staff_id } },
                 title: data.title,
                 ...(data.description !== undefined && {
                     description: data.description,

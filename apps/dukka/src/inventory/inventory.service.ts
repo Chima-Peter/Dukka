@@ -11,6 +11,10 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { WarehouseStatus } from '../../generated/prisma/client.js';
 import { ProductRepository } from '../product/product.repository.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
@@ -270,19 +274,14 @@ export class InventoryService {
         }
 
         if (error instanceof PrismaClientKnownRequestError) {
-            if (error.code === 'P2025') {
-                throw new NotFoundException('Inventory not found');
-            }
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
                 throw new ConflictException(
                     'Inventory already exists for this warehouse and market variant',
                 );
             }
-            if (error.code === 'P2003') {
-                throw new BadRequestException(
-                    'Invalid warehouse or market variant reference',
-                );
+            if (error.code === 'P2003' || error.code === 'P2025') {
+                throw this.inventoryRelationNotFound(error);
             }
         }
 
@@ -290,5 +289,28 @@ export class InventoryService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private inventoryRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException {
+        switch (prismaMissingRecordModel(error)) {
+            case 'warehouse':
+                return new NotFoundException('Warehouse not found');
+            case 'marketvariant':
+                return new NotFoundException('Market variant not found');
+            case 'inventory':
+                return new NotFoundException('Inventory not found');
+            default:
+                break;
+        }
+
+        if (prismaHintIncludes(error, 'warehouse')) {
+            return new NotFoundException('Warehouse not found');
+        }
+        if (prismaHintIncludes(error, 'market_variant', 'marketvariant')) {
+            return new NotFoundException('Market variant not found');
+        }
+        return new NotFoundException('Inventory not found');
     }
 }

@@ -325,7 +325,7 @@ export class ProductRepository {
                     if (!current) {
                         return tx.productImage.create({
                             data: {
-                                product_id: productId,
+                                product: { connect: { id: productId } },
                                 image_url: image.image_url,
                                 sort_order: image.sort_order,
                             },
@@ -533,7 +533,9 @@ export class ProductRepository {
                 variant: {
                     connect: { id: data.variant_id },
                 },
-                market_id: data.market_id,
+                market: {
+                    connect: { id: data.market_id },
+                },
                 price: data.price,
                 currency: data.currency,
             },

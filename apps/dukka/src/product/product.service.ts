@@ -17,6 +17,10 @@ import {
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
+import {
+    prismaHintIncludes,
+    prismaMissingRecordModel,
+} from '../shared/prisma-relation-error.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { CreateVariantDto } from './dto/create-variant.dto.js';
@@ -597,16 +601,18 @@ export class ProductService {
                     'A variant with this code already exists',
                 );
             }
-            if (error.code === 'P2003') {
+            if (error.code === 'P2003' || error.code === 'P2025') {
                 this.logger.warn(
-                    `Foreign key constraint on product: ${error.message}`,
+                    `Product relation error ${error.code}: ${error.message}`,
                 );
-                throw new ConflictException(
-                    'Referenced market category does not exist',
-                );
-            }
-            if (error.code === 'P2025') {
-                throw new NotFoundException(notFoundMessage);
+                const relationError = this.productRelationNotFound(error);
+                if (relationError !== null) {
+                    throw relationError;
+                }
+                if (error.code === 'P2025') {
+                    throw new NotFoundException(notFoundMessage);
+                }
+                throw new ConflictException('Invalid product reference');
             }
         }
 
@@ -614,5 +620,35 @@ export class ProductService {
         throw new InternalServerErrorException(
             'An unexpected error occurred. Try again later.',
         );
+    }
+
+    private productRelationNotFound(
+        error: PrismaClientKnownRequestError,
+    ): NotFoundException | null {
+        const model = prismaMissingRecordModel(error);
+        if (model === 'marketcategor' || model?.startsWith('marketcategor')) {
+            return new NotFoundException('Market category not found');
+        }
+        switch (model) {
+            case 'market':
+                return new NotFoundException('Market not found');
+            case 'variant':
+                return new NotFoundException('Variant not found');
+            case 'product':
+                return new NotFoundException('Product not found');
+            default:
+                break;
+        }
+
+        if (prismaHintIncludes(error, 'market_category')) {
+            return new NotFoundException('Market category not found');
+        }
+        if (prismaHintIncludes(error, 'market_id', "'market'")) {
+            return new NotFoundException('Market not found');
+        }
+        if (prismaHintIncludes(error, 'variant_id', "'variant'")) {
+            return new NotFoundException('Variant not found');
+        }
+        return null;
     }
 }
