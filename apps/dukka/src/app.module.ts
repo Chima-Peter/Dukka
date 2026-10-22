@@ -31,6 +31,7 @@ import { WarehouseModule } from './warehouse/warehouse.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { CartModule } from './cart/cart.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -41,6 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         PrismaModule,
         CustomerModule,
         ShippingAddressModule,
+        CartModule,
         HttpClientModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (configService: ConfigService<ConfigType, true>) => ({

@@ -11,6 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
 import {
+    Prisma,
     ProductStatus,
     type Product,
 } from '../../generated/prisma/client.js';
@@ -509,6 +510,24 @@ export class ProductService {
             return marketVariant;
         } catch (error) {
             this.handleError(error, 'Market variant not found');
+        }
+    }
+
+    async assertMarketVariantAvailable(
+        marketVariantId: string,
+        tx?: Prisma.TransactionClient,
+    ): Promise<void> {
+        const variant =
+            await this.productRepository.findMarketVariantAvailability(
+                marketVariantId,
+                tx,
+            );
+
+        if (!variant) {
+            throw new NotFoundException('Market variant not found');
+        }
+        if (variant.sold_out) {
+            throw new BadRequestException('Market variant is sold out');
         }
     }
 

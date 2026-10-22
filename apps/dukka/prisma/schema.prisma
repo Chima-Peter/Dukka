@@ -36,6 +36,7 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   points    Points?
+  cart    Cart?
   
   tokens Token[]
   shipping_address    ShippingAddress[]
@@ -473,6 +474,7 @@ model MarketVariant {
   inventories          Inventory[]
   inventory_line_items InventoryLineItem[]
   reviews              Reviews[]
+  cart_item            CartItems[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -552,8 +554,8 @@ model Order {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  customer_id   String
-  customer      Customer    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+  customer_id   String  @default("deleted")
+  customer      Customer    @relation(fields: [customer_id], references: [id], onDelete: SetDefault)
 
   order_inventories OrderInventory[]
 }
@@ -631,13 +633,46 @@ model ReviewsImages {
 
 model Promos {
   id    String    @id @default(uuid())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model Coupon {
   id      String    @id @default(uuid())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model Cart {
-  id    String    @id  @default(uuid())
+  id    String  @id @default(uuid())
+  total Decimal @default(0) @db.Decimal(12, 2)
+
+  items CartItems[]
+
+  customer_id String?   @unique
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model CartItems {
+  id       String @id @default(uuid())
+  quantity Int    @default(1)
+
+  cart_id String
+  cart    Cart   @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+
+  market_variant_id String
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([cart_id, market_variant_id])
+  @@index([cart_id])
+  @@index([market_variant_id])
 }
 

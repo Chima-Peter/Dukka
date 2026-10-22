@@ -500,6 +500,20 @@ export class ProductRepository {
         });
     }
 
+    async findMarketVariantAvailability(
+        marketVariantId: string,
+        tx?: Prisma.TransactionClient,
+    ) {
+        const db = tx ?? this.prisma;
+        return await db.marketVariant.findUnique({
+            where: { id: marketVariantId },
+            select: {
+                id: true,
+                sold_out: true,
+            },
+        });
+    }
+
     async findMarketVariantByIdOrThrow(marketVariantId: string) {
         const marketVariant = await this.findMarketVariantById(marketVariantId);
         if (!marketVariant) {
