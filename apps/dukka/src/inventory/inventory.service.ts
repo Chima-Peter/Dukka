@@ -155,36 +155,39 @@ export class InventoryService {
 
     async reserve(data: ReserveInventoryDto) {
         try {
+            const mergedItems = [
+                ...data.items
+                    .reduce((byVariant, item) => {
+                        const existing = byVariant.get(item.market_variant_id);
+                        if (existing) {
+                            existing.quantity += item.quantity;
+                        } else {
+                            byVariant.set(item.market_variant_id, {
+                                market_variant_id: item.market_variant_id,
+                                quantity: item.quantity,
+                            });
+                        }
+                        return byVariant;
+                    }, new Map<string, { market_variant_id: string; quantity: number }>())
+                    .values(),
+            ];
+
             this.logger.log(
-                `Reserving inventory in warehouse ${data.warehouse_id}`,
+                `Reserving inventory for ${mergedItems.length} item(s) in market ${data.market_id}`,
             );
 
-            const warehouse = await this.warehouseRepository.findByIdOrThrow(
-                data.warehouse_id,
-            );
-            if (warehouse.market_id !== data.market_id) {
-                throw new BadRequestException(
-                    'Warehouse does not belong to the specified market',
-                );
-            }
-            if (warehouse.status === WarehouseStatus.CLOSED) {
-                throw new BadRequestException(
-                    'Cannot reserve inventory in a closed warehouse',
-                );
-            }
-
-            await this.inventoryRepository.reserveItems(
+            const items = await this.inventoryRepository.reserveItems(
                 data.market_id,
-                data.warehouse_id,
-                data.items,
+                mergedItems,
             );
             this.logger.log(
-                `Reserved inventory for ${data.items.length} item(s) in warehouse ${data.warehouse_id}`,
+                `Reserved inventory for ${mergedItems.length} item(s) in market ${data.market_id}`,
             );
             const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
             return {
                 reserved: true,
                 expires_at: expiresAt.toISOString(),
+                items,
             };
         } catch (error) {
             this.handleError(error);

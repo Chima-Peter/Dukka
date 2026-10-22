@@ -145,6 +145,19 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Open warehouses',
     },
     {
+        name: 'service_states:create',
+        description: 'Create warehouse service states',
+    },
+    {
+        name: 'service_states:update',
+        description:
+            'Update warehouse service states and assign them to warehouses',
+    },
+    {
+        name: 'service_states:delete',
+        description: 'Delete warehouse service states',
+    },
+    {
         name: 'inventory:create',
         description: 'Create variant inventory',
     },
@@ -194,6 +207,9 @@ export const StaffPermission = {
     WarehousesUpdate: 'warehouses:update',
     WarehousesClose: 'warehouses:close',
     WarehousesOpen: 'warehouses:open',
+    ServiceStatesCreate: 'service_states:create',
+    ServiceStatesUpdate: 'service_states:update',
+    ServiceStatesDelete: 'service_states:delete',
     InventoryCreate: 'inventory:create',
     PermissionsRead: 'permissions:read',
 } as const satisfies Record<string, StaffAccountPermissionName>;

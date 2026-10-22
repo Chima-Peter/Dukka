@@ -11,6 +11,16 @@ export type ReserveInventoryItem = {
     quantity: number;
 };
 
+export type ReserveWarehouseBooking = {
+    warehouse_id: string;
+    quantity: number;
+};
+
+export type ReserveInventoryResultItem = {
+    market_variant_id: string;
+    warehouses: ReserveWarehouseBooking[];
+};
+
 export type StockUpdateType = 'increment' | 'decrement';
 
 export type InventoryItem = {

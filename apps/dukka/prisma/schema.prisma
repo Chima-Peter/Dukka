@@ -226,6 +226,7 @@ model Market {
   market_categories  MarketCategory[]
   market_variants    MarketVariant[]
   warehouses         Warehouse[]
+  service_states     ServiceState[]
 }
 
 enum StaffInvitationStatus {
@@ -492,10 +493,40 @@ model Warehouse {
   address    String
   status     WarehouseStatus @default(OPEN)
 
-  inventory Inventory[]
+  inventory                Inventory[]
+  warehouse_service_states WarehouseServiceState[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+}
+
+model ServiceState {
+  id         String   @id @default(uuid())
+  market_id  String
+  market     Market   @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  state_name String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  warehouse_service_states WarehouseServiceState[]
+
+  @@unique([market_id, state_name])
+  @@index([market_id])
+}
+
+model WarehouseServiceState {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  warehouse_id String
+  warehouse    Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
+
+  service_state_id String
+  service_state    ServiceState @relation(fields: [service_state_id], references: [id], onDelete: Cascade)
+
+  @@unique([warehouse_id, service_state_id])
+  @@index([service_state_id])
 }
 
 model Inventory {

@@ -22,9 +22,6 @@ export class ReserveInventoryDto {
     @IsUUID()
     market_id!: string;
 
-    @IsUUID()
-    warehouse_id!: string;
-
     @IsArray()
     @ArrayMinSize(1)
     @ValidateNested({ each: true })

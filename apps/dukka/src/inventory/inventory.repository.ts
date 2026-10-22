@@ -13,6 +13,7 @@ import type {
     CreateInventoryRecord,
     InventoryItem,
     ReserveInventoryItem,
+    ReserveInventoryResultItem,
     StockUpdateType,
 } from './types/inventory.type.js';
 
@@ -242,44 +243,93 @@ export class InventoryRepository {
 
     async reserveItems(
         marketId: string,
-        warehouseId: string,
         items: ReserveInventoryItem[],
-    ): Promise<void> {
-        await this.prisma.$transaction(async (tx) => {
-            for (const item of items) {
-                const updated = await tx.inventory.updateMany({
-                    where: {
-                        warehouse: { id: warehouseId, market_id: marketId },
-                        market_variant: {
-                            id: item.market_variant_id,
-                            market_id: marketId,
-                        },
-                        available_quantity: { gte: item.quantity },
-                    },
-                    data: {
-                        available_quantity: { decrement: item.quantity },
-                        reserved_quantity: { increment: item.quantity },
-                    },
-                });
-
-                if (updated.count === 0) {
-                    const existing = await tx.inventory.findFirst({
+    ): Promise<ReserveInventoryResultItem[]> {
+        return await this.prisma.$transaction(async (tx) => {
+            return Promise.all(
+                items.map(async (item) => {
+                    const inventories = await tx.inventory.findMany({
                         where: {
-                            warehouse: { id: warehouseId, market_id: marketId },
                             market_variant: {
                                 id: item.market_variant_id,
                                 market_id: marketId,
                             },
+                            warehouse: {
+                                market_id: marketId,
+                                status: WarehouseStatus.OPEN,
+                            },
+                            available_quantity: { gt: 0 },
                         },
-                        select: { id: true },
+                        select: {
+                            id: true,
+                            warehouse_id: true,
+                            available_quantity: true,
+                        },
+                        take: 10,
+                        orderBy: { available_quantity: 'desc' },
                     });
-                    throw new BadRequestException(
-                        existing
-                            ? `Insufficient available quantity for market variant ${item.market_variant_id}`
-                            : `No inventory for market variant ${item.market_variant_id} in warehouse ${warehouseId}`,
+
+                    const totalAvailable = inventories.reduce(
+                        (sum, inv) => sum + inv.available_quantity,
+                        0,
                     );
-                }
-            }
+                    if (totalAvailable < item.quantity) {
+                        throw new BadRequestException(
+                            inventories.length === 0
+                                ? `No inventory for market variant ${item.market_variant_id}`
+                                : `Insufficient available quantity for market variant ${item.market_variant_id}`,
+                        );
+                    }
+
+                    let remaining = item.quantity;
+                    const warehouses: ReserveInventoryResultItem['warehouses'] =
+                        [];
+
+                    for (const inv of inventories) {
+                        if (remaining <= 0) {
+                            break;
+                        }
+
+                        const take = Math.min(
+                            inv.available_quantity,
+                            remaining,
+                        );
+                        const updated = await tx.inventory.updateMany({
+                            where: {
+                                id: inv.id,
+                                available_quantity: { gte: take },
+                            },
+                            data: {
+                                available_quantity: { decrement: take },
+                                reserved_quantity: { increment: take },
+                            },
+                        });
+
+                        if (updated.count === 0) {
+                            throw new BadRequestException(
+                                `Insufficient available quantity for market variant ${item.market_variant_id}`,
+                            );
+                        }
+
+                        warehouses.push({
+                            warehouse_id: inv.warehouse_id,
+                            quantity: take,
+                        });
+                        remaining -= take;
+                    }
+
+                    if (remaining > 0) {
+                        throw new BadRequestException(
+                            `Insufficient available quantity for market variant ${item.market_variant_id}`,
+                        );
+                    }
+
+                    return {
+                        market_variant_id: item.market_variant_id,
+                        warehouses,
+                    };
+                }),
+            );
         });
     }
 }
