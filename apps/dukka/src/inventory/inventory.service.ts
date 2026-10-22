@@ -91,7 +91,7 @@ export class InventoryService {
     async updateStock(
         data: UpdateStockDto,
         staffMarketIds: string[],
-    ): Promise<{ available_quantity: number; sold_out: boolean }> {
+    ): Promise<{ available_quantity: number }> {
         try {
             this.logger.log(
                 `Updating stock for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}: ${data.type} ${data.quantity}`,
@@ -131,7 +131,7 @@ export class InventoryService {
                 data.quantity,
             );
             this.logger.log(
-                `Stock updated to ${result.available_quantity} (sold_out=${result.sold_out})`,
+                `Stock updated to ${result.available_quantity}`,
             );
             return result;
         } catch (error) {

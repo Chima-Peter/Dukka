@@ -94,14 +94,14 @@ export class InventoryRepository {
         warehouseId: string,
         type: StockUpdateType,
         quantity: number,
-    ): Promise<{ available_quantity: number; sold_out: boolean }> {
+    ): Promise<{ available_quantity: number }> {
         const scope = {
             warehouse: { id: warehouseId, market_id: marketId },
             market_variant: { id: marketVariantId, market_id: marketId },
         };
 
         return await this.prisma.$transaction(async (tx) => {
-            const updated = await tx.inventory.updateMany({
+            const updated = await tx.inventory.updateManyAndReturn({
                 where: {
                     ...scope,
                     ...(type === 'decrement' && {
@@ -114,9 +114,10 @@ export class InventoryRepository {
                             ? { decrement: quantity }
                             : { increment: quantity },
                 },
+                select: { available_quantity: true },
             });
 
-            if (updated.count === 0) {
+            if (updated.length === 0) {
                 const existing = await tx.inventory.findFirst({
                     where: scope,
                     select: { id: true },
@@ -128,20 +129,8 @@ export class InventoryRepository {
                 );
             }
 
-            const row = await tx.inventory.findFirstOrThrow({
-                where: scope,
-                select: { available_quantity: true },
-            });
-
-            const soldOut = row.available_quantity === 0;
-            await tx.marketVariant.update({
-                where: { id: marketVariantId },
-                data: { sold_out: soldOut },
-            });
-
             return {
-                available_quantity: row.available_quantity,
-                sold_out: soldOut,
+                available_quantity: updated[0].available_quantity,
             };
         });
     }
