@@ -1,7 +1,18 @@
 import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client.js';
+import {
+    Gender,
+    OrderInventoryStatus,
+    POINT_REASON,
+    POINT_STATUS,
+    PrismaClient,
+    ProductStatus,
+    StaffAuditAction,
+    StaffInvitationStatus,
+    TokenType,
+    WarehouseStatus,
+} from '../generated/prisma/client.js';
 import { STAFF_ACCOUNT_PERMISSIONS } from '../../../libs/common/src/permissions/staff-permissions.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -19,6 +30,7 @@ const prisma = new PrismaClient({
 const SUPER_ADMIN_ROLE_NAME = 'Super Admin';
 const SUPER_ADMIN_HIERARCHY = 0;
 const BCRYPT_ROUNDS = 10;
+const DEMO_PASSWORD = 'Password123!';
 
 const DEFAULT_CURRENCIES = [
     { code: 'NGN', name: 'Nigerian Naira' },
@@ -28,6 +40,45 @@ const DEFAULT_CURRENCIES = [
 const DEFAULT_MARKETS = [
     { name: 'Nigeria', code: 'NG', currency_code: 'NGN' as const },
     { name: 'Ghana', code: 'GH', currency_code: 'GHS' as const },
+] as const;
+
+const DEFAULT_CATEGORIES = [
+    'Electronics',
+    'Fashion',
+    'Home & Living',
+    'Beauty',
+] as const;
+
+const DEFAULT_ROLES = [
+    {
+        name: 'Warehouse Manager',
+        description: 'Manage warehouses, inventory, and fulfillment',
+        hierarchy: 2,
+        permission_names: [
+            'warehouses:create',
+            'warehouses:update',
+            'warehouses:close',
+            'warehouses:open',
+            'service_states:create',
+            'service_states:update',
+            'service_states:delete',
+            'inventory:create',
+            'products:update',
+            'markets:read',
+        ],
+    },
+    {
+        name: 'Support Agent',
+        description: 'Customer support and staff lookups',
+        hierarchy: 3,
+        permission_names: [
+            'staff:read',
+            'staff:technical_support',
+            'markets:read',
+            'permissions:read',
+            'roles:read',
+        ],
+    },
 ] as const;
 
 async function seedPermissions() {
@@ -158,6 +209,59 @@ async function seedSuperAdminRole() {
     return role;
 }
 
+async function seedAdditionalRoles() {
+    const allPermissions = await prisma.permission.findMany({
+        select: { id: true, name: true },
+    });
+    const permissionByName = new Map(
+        allPermissions.map((permission) => [permission.name, permission.id]),
+    );
+    const markets = await prisma.market.findMany({ select: { id: true } });
+    const roles: { id: string; name: string }[] = [];
+
+    for (const roleDef of DEFAULT_ROLES) {
+        const role = await prisma.role.upsert({
+            where: { name: roleDef.name },
+            create: {
+                name: roleDef.name,
+                description: roleDef.description,
+                hierarchy: roleDef.hierarchy,
+            },
+            update: {
+                description: roleDef.description,
+                hierarchy: roleDef.hierarchy,
+            },
+        });
+
+        const permissionIds = roleDef.permission_names
+            .map((name) => permissionByName.get(name))
+            .filter((id): id is string => id !== undefined);
+
+        if (permissionIds.length > 0) {
+            await prisma.rolePermission.createMany({
+                data: permissionIds.map((permission_id) => ({
+                    role_id: role.id,
+                    permission_id,
+                })),
+                skipDuplicates: true,
+            });
+        }
+
+        await prisma.roleMarket.createMany({
+            data: markets.map((market) => ({
+                role_id: role.id,
+                market_id: market.id,
+            })),
+            skipDuplicates: true,
+        });
+
+        roles.push(role);
+    }
+
+    console.log(`Seeded ${roles.length} additional role(s)`);
+    return roles;
+}
+
 async function seedSuperAdminStaff(role_id: string) {
     const email =
         process.env.SUPER_ADMIN_EMAIL ?? 'superadmin@dukka.local';
@@ -175,12 +279,14 @@ async function seedSuperAdminStaff(role_id: string) {
             password: hashedPassword,
             role_id,
             is_active: true,
+            phone_number: '+2348000000001',
         },
         update: {
             name,
             password: hashedPassword,
             role_id,
             is_active: true,
+            phone_number: '+2348000000001',
         },
     });
 
@@ -195,17 +301,1146 @@ async function seedSuperAdminStaff(role_id: string) {
         skipDuplicates: true,
     });
 
+    await prisma.staffProfile.upsert({
+        where: { staff_id: staff.id },
+        create: {
+            staff_id: staff.id,
+            job_title: 'Platform Super Admin',
+            bio: 'Owns platform configuration and elevated access.',
+            gender: Gender.OTHER,
+            hire_date: new Date('2024-01-01'),
+            address: 'Lagos, Nigeria',
+        },
+        update: {
+            job_title: 'Platform Super Admin',
+            bio: 'Owns platform configuration and elevated access.',
+        },
+    });
+
+    await prisma.staffToken.upsert({
+        where: { token: 'seed-superadmin-access-token' },
+        create: {
+            token: 'seed-superadmin-access-token',
+            type: TokenType.ACCESS,
+            staffId: staff.id,
+        },
+        update: {
+            type: TokenType.ACCESS,
+            staffId: staff.id,
+        },
+    });
+
     console.log(
         `Seeded super admin staff ${staff.email} with ${markets.length} market(s)`,
     );
+
+    return staff;
+}
+
+async function seedDemoStaff(
+    roles: { id: string; name: string }[],
+    markets: { id: string; code: string }[],
+    invitedByStaffId: string,
+) {
+    const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, BCRYPT_ROUNDS);
+    const warehouseRole = roles.find((role) => role.name === 'Warehouse Manager');
+    const supportRole = roles.find((role) => role.name === 'Support Agent');
+    const ngMarket = markets.find((market) => market.code === 'NG');
+    const ghMarket = markets.find((market) => market.code === 'GH');
+
+    if (!warehouseRole || !supportRole || !ngMarket || !ghMarket) {
+        throw new Error('Missing roles or markets for demo staff seed');
+    }
+
+    const demoStaff = [
+        {
+            email: 'warehouse.ng@dukka.local',
+            name: 'Ada Okonkwo',
+            phone_number: '+2348011111111',
+            role_id: warehouseRole.id,
+            market_ids: [ngMarket.id],
+            profile: {
+                job_title: 'Lagos Warehouse Manager',
+                bio: 'Oversees Lagos fulfillment operations.',
+                gender: Gender.FEMALE,
+                date_of_birth: new Date('1990-05-12'),
+                hire_date: new Date('2024-03-15'),
+                address: 'Ikeja, Lagos',
+            },
+            qualifications: [
+                {
+                    title: 'Logistics Certificate',
+                    description: 'Certified warehouse operations lead',
+                    document_url: 'https://cdn.dukka.local/docs/ada-logistics.pdf',
+                },
+            ],
+        },
+        {
+            email: 'support.gh@dukka.local',
+            name: 'Kwame Mensah',
+            phone_number: '+233201111111',
+            role_id: supportRole.id,
+            market_ids: [ghMarket.id, ngMarket.id],
+            profile: {
+                job_title: 'Customer Support Agent',
+                bio: 'Handles order and account inquiries.',
+                gender: Gender.MALE,
+                hire_date: new Date('2024-06-01'),
+                address: 'Accra, Ghana',
+            },
+            qualifications: [
+                {
+                    title: 'Customer Success Training',
+                    description: 'Completed Dukka support academy',
+                    document_url: 'https://cdn.dukka.local/docs/kwame-cs.pdf',
+                },
+            ],
+        },
+    ] as const;
+
+    const createdStaff: { id: string; email: string; name: string }[] = [];
+
+    for (const staffDef of demoStaff) {
+        const staff = await prisma.staff.upsert({
+            where: { email: staffDef.email },
+            create: {
+                name: staffDef.name,
+                email: staffDef.email,
+                password: hashedPassword,
+                phone_number: staffDef.phone_number,
+                role_id: staffDef.role_id,
+                is_active: true,
+            },
+            update: {
+                name: staffDef.name,
+                password: hashedPassword,
+                phone_number: staffDef.phone_number,
+                role_id: staffDef.role_id,
+                is_active: true,
+            },
+        });
+
+        await prisma.staffMarket.createMany({
+            data: staffDef.market_ids.map((market_id) => ({
+                staff_id: staff.id,
+                market_id,
+            })),
+            skipDuplicates: true,
+        });
+
+        await prisma.staffProfile.upsert({
+            where: { staff_id: staff.id },
+            create: {
+                staff_id: staff.id,
+                ...staffDef.profile,
+            },
+            update: { ...staffDef.profile },
+        });
+
+        const existingQualifications = await prisma.qualification.count({
+            where: { staff_id: staff.id },
+        });
+        if (existingQualifications === 0) {
+            await prisma.qualification.createMany({
+                data: staffDef.qualifications.map((qualification) => ({
+                    staff_id: staff.id,
+                    ...qualification,
+                })),
+            });
+        }
+
+        await prisma.staffToken.upsert({
+            where: { token: `seed-staff-refresh-${staff.email}` },
+            create: {
+                token: `seed-staff-refresh-${staff.email}`,
+                type: TokenType.REFRESH,
+                staffId: staff.id,
+            },
+            update: {
+                type: TokenType.REFRESH,
+                staffId: staff.id,
+            },
+        });
+
+        createdStaff.push(staff);
+    }
+
+    const pendingInvitation = await prisma.staffInvitation.upsert({
+        where: { token: 'seed-invitation-pending-token' },
+        create: {
+            email: 'new.hire@dukka.local',
+            name: 'Chidi Eze',
+            phone_number: '+2348022222222',
+            token: 'seed-invitation-pending-token',
+            status: StaffInvitationStatus.PENDING,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            role_id: supportRole.id,
+            invited_by_staff_id: invitedByStaffId,
+        },
+        update: {
+            email: 'new.hire@dukka.local',
+            name: 'Chidi Eze',
+            status: StaffInvitationStatus.PENDING,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            role_id: supportRole.id,
+            invited_by_staff_id: invitedByStaffId,
+        },
+    });
+
+    await prisma.staffInvitationMarket.createMany({
+        data: [
+            {
+                invitation_id: pendingInvitation.id,
+                market_id: ngMarket.id,
+            },
+        ],
+        skipDuplicates: true,
+    });
+
+    const acceptedStaff = createdStaff[0];
+    const acceptedInvitation = await prisma.staffInvitation.upsert({
+        where: { token: 'seed-invitation-accepted-token' },
+        create: {
+            email: acceptedStaff.email,
+            name: acceptedStaff.name,
+            phone_number: '+2348011111111',
+            token: 'seed-invitation-accepted-token',
+            status: StaffInvitationStatus.ACCEPTED,
+            expires_at: new Date('2024-04-01'),
+            accepted_at: new Date('2024-03-10'),
+            role_id: warehouseRole.id,
+            invited_by_staff_id: invitedByStaffId,
+            staff_id: acceptedStaff.id,
+        },
+        update: {
+            status: StaffInvitationStatus.ACCEPTED,
+            accepted_at: new Date('2024-03-10'),
+            role_id: warehouseRole.id,
+            invited_by_staff_id: invitedByStaffId,
+            staff_id: acceptedStaff.id,
+        },
+    });
+
+    await prisma.staffInvitationMarket.createMany({
+        data: [
+            {
+                invitation_id: acceptedInvitation.id,
+                market_id: ngMarket.id,
+            },
+        ],
+        skipDuplicates: true,
+    });
+
+    const auditCount = await prisma.staffAudit.count({
+        where: { performed_by_staff_id: invitedByStaffId },
+    });
+    if (auditCount === 0) {
+        await prisma.staffAudit.createMany({
+            data: [
+                {
+                    action: StaffAuditAction.STAFF_CREATED,
+                    staff_id: acceptedStaff.id,
+                    staff_name: acceptedStaff.name,
+                    performed_by_staff_id: invitedByStaffId,
+                    performed_by_staff_name: 'Super Admin',
+                    role_id: warehouseRole.id,
+                    role_name: warehouseRole.name,
+                },
+                {
+                    action: StaffAuditAction.MARKET_ASSIGNED,
+                    staff_id: acceptedStaff.id,
+                    staff_name: acceptedStaff.name,
+                    performed_by_staff_id: invitedByStaffId,
+                    performed_by_staff_name: 'Super Admin',
+                    market_id: ngMarket.id,
+                    market_name: 'Nigeria',
+                },
+                {
+                    action: StaffAuditAction.ROLE_ASSIGNED,
+                    staff_id: createdStaff[1].id,
+                    staff_name: createdStaff[1].name,
+                    performed_by_staff_id: invitedByStaffId,
+                    performed_by_staff_name: 'Super Admin',
+                    role_id: supportRole.id,
+                    role_name: supportRole.name,
+                },
+            ],
+        });
+    }
+
+    console.log(
+        `Seeded ${createdStaff.length} demo staff, invitations, and audit rows`,
+    );
+
+    return createdStaff;
+}
+
+async function seedCustomers() {
+    const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, BCRYPT_ROUNDS);
+
+    const customersDef = [
+        {
+            email: 'adaeze.customer@dukka.local',
+            name: 'Adaeze Nnamdi',
+            phone_number: '+2348033333333',
+            gender: Gender.FEMALE,
+            date_of_birth: new Date('1995-08-20'),
+            shipping: {
+                first_name: 'Adaeze',
+                last_name: 'Nnamdi',
+                email: 'ship.adaeze@dukka.local',
+                phone_number: '+2348033333333',
+                whatsapp_number: '+2348033333333',
+                state_province: 'Lagos',
+                street_address: '12 Admiralty Way, Lekki',
+            },
+            points_balance: 250,
+            points_history: [
+                {
+                    status: POINT_STATUS.EARNED,
+                    description: POINT_REASON.REGISTERED,
+                    count: 50,
+                },
+                {
+                    status: POINT_STATUS.EARNED,
+                    description: POINT_REASON.PLACE_ORDER,
+                    count: 200,
+                },
+                {
+                    status: POINT_STATUS.REDEEMED,
+                    description: POINT_REASON.COMPLETE_ORDER,
+                    count: 0,
+                },
+            ],
+        },
+        {
+            email: 'kofi.customer@dukka.local',
+            name: 'Kofi Asante',
+            phone_number: '+233202222222',
+            gender: Gender.MALE,
+            date_of_birth: new Date('1992-02-11'),
+            shipping: {
+                first_name: 'Kofi',
+                last_name: 'Asante',
+                email: 'ship.kofi@dukka.local',
+                phone_number: '+233202222222',
+                whatsapp_number: '+233202222222',
+                state_province: 'Greater Accra',
+                street_address: '45 Independence Ave, Accra',
+            },
+            points_balance: 120,
+            points_history: [
+                {
+                    status: POINT_STATUS.EARNED,
+                    description: POINT_REASON.REGISTERED,
+                    count: 50,
+                },
+                {
+                    status: POINT_STATUS.EARNED,
+                    description: POINT_REASON.SUBSCRIBED,
+                    count: 70,
+                },
+            ],
+        },
+    ] as const;
+
+    const customers: { id: string; email: string; name: string }[] = [];
+
+    for (const customerDef of customersDef) {
+        const customer = await prisma.customer.upsert({
+            where: { email: customerDef.email },
+            create: {
+                name: customerDef.name,
+                email: customerDef.email,
+                password: hashedPassword,
+                phone_number: customerDef.phone_number,
+                gender: customerDef.gender,
+                date_of_birth: customerDef.date_of_birth,
+                avatar: `https://cdn.dukka.local/avatars/${customerDef.email}.png`,
+            },
+            update: {
+                name: customerDef.name,
+                password: hashedPassword,
+                phone_number: customerDef.phone_number,
+                gender: customerDef.gender,
+                date_of_birth: customerDef.date_of_birth,
+            },
+        });
+
+        await prisma.token.upsert({
+            where: { token: `seed-customer-access-${customer.email}` },
+            create: {
+                token: `seed-customer-access-${customer.email}`,
+                type: TokenType.ACCESS,
+                customerId: customer.id,
+            },
+            update: {
+                type: TokenType.ACCESS,
+                customerId: customer.id,
+            },
+        });
+
+        await prisma.token.upsert({
+            where: { token: `seed-customer-refresh-${customer.email}` },
+            create: {
+                token: `seed-customer-refresh-${customer.email}`,
+                type: TokenType.REFRESH,
+                customerId: customer.id,
+            },
+            update: {
+                type: TokenType.REFRESH,
+                customerId: customer.id,
+            },
+        });
+
+        const existingAddress = await prisma.shippingAddress.findUnique({
+            where: { email: customerDef.shipping.email },
+        });
+        if (!existingAddress) {
+            await prisma.shippingAddress.create({
+                data: {
+                    ...customerDef.shipping,
+                    customer_id: customer.id,
+                },
+            });
+        }
+
+        const points = await prisma.points.upsert({
+            where: { customer_id: customer.id },
+            create: {
+                customer_id: customer.id,
+                balance: customerDef.points_balance,
+            },
+            update: {
+                balance: customerDef.points_balance,
+            },
+        });
+
+        const historyCount = await prisma.pointsHistory.count({
+            where: { points_id: points.id },
+        });
+        if (historyCount === 0) {
+            await prisma.pointsHistory.createMany({
+                data: customerDef.points_history.map((entry) => ({
+                    points_id: points.id,
+                    status: entry.status,
+                    description: entry.description,
+                    count: entry.count,
+                })),
+            });
+        }
+
+        customers.push(customer);
+    }
+
+    console.log(`Seeded ${customers.length} customer(s) with addresses and points`);
+    return customers;
+}
+
+async function seedCatalog(markets: { id: string; code: string }[]) {
+    for (const categoryName of DEFAULT_CATEGORIES) {
+        await prisma.category.upsert({
+            where: { name: categoryName },
+            create: { name: categoryName },
+            update: {},
+        });
+    }
+
+    const categories = await prisma.category.findMany({
+        where: { name: { in: [...DEFAULT_CATEGORIES] } },
+    });
+    const marketCategories: {
+        id: string;
+        market_id: string;
+        category_id: string;
+        category_name: string;
+        market_code: string;
+    }[] = [];
+
+    for (const market of markets) {
+        for (const category of categories) {
+            const marketCategory = await prisma.marketCategory.upsert({
+                where: {
+                    market_id_category_id: {
+                        market_id: market.id,
+                        category_id: category.id,
+                    },
+                },
+                create: {
+                    market_id: market.id,
+                    category_id: category.id,
+                },
+                update: {},
+            });
+            marketCategories.push({
+                id: marketCategory.id,
+                market_id: market.id,
+                category_id: category.id,
+                category_name: category.name,
+                market_code: market.code,
+            });
+        }
+    }
+
+    const ngElectronics = marketCategories.find(
+        (row) => row.market_code === 'NG' && row.category_name === 'Electronics',
+    );
+    const ngFashion = marketCategories.find(
+        (row) => row.market_code === 'NG' && row.category_name === 'Fashion',
+    );
+    const ghElectronics = marketCategories.find(
+        (row) => row.market_code === 'GH' && row.category_name === 'Electronics',
+    );
+
+    if (!ngElectronics || !ngFashion || !ghElectronics) {
+        throw new Error('Failed to resolve market categories for product seed');
+    }
+
+    const productsDef = [
+        {
+            name: 'Dukka Pulse Headphones',
+            description: 'Wireless over-ear headphones with ANC.',
+            specs: { battery_hours: 30, connectivity: 'Bluetooth 5.3' },
+            status: ProductStatus.ACTIVE,
+            market_category_id: ngElectronics.id,
+            images: [
+                {
+                    image_url: 'https://cdn.dukka.local/products/pulse-1.jpg',
+                    sort_order: 0,
+                },
+                {
+                    image_url: 'https://cdn.dukka.local/products/pulse-2.jpg',
+                    sort_order: 1,
+                },
+            ],
+            variants: [
+                {
+                    variant_code: 'PULSE-BLK-STD',
+                    color: 'Black',
+                    size: 'Standard',
+                    variant_info: { sku: 'PULSE-BLK-STD' },
+                    image_url: 'https://cdn.dukka.local/variants/pulse-blk.jpg',
+                    markets: [
+                        { market_code: 'NG', price: 85000, currency: 'NGN' },
+                        { market_code: 'GH', price: 950, currency: 'GHS' },
+                    ],
+                },
+                {
+                    variant_code: 'PULSE-WHT-STD',
+                    color: 'White',
+                    size: 'Standard',
+                    variant_info: { sku: 'PULSE-WHT-STD' },
+                    image_url: 'https://cdn.dukka.local/variants/pulse-wht.jpg',
+                    markets: [
+                        { market_code: 'NG', price: 87000, currency: 'NGN' },
+                    ],
+                },
+            ],
+        },
+        {
+            name: 'Ankara Everyday Tee',
+            description: 'Soft cotton tee with contemporary Ankara print.',
+            specs: { material: '100% cotton', fit: 'Regular' },
+            status: ProductStatus.ACTIVE,
+            market_category_id: ngFashion.id,
+            images: [
+                {
+                    image_url: 'https://cdn.dukka.local/products/ankara-tee-1.jpg',
+                    sort_order: 0,
+                },
+            ],
+            variants: [
+                {
+                    variant_code: 'ANK-TEE-M',
+                    color: 'Multicolor',
+                    size: 'M',
+                    variant_info: { sku: 'ANK-TEE-M' },
+                    image_url: 'https://cdn.dukka.local/variants/ank-tee-m.jpg',
+                    markets: [
+                        { market_code: 'NG', price: 15000, currency: 'NGN' },
+                    ],
+                },
+                {
+                    variant_code: 'ANK-TEE-L',
+                    color: 'Multicolor',
+                    size: 'L',
+                    variant_info: { sku: 'ANK-TEE-L' },
+                    markets: [
+                        { market_code: 'NG', price: 15000, currency: 'NGN' },
+                    ],
+                },
+            ],
+        },
+        {
+            name: 'Accra Charge Hub',
+            description: 'Compact USB-C charging hub for home desks.',
+            specs: { ports: 6, wattage: 65 },
+            status: ProductStatus.PENDING_REVIEW,
+            market_category_id: ghElectronics.id,
+            images: [
+                {
+                    image_url: 'https://cdn.dukka.local/products/charge-hub-1.jpg',
+                    sort_order: 0,
+                },
+            ],
+            variants: [
+                {
+                    variant_code: 'CHARGE-HUB-GRY',
+                    color: 'Grey',
+                    size: null,
+                    variant_info: { sku: 'CHARGE-HUB-GRY' },
+                    image_url: 'https://cdn.dukka.local/variants/charge-hub.jpg',
+                    markets: [
+                        { market_code: 'GH', price: 420, currency: 'GHS' },
+                    ],
+                },
+            ],
+        },
+    ] as const;
+
+    const marketByCode = new Map(markets.map((market) => [market.code, market]));
+    const seededMarketVariants: {
+        id: string;
+        variant_code: string;
+        market_code: string;
+    }[] = [];
+
+    for (const productDef of productsDef) {
+        let product = await prisma.product.findFirst({
+            where: {
+                name: productDef.name,
+                market_category_id: productDef.market_category_id,
+            },
+        });
+
+        if (!product) {
+            product = await prisma.product.create({
+                data: {
+                    name: productDef.name,
+                    description: productDef.description,
+                    specs: productDef.specs,
+                    status: productDef.status,
+                    market_category_id: productDef.market_category_id,
+                    images: {
+                        create: productDef.images.map((image) => ({
+                            image_url: image.image_url,
+                            sort_order: image.sort_order,
+                        })),
+                    },
+                },
+            });
+        } else {
+            product = await prisma.product.update({
+                where: { id: product.id },
+                data: {
+                    description: productDef.description,
+                    specs: productDef.specs,
+                    status: productDef.status,
+                },
+            });
+        }
+
+        for (const variantDef of productDef.variants) {
+            const variant = await prisma.variant.upsert({
+                where: { variant_code: variantDef.variant_code },
+                create: {
+                    variant_code: variantDef.variant_code,
+                    color: variantDef.color,
+                    size: variantDef.size,
+                    variant_info: variantDef.variant_info,
+                    product_id: product.id,
+                    ...(variantDef.image_url !== undefined && {
+                        image: {
+                            create: { image_url: variantDef.image_url },
+                        },
+                    }),
+                },
+                update: {
+                    color: variantDef.color,
+                    size: variantDef.size,
+                    variant_info: variantDef.variant_info,
+                    product_id: product.id,
+                },
+            });
+
+            if (variantDef.image_url !== undefined) {
+                await prisma.variantImage.upsert({
+                    where: { variant_id: variant.id },
+                    create: {
+                        variant_id: variant.id,
+                        image_url: variantDef.image_url,
+                    },
+                    update: {
+                        image_url: variantDef.image_url,
+                    },
+                });
+            }
+
+            for (const marketPrice of variantDef.markets) {
+                const market = marketByCode.get(marketPrice.market_code);
+                if (!market) {
+                    continue;
+                }
+
+                const marketVariant = await prisma.marketVariant.upsert({
+                    where: {
+                        market_id_variant_id: {
+                            market_id: market.id,
+                            variant_id: variant.id,
+                        },
+                    },
+                    create: {
+                        market_id: market.id,
+                        variant_id: variant.id,
+                        price: marketPrice.price,
+                        currency: marketPrice.currency,
+                        sold_out: false,
+                    },
+                    update: {
+                        price: marketPrice.price,
+                        currency: marketPrice.currency,
+                        sold_out: false,
+                    },
+                });
+
+                seededMarketVariants.push({
+                    id: marketVariant.id,
+                    variant_code: variantDef.variant_code,
+                    market_code: marketPrice.market_code,
+                });
+            }
+        }
+    }
+
+    console.log(
+        `Seeded catalog: ${DEFAULT_CATEGORIES.length} categories, ${productsDef.length} products, ${seededMarketVariants.length} market variants`,
+    );
+
+    return seededMarketVariants;
+}
+
+async function seedWarehousesAndInventory(
+    markets: { id: string; code: string }[],
+    managers: { id: string; email: string }[],
+    marketVariants: { id: string; variant_code: string; market_code: string }[],
+) {
+    const ngMarket = markets.find((market) => market.code === 'NG');
+    const ghMarket = markets.find((market) => market.code === 'GH');
+    const ngManager =
+        managers.find((staff) => staff.email === 'warehouse.ng@dukka.local') ??
+        managers[0];
+    const ghManager =
+        managers.find((staff) => staff.email === 'support.gh@dukka.local') ??
+        managers[0];
+
+    if (!ngMarket || !ghMarket || !ngManager || !ghManager) {
+        throw new Error('Missing market or manager for warehouse seed');
+    }
+
+    const serviceStatesDef = [
+        { market_code: 'NG', state_name: 'Lagos' },
+        { market_code: 'NG', state_name: 'Abuja' },
+        { market_code: 'GH', state_name: 'Greater Accra' },
+        { market_code: 'GH', state_name: 'Ashanti' },
+    ] as const;
+
+    const serviceStates: {
+        id: string;
+        market_code: string;
+        state_name: string;
+    }[] = [];
+
+    for (const stateDef of serviceStatesDef) {
+        const market = markets.find((row) => row.code === stateDef.market_code);
+        if (!market) {
+            continue;
+        }
+
+        const serviceState = await prisma.serviceState.upsert({
+            where: {
+                market_id_state_name: {
+                    market_id: market.id,
+                    state_name: stateDef.state_name,
+                },
+            },
+            create: {
+                market_id: market.id,
+                state_name: stateDef.state_name,
+            },
+            update: {},
+        });
+
+        serviceStates.push({
+            id: serviceState.id,
+            market_code: stateDef.market_code,
+            state_name: stateDef.state_name,
+        });
+    }
+
+    const warehousesDef = [
+        {
+            name: 'Lagos Central Warehouse',
+            market_id: ngMarket.id,
+            manager_id: ngManager.id,
+            address: 'Plot 8, Kudirat Abiola Way, Oregun, Lagos',
+            status: WarehouseStatus.OPEN,
+            service_state_names: ['Lagos', 'Abuja'],
+        },
+        {
+            name: 'Accra Fulfillment Hub',
+            market_id: ghMarket.id,
+            manager_id: ghManager.id,
+            address: 'Spintex Road, Accra',
+            status: WarehouseStatus.OPEN,
+            service_state_names: ['Greater Accra', 'Ashanti'],
+        },
+    ] as const;
+
+    const warehouses: { id: string; name: string; market_id: string }[] = [];
+
+    for (const warehouseDef of warehousesDef) {
+        let warehouse = await prisma.warehouse.findFirst({
+            where: {
+                name: warehouseDef.name,
+                market_id: warehouseDef.market_id,
+            },
+        });
+
+        if (!warehouse) {
+            warehouse = await prisma.warehouse.create({
+                data: {
+                    name: warehouseDef.name,
+                    market_id: warehouseDef.market_id,
+                    manager_id: warehouseDef.manager_id,
+                    address: warehouseDef.address,
+                    status: warehouseDef.status,
+                },
+            });
+        } else {
+            warehouse = await prisma.warehouse.update({
+                where: { id: warehouse.id },
+                data: {
+                    manager_id: warehouseDef.manager_id,
+                    address: warehouseDef.address,
+                    status: warehouseDef.status,
+                },
+            });
+        }
+
+        for (const stateName of warehouseDef.service_state_names) {
+            const serviceState = serviceStates.find(
+                (row) =>
+                    row.state_name === stateName &&
+                    ((warehouseDef.market_id === ngMarket.id &&
+                        row.market_code === 'NG') ||
+                        (warehouseDef.market_id === ghMarket.id &&
+                            row.market_code === 'GH')),
+            );
+            if (!serviceState) {
+                continue;
+            }
+
+            await prisma.warehouseServiceState.upsert({
+                where: {
+                    warehouse_id_service_state_id: {
+                        warehouse_id: warehouse.id,
+                        service_state_id: serviceState.id,
+                    },
+                },
+                create: {
+                    warehouse_id: warehouse.id,
+                    service_state_id: serviceState.id,
+                },
+                update: {},
+            });
+        }
+
+        warehouses.push(warehouse);
+    }
+
+    const inventoryPlan = [
+        {
+            warehouse_name: 'Lagos Central Warehouse',
+            variant_code: 'PULSE-BLK-STD',
+            market_code: 'NG',
+            available_quantity: 120,
+        },
+        {
+            warehouse_name: 'Lagos Central Warehouse',
+            variant_code: 'PULSE-WHT-STD',
+            market_code: 'NG',
+            available_quantity: 75,
+        },
+        {
+            warehouse_name: 'Lagos Central Warehouse',
+            variant_code: 'ANK-TEE-M',
+            market_code: 'NG',
+            available_quantity: 200,
+        },
+        {
+            warehouse_name: 'Lagos Central Warehouse',
+            variant_code: 'ANK-TEE-L',
+            market_code: 'NG',
+            available_quantity: 180,
+        },
+        {
+            warehouse_name: 'Accra Fulfillment Hub',
+            variant_code: 'PULSE-BLK-STD',
+            market_code: 'GH',
+            available_quantity: 40,
+        },
+        {
+            warehouse_name: 'Accra Fulfillment Hub',
+            variant_code: 'CHARGE-HUB-GRY',
+            market_code: 'GH',
+            available_quantity: 60,
+        },
+    ] as const;
+
+    for (const plan of inventoryPlan) {
+        const warehouse = warehouses.find((row) => row.name === plan.warehouse_name);
+        const marketVariant = marketVariants.find(
+            (row) =>
+                row.variant_code === plan.variant_code &&
+                row.market_code === plan.market_code,
+        );
+        if (!warehouse || !marketVariant) {
+            continue;
+        }
+
+        await prisma.inventory.upsert({
+            where: {
+                market_variant_id_warehouse_id: {
+                    market_variant_id: marketVariant.id,
+                    warehouse_id: warehouse.id,
+                },
+            },
+            create: {
+                market_variant_id: marketVariant.id,
+                warehouse_id: warehouse.id,
+                available_quantity: plan.available_quantity,
+            },
+            update: {
+                available_quantity: plan.available_quantity,
+            },
+        });
+    }
+
+    console.log(
+        `Seeded ${warehouses.length} warehouse(s), ${serviceStates.length} service state(s), and inventory rows`,
+    );
+
+    return warehouses;
+}
+
+async function seedOrdersReviewsAndFulfillment(
+    customers: { id: string; email: string }[],
+    warehouses: { id: string; name: string }[],
+    marketVariants: { id: string; variant_code: string; market_code: string }[],
+) {
+    const adaeze = customers.find(
+        (customer) => customer.email === 'adaeze.customer@dukka.local',
+    );
+    const kofi = customers.find(
+        (customer) => customer.email === 'kofi.customer@dukka.local',
+    );
+    const lagosWarehouse = warehouses.find(
+        (warehouse) => warehouse.name === 'Lagos Central Warehouse',
+    );
+    const accraWarehouse = warehouses.find(
+        (warehouse) => warehouse.name === 'Accra Fulfillment Hub',
+    );
+    const ngPulse = marketVariants.find(
+        (row) => row.variant_code === 'PULSE-BLK-STD' && row.market_code === 'NG',
+    );
+    const ngTee = marketVariants.find(
+        (row) => row.variant_code === 'ANK-TEE-M' && row.market_code === 'NG',
+    );
+    const ghPulse = marketVariants.find(
+        (row) => row.variant_code === 'PULSE-BLK-STD' && row.market_code === 'GH',
+    );
+
+    if (
+        !adaeze ||
+        !kofi ||
+        !lagosWarehouse ||
+        !accraWarehouse ||
+        !ngPulse ||
+        !ngTee ||
+        !ghPulse
+    ) {
+        throw new Error('Missing dependencies for order/review seed');
+    }
+
+    const existingAdaezeOrders = await prisma.order.count({
+        where: { customer_id: adaeze.id },
+    });
+
+    if (existingAdaezeOrders === 0) {
+        await prisma.order.create({
+            data: {
+                customer_id: adaeze.id,
+                order_inventories: {
+                    create: [
+                        {
+                            warehouse_id: lagosWarehouse.id,
+                            status: OrderInventoryStatus.SUCCESS,
+                            expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000),
+                            line_items: {
+                                create: [
+                                    {
+                                        market_variant_id: ngPulse.id,
+                                        quantity: 1,
+                                    },
+                                    {
+                                        market_variant_id: ngTee.id,
+                                        quantity: 2,
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+
+        await prisma.order.create({
+            data: {
+                customer_id: adaeze.id,
+                order_inventories: {
+                    create: [
+                        {
+                            warehouse_id: lagosWarehouse.id,
+                            status: OrderInventoryStatus.PENDING,
+                            expires_at: new Date(Date.now() + 30 * 60 * 1000),
+                            line_items: {
+                                create: [
+                                    {
+                                        market_variant_id: ngTee.id,
+                                        quantity: 1,
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+    }
+
+    const existingKofiOrders = await prisma.order.count({
+        where: { customer_id: kofi.id },
+    });
+
+    if (existingKofiOrders === 0) {
+        await prisma.order.create({
+            data: {
+                customer_id: kofi.id,
+                order_inventories: {
+                    create: [
+                        {
+                            warehouse_id: accraWarehouse.id,
+                            status: OrderInventoryStatus.CLOSED,
+                            expires_at: new Date(Date.now() - 60 * 60 * 1000),
+                            line_items: {
+                                create: [
+                                    {
+                                        market_variant_id: ghPulse.id,
+                                        quantity: 1,
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+    }
+
+    const existingAdaezeReview = await prisma.reviews.findFirst({
+        where: {
+            customer_id: adaeze.id,
+            market_variant_id: ngPulse.id,
+        },
+    });
+
+    if (!existingAdaezeReview) {
+        await prisma.reviews.create({
+            data: {
+                customer_id: adaeze.id,
+                market_variant_id: ngPulse.id,
+                title: 'Excellent sound',
+                review: 'Comfortable fit and clear audio for long calls.',
+                rating: 5,
+                likes: 4,
+                dislikes: 0,
+                review_images: {
+                    create: [
+                        {
+                            image_url:
+                                'https://cdn.dukka.local/reviews/pulse-review-1.jpg',
+                        },
+                    ],
+                },
+            },
+        });
+    }
+
+    const existingKofiReview = await prisma.reviews.findFirst({
+        where: {
+            customer_id: kofi.id,
+            market_variant_id: ghPulse.id,
+        },
+    });
+
+    if (!existingKofiReview) {
+        await prisma.reviews.create({
+            data: {
+                customer_id: kofi.id,
+                market_variant_id: ghPulse.id,
+                title: 'Great value',
+                review: 'Battery lasts through a full workday.',
+                rating: 4,
+                likes: 2,
+                dislikes: 0,
+            },
+        });
+    }
+
+    console.log('Seeded orders, inventory line items, and reviews');
 }
 
 async function main() {
     await seedPermissions();
     await seedCurrencies();
     await seedMarkets();
-    const role = await seedSuperAdminRole();
-    await seedSuperAdminStaff(role.id);
+
+    const markets = await prisma.market.findMany({
+        select: { id: true, code: true },
+    });
+
+    const superAdminRole = await seedSuperAdminRole();
+    const additionalRoles = await seedAdditionalRoles();
+    const superAdmin = await seedSuperAdminStaff(superAdminRole.id);
+    const demoStaff = await seedDemoStaff(
+        additionalRoles,
+        markets,
+        superAdmin.id,
+    );
+    const customers = await seedCustomers();
+    const marketVariants = await seedCatalog(markets);
+    const warehouses = await seedWarehousesAndInventory(
+        markets,
+        demoStaff,
+        marketVariants,
+    );
+    await seedOrdersReviewsAndFulfillment(
+        customers,
+        warehouses,
+        marketVariants,
+    );
+
+    console.log('Seed completed successfully');
 }
 
 main()
