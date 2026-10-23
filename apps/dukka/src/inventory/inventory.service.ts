@@ -9,12 +9,14 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { WarehouseStatus } from '../../generated/prisma/client.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { ProductRepository } from '../product/product.repository.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import { resolveMarketId } from '../shared/resolve-market-id.js';
 import { ServiceStateService } from '../warehouse/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
@@ -39,6 +41,7 @@ export class InventoryService {
         private readonly productRepository: ProductRepository,
         private readonly warehouseRepository: WarehouseRepository,
         private readonly serviceStateService: ServiceStateService,
+        private readonly customerService: CustomerService,
     ) {}
 
     async create(
@@ -139,16 +142,24 @@ export class InventoryService {
         }
     }
 
-    async checkAvailability(data: CheckAvailabilityDto) {
+    async checkAvailability(
+        customerId: string | undefined,
+        data: CheckAvailabilityDto,
+    ) {
         try {
             this.logger.log(
                 `Checking availability for product ${data.product_id}`,
             );
 
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                data.market_id,
+            );
             const availability =
                 await this.inventoryRepository.findProductAvailability(
                     data.product_id,
-                    data.market_id,
+                    marketId,
                 );
             if (!availability) {
                 throw new NotFoundException('Product not found');
@@ -234,12 +245,21 @@ export class InventoryService {
         };
     }
 
-    async findByVariant(variantId: string, query: FindInventoryDto) {
+    async findByVariant(
+        customerId: string | undefined,
+        variantId: string,
+        query: FindInventoryDto,
+    ) {
         try {
             this.logger.log(`Fetching inventory for variant ${variantId}`);
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
+            );
             const page = await this.inventoryRepository.findByVariantId(
                 variantId,
-                query,
+                { ...query, market_id: marketId },
             );
             return {
                 items: page.items,
@@ -250,12 +270,21 @@ export class InventoryService {
         }
     }
 
-    async findByProduct(productId: string, query: FindInventoryDto) {
+    async findByProduct(
+        customerId: string | undefined,
+        productId: string,
+        query: FindInventoryDto,
+    ) {
         try {
             this.logger.log(`Fetching inventory for product ${productId}`);
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
+            );
             const page = await this.inventoryRepository.findByProductId(
                 productId,
-                query,
+                { ...query, market_id: marketId },
             );
             return {
                 items: page.items,
@@ -273,10 +302,13 @@ export class InventoryService {
     ) {
         try {
             this.logger.log(`Fetching inventory for warehouse ${warehouseId}`);
+            if (!query.market_id) {
+                throw new BadRequestException('market_id is required');
+            }
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
             const page = await this.inventoryRepository.findByWarehouseId(
                 warehouseId,
-                query,
+                { ...query, market_id: query.market_id },
             );
             return {
                 items: page.items,
@@ -296,10 +328,13 @@ export class InventoryService {
             this.logger.log(
                 `Fetching inventory for market variant ${marketVariantId}`,
             );
+            if (!query.market_id) {
+                throw new BadRequestException('market_id is required');
+            }
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
             const page = await this.inventoryRepository.findByMarketVariantId(
                 marketVariantId,
-                query,
+                { ...query, market_id: query.market_id },
             );
             return {
                 items: page.items,

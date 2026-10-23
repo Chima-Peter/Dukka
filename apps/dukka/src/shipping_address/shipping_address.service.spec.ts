@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CustomerService } from '../customer/customer.service.js';
 import { ShippingAddressRepository } from './shipping_address.repository.js';
 import { ShippingAddressService } from './shipping_address.service.js';
 
@@ -18,6 +19,12 @@ describe('ShippingAddressService', () => {
                         findByIdAndCustomerId: vi.fn(),
                         update: vi.fn(),
                         delete: vi.fn(),
+                    },
+                },
+                {
+                    provide: CustomerService,
+                    useValue: {
+                        getActiveMarketId: vi.fn(),
                     },
                 },
             ],

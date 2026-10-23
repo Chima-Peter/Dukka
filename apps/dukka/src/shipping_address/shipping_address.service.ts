@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     HttpException,
     Injectable,
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { ShippingAddress } from '../../generated/prisma/client.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
 import type { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
@@ -19,6 +21,7 @@ export class ShippingAddressService {
 
     constructor(
         private readonly shippingAddressRepository: ShippingAddressRepository,
+        private readonly customerService: CustomerService,
     ) {}
 
     async create(
@@ -29,13 +32,23 @@ export class ShippingAddressService {
             this.logger.log(
                 `Creating shipping address for customer ${customer_id}`,
             );
+            const market_id =
+                await this.customerService.getActiveMarketId(customer_id);
+            if (!market_id) {
+                throw new BadRequestException('Active market is not set');
+            }
+
             const address = await this.shippingAddressRepository.create(
                 customer_id,
+                market_id,
                 data,
             );
             this.logger.log(`Shipping address created ${address.id}`);
             return address;
         } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
             if (
                 error instanceof PrismaClientKnownRequestError &&
                 error.code === 'P2002'

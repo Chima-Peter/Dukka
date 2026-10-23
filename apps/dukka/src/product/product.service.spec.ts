@@ -12,6 +12,10 @@ vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
 }));
 
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
+}));
+
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     PRODUCT_BUCKET: 'products',
     ALLOWED_PRODUCT_CONTENT_TYPES: new Set([
@@ -33,6 +37,9 @@ describe('ProductService', () => {
         );
         const { MarketsService } = await import(
             '../markets/markets.service.js'
+        );
+        const { CustomerService } = await import(
+            '../customer/customer.service.js'
         );
 
         const module: TestingModule = await Test.createTestingModule({
@@ -63,6 +70,12 @@ describe('ProductService', () => {
                     useValue: {
                         findOne: vi.fn(),
                         validateIds: vi.fn(),
+                    },
+                },
+                {
+                    provide: CustomerService,
+                    useValue: {
+                        getActiveMarketId: vi.fn(),
                     },
                 },
             ],

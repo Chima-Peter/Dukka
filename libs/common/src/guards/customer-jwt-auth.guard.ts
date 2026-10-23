@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { AUTH_TYPE_KEY } from '../decorators/auth-type.decorator.js';
+import { OPTIONAL_CUSTOMER_AUTH_KEY } from '../decorators/optional-customer-auth.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import type {
     CustomerJwtPayload,
@@ -30,6 +31,10 @@ export class CustomerJwtAuthGuard implements CanActivate {
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
+        if (this.isOptionalCustomerAuth(context)) {
+            return this.attachCustomerIfPresent(context);
+        }
+
         if (this.isPublic(context) || this.authType(context) !== 'customer') {
             return true;
         }
@@ -40,6 +45,27 @@ export class CustomerJwtAuthGuard implements CanActivate {
             throw new UnauthorizedException('Missing authentication token');
         }
 
+        await this.attachCustomer(request, token);
+        return true;
+    }
+
+    private async attachCustomerIfPresent(
+        context: ExecutionContext,
+    ): Promise<boolean> {
+        const request = context.switchToHttp().getRequest<Request>();
+        const token = extractBearerToken(request);
+        if (!token) {
+            return true;
+        }
+
+        await this.attachCustomer(request, token);
+        return true;
+    }
+
+    private async attachCustomer(
+        request: Request,
+        token: string,
+    ): Promise<void> {
         try {
             const payload =
                 await this.jwtService.verifyAsync<CustomerJwtPayload>(token, {
@@ -55,14 +81,21 @@ export class CustomerJwtAuthGuard implements CanActivate {
             (request as Request & { [REQUEST_USER_KEY]: JwtPayload })[
                 REQUEST_USER_KEY
             ] = payload;
-
-            return true;
         } catch (error) {
             if (error instanceof UnauthorizedException) {
                 throw error;
             }
             throw new UnauthorizedException('Invalid or expired token');
         }
+    }
+
+    private isOptionalCustomerAuth(context: ExecutionContext): boolean {
+        return (
+            this.reflector.getAllAndOverride<boolean>(
+                OPTIONAL_CUSTOMER_AUTH_KEY,
+                [context.getHandler(), context.getClass()],
+            ) === true
+        );
     }
 
     private isPublic(context: ExecutionContext): boolean {

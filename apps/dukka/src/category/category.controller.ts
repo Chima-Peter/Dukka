@@ -14,10 +14,13 @@ import {
 import {
     Auth,
     CurrentStaff,
+    CurrentCustomer,
+    OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { CategoryService } from './category.service.js';
@@ -56,9 +59,15 @@ export class CategoryController {
 
     @Get()
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Categories retrieved successfully')
-    findAll(@Query() query: FindCategoriesDto) {
-        return this.categoryService.findAll(query);
+    findAll(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Query() query: FindCategoriesDto,
+    ) {
+        return this.categoryService.findAll(customer?.sub, query);
     }
 
     @Patch(':id')

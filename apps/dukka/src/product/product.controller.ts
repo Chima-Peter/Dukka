@@ -14,10 +14,13 @@ import {
 import {
     Auth,
     CurrentStaff,
+    CurrentCustomer,
+    OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
@@ -55,9 +58,15 @@ export class ProductController {
 
     @Get()
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Products retrieved successfully')
-    findAll(@Query() query: FindProductsDto) {
-        return this.productService.findAll(query);
+    findAll(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Query() query: FindProductsDto,
+    ) {
+        return this.productService.findAll(customer?.sub, query);
     }
 
     @Get('staff')
@@ -74,12 +83,16 @@ export class ProductController {
 
     @Get(':id')
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Product retrieved successfully')
     findOne(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: FindProductDto,
     ) {
-        return this.productService.findOne(id, query);
+        return this.productService.findOne(customer?.sub, id, query);
     }
 
     @Patch(':id')

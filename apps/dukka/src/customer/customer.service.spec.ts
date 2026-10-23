@@ -1,6 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MarketsService } from '../markets/markets.service.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerService } from './customer.service.js';
@@ -61,6 +62,12 @@ describe('CustomerService', () => {
                         findByEmail: vi.fn(),
                         findByID: vi.fn(),
                         delete: vi.fn(),
+                    },
+                },
+                {
+                    provide: MarketsService,
+                    useValue: {
+                        validateIds: vi.fn(),
                     },
                 },
                 {

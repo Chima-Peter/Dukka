@@ -3,6 +3,8 @@ export {
     AUTH_TYPE_KEY,
     CurrentCustomer,
     CurrentStaff,
+    OPTIONAL_CUSTOMER_AUTH_KEY,
+    OptionalCustomerAuth,
     IS_PUBLIC_KEY,
     Public,
     REQUIRE_PERMISSION_KEY,

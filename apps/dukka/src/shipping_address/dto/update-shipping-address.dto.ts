@@ -47,10 +47,6 @@ export class UpdateShippingAddressDto {
     state?: string;
 
     @IsOptional()
-    @IsUUID()
-    market_id?: string;
-
-    @IsOptional()
     @IsString()
     @MinLength(1)
     @MaxLength(512)

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CustomerService } from '../customer/customer.service.js';
 import { CategoryRepository } from './category.repository.js';
 import { CategoryService } from './category.service.js';
 
@@ -19,6 +20,12 @@ describe('CategoryService', () => {
                         addToMarket: vi.fn(),
                         findAllByMarket: vi.fn(),
                         removeFromMarket: vi.fn(),
+                    },
+                },
+                {
+                    provide: CustomerService,
+                    useValue: {
+                        getActiveMarketId: vi.fn(),
                     },
                 },
             ],

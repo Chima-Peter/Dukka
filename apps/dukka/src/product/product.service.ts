@@ -15,6 +15,7 @@ import {
     ProductStatus,
     type Product,
 } from '../../generated/prisma/client.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
@@ -22,6 +23,7 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import { resolveMarketId } from '../shared/resolve-market-id.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { CreateVariantDto } from './dto/create-variant.dto.js';
@@ -45,6 +47,7 @@ export class ProductService {
         private readonly productRepository: ProductRepository,
         private readonly supabaseService: SupabaseService,
         private readonly marketsService: MarketsService,
+        private readonly customerService: CustomerService,
     ) {}
 
     async getImageUploadURLs(data: UploadFileDto): Promise<ImageUploadUrls> {
@@ -130,11 +133,19 @@ export class ProductService {
         }
     }
 
-    async findAll(query: FindProductsDto) {
+    async findAll(customerId: string | undefined, query: FindProductsDto) {
         try {
             this.logger.log('Fetching products');
             this.assertPriceRange(query.min_price, query.max_price);
-            const page = await this.productRepository.findAllPublic(query);
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
+            );
+            const page = await this.productRepository.findAllPublic({
+                ...query,
+                market_id: marketId,
+            });
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -158,14 +169,21 @@ export class ProductService {
         }
     }
 
-    async findOne(id: string, query: FindProductDto) {
+    async findOne(
+        customerId: string | undefined,
+        id: string,
+        query: FindProductDto,
+    ) {
         try {
-            this.logger.log(
-                `Fetching product ${id} for market ${query.market_id}`,
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
             );
+            this.logger.log(`Fetching product ${id} for market ${marketId}`);
             return await this.productRepository.findByIdInMarket(
                 id,
-                query.market_id,
+                marketId,
                 ProductStatus.ACTIVE,
             );
         } catch (error) {

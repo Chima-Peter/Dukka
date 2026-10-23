@@ -10,14 +10,14 @@ export class ShippingAddressRepository {
 
     async create(
         customer_id: string,
+        market_id: string,
         data: CreateShippingAddressDto,
     ): Promise<ShippingAddress> {
         return await this.prisma.shippingAddress.create({
             data: {
                 ...data,
-                customer: {
-                    connect: { id: customer_id },
-                },
+                market_id,
+                customer_id,
             },
         });
     }
@@ -66,9 +66,6 @@ export class ShippingAddressRepository {
                 }),
                 ...(data.country !== undefined && { country: data.country }),
                 ...(data.state !== undefined && { state: data.state }),
-                ...(data.market_id !== undefined && {
-                    market_id: data.market_id,
-                }),
                 ...(data.street_address !== undefined && {
                     street_address: data.street_address,
                 }),

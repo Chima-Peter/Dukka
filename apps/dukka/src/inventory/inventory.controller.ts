@@ -13,10 +13,13 @@ import {
 import {
     Auth,
     CurrentStaff,
+    CurrentCustomer,
+    OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { CheckAvailabilityDto } from './dto/check-availability.dto.js';
@@ -53,9 +56,15 @@ export class InventoryController {
 
     @Get('check-availability')
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Inventory availability checked successfully')
-    checkAvailability(@Query() query: CheckAvailabilityDto) {
-        return this.inventoryService.checkAvailability(query);
+    checkAvailability(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Query() query: CheckAvailabilityDto,
+    ) {
+        return this.inventoryService.checkAvailability(customer?.sub, query);
     }
 
     @Patch('order-inventories/:id/status')
@@ -103,21 +112,37 @@ export class InventoryController {
 
     @Get('variants/:variantId')
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Variant inventory retrieved successfully')
     findByVariant(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
         @Param('variantId', ParseUUIDPipe) variantId: string,
         @Query() query: FindInventoryDto,
     ) {
-        return this.inventoryService.findByVariant(variantId, query);
+        return this.inventoryService.findByVariant(
+            customer?.sub,
+            variantId,
+            query,
+        );
     }
 
     @Get('products/:productId')
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Product inventory retrieved successfully')
     findByProduct(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
         @Param('productId', ParseUUIDPipe) productId: string,
         @Query() query: FindInventoryDto,
     ) {
-        return this.inventoryService.findByProduct(productId, query);
+        return this.inventoryService.findByProduct(
+            customer?.sub,
+            productId,
+            query,
+        );
     }
 }

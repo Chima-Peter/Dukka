@@ -2,8 +2,9 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class FindCategoriesDto {
+    @IsOptional()
     @IsUUID()
-    market_id!: string;
+    market_id?: string;
 
     @IsOptional()
     @IsUUID()

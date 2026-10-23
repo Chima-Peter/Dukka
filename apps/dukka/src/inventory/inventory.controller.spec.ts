@@ -7,6 +7,7 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentCustomer: () => () => undefined,
     CurrentStaff: () => () => undefined,
+    OptionalCustomerAuth: () => () => undefined,
     Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,

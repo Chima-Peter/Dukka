@@ -117,6 +117,7 @@ export class CustomerAuthService {
                 email: customer.email,
                 name: customer.name,
                 cart_id,
+                active_market_id: customer.active_market_id,
             });
 
             return { ...tokens, customer: publicCustomer };
@@ -171,11 +172,15 @@ export class CustomerAuthService {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 
+            const active_market_id =
+                await this.customerService.getActiveMarketId(payload.sub);
+
             return this.issueTokenPair({
                 id: payload.sub,
                 email: payload.email,
                 name: payload.name,
                 cart_id: payload.cart_id,
+                active_market_id,
             });
         } catch (error) {
             if (error instanceof HttpException) {
@@ -221,6 +226,7 @@ export class CustomerAuthService {
 
             await this.tokenRepository.deleteByToken(customerId, accessToken);
             await this.blacklistAccessToken(accessToken);
+            await this.customerService.clearActiveMarketFromRedis(customerId);
 
             this.logger.log(`Tokens revoked for customer ${customerId}`);
             return { data: null };
@@ -445,6 +451,7 @@ export class CustomerAuthService {
                 .map((token) => this.blacklistAccessToken(token.token)),
         );
         await this.tokenRepository.deleteAllByCustomerId(customerId);
+        await this.customerService.clearActiveMarketFromRedis(customerId);
     }
 
     private async issueTokenPair(customer: {
@@ -452,6 +459,7 @@ export class CustomerAuthService {
         email: string;
         name: string;
         cart_id: string;
+        active_market_id?: string | null;
     }): Promise<AuthTokens> {
         const basePayload = {
             sub: customer.id,
@@ -484,6 +492,11 @@ export class CustomerAuthService {
                 customerId: customer.id,
             },
         ]);
+
+        await this.customerService.persistActiveMarketToRedis(
+            customer.id,
+            customer.active_market_id,
+        );
 
         this.logger.log(`Token pair issued for customer ${customer.email}`);
 

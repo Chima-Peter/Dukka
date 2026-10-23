@@ -1,6 +1,7 @@
-import { IsUUID } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
 
 export class FindProductDto {
+    @IsOptional()
     @IsUUID()
-    market_id!: string;
+    market_id?: string;
 }

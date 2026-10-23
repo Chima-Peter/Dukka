@@ -40,9 +40,6 @@ export class CreateShippingAddressDto {
     @IsUUID()
     state!: string;
 
-    @IsUUID()
-    market_id!: string;
-
     @IsString()
     @MinLength(1)
     @MaxLength(512)

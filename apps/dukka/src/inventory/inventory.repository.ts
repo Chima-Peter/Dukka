@@ -190,7 +190,10 @@ export class InventoryRepository {
         };
     }
 
-    async findByVariantId(variantId: string, query: FindInventoryDto) {
+    async findByVariantId(
+        variantId: string,
+        query: FindInventoryDto & { market_id: string },
+    ) {
         return this.findPage(
             {
                 market_variant: {
@@ -205,7 +208,10 @@ export class InventoryRepository {
         );
     }
 
-    async findByProductId(productId: string, query: FindInventoryDto) {
+    async findByProductId(
+        productId: string,
+        query: FindInventoryDto & { market_id: string },
+    ) {
         return this.findPage(
             {
                 market_variant: {
@@ -220,7 +226,10 @@ export class InventoryRepository {
         );
     }
 
-    async findByWarehouseId(warehouseId: string, query: FindInventoryDto) {
+    async findByWarehouseId(
+        warehouseId: string,
+        query: FindInventoryDto & { market_id: string },
+    ) {
         return this.findPage(
             {
                 warehouse: {
@@ -237,7 +246,7 @@ export class InventoryRepository {
 
     async findByMarketVariantId(
         marketVariantId: string,
-        query: FindInventoryDto,
+        query: FindInventoryDto & { market_id: string },
     ) {
         return this.findPage(
             {

@@ -35,6 +35,9 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  active_market_id String?
+  active_market    Market? @relation(fields: [active_market_id], references: [id], onDelete: SetNull)
+
   points    Points?
   cart    Cart?
   
@@ -42,6 +45,8 @@ model Customer {
   shipping_address    ShippingAddress[]
   reviews Reviews[]
   orders  Order[]
+
+  @@index([active_market_id])
 }
 
 model Token {
@@ -242,6 +247,7 @@ model Market {
   shipping_addresses  ShippingAddress[]
   market_payment_methods MarketPaymentMethod[]
   orders              Order[]
+  customers           Customer[]
 }
 
 enum StaffInvitationStatus {

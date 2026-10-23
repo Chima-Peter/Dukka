@@ -15,12 +15,14 @@ import {
     TokenType,
     type Customer,
 } from '../../generated/prisma/client.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import {
     ACCOUNT_DELETION_TOKEN_TTL_SECONDS,
     RedisKeys,
+    REFRESH_TOKEN_TTL_SECONDS,
 } from '../shared/index.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
@@ -41,6 +43,7 @@ export class CustomerService {
     private readonly logger = new Logger(CustomerService.name);
     constructor(
         private readonly customerRepository: CustomerRepository,
+        private readonly marketsService: MarketsService,
         private readonly supabaseService: SupabaseService,
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
@@ -132,6 +135,89 @@ export class CustomerService {
                 'An unexpected error occurred. Try again later.',
             );
         }
+    }
+
+    async setActiveMarket(
+        customerId: string,
+        marketId: string,
+    ): Promise<{ active_market_id: string }> {
+        try {
+            this.logger.log(
+                `Setting active market ${marketId} for customer ${customerId}`,
+            );
+
+            const validation = await this.marketsService.validateIds({
+                market_ids: [marketId],
+            });
+            if (validation.invalid_ids.length > 0) {
+                throw new NotFoundException('Market not found');
+            }
+            if (validation.inactive_ids.length > 0) {
+                throw new BadRequestException('Market is not active');
+            }
+
+            await this.customerRepository.updateActiveMarketId(
+                customerId,
+                marketId,
+            );
+            await this.persistActiveMarketToRedis(customerId, marketId);
+
+            this.logger.log(
+                `Active market ${marketId} set for customer ${customerId}`,
+            );
+            return { active_market_id: marketId };
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2025'
+            ) {
+                throw new NotFoundException('Customer not found');
+            }
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2003'
+            ) {
+                throw new NotFoundException('Market not found');
+            }
+            this.logger.error(`Internal server error: ${error}`);
+            throw new InternalServerErrorException(
+                'An unexpected error occurred. Try again later.',
+            );
+        }
+    }
+
+    async getActiveMarketId(customerId: string): Promise<string | null> {
+        const cached = await this.redisService.get(
+            RedisKeys.customerActiveMarket(customerId),
+        );
+        if (cached !== null) {
+            return cached === '' ? null : cached;
+        }
+
+        const customer = await this.customerRepository.findByID(customerId);
+        const marketId = customer?.active_market_id ?? null;
+        await this.persistActiveMarketToRedis(customerId, marketId);
+        return marketId;
+    }
+
+    async persistActiveMarketToRedis(
+        customerId: string,
+        marketId: string | null | undefined,
+    ): Promise<void> {
+        await this.redisService.set(
+            RedisKeys.customerActiveMarket(customerId),
+            marketId ?? '',
+            REFRESH_TOKEN_TTL_SECONDS,
+        );
+    }
+
+    async clearActiveMarketFromRedis(customerId: string): Promise<void> {
+        await this.redisService.delete(
+            RedisKeys.customerActiveMarket(customerId),
+        );
     }
 
     async updatePassword(email: string, password: string): Promise<Customer> {
@@ -373,6 +459,7 @@ export class CustomerService {
                     .map((token) => this.blacklistAccessToken(token.token)),
             );
             await this.tokenRepository.deleteAllByCustomerId(customer_id);
+            await this.clearActiveMarketFromRedis(customer_id);
 
             await this.delete(customer_id);
             await this.redisService.delete(key);

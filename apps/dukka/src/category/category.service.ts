@@ -8,11 +8,13 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Category } from '../../generated/prisma/client.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import { resolveMarketId } from '../shared/resolve-market-id.js';
 import { CategoryRepository } from './category.repository.js';
 import type { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
 import type { CreateCategoryDto } from './dto/create-category.dto.js';
@@ -25,7 +27,10 @@ import type { PrismaErrorMap } from './types/prisma-error.type.js';
 export class CategoryService {
     private readonly logger = new Logger(CategoryService.name);
 
-    constructor(private readonly categoryRepository: CategoryRepository) {}
+    constructor(
+        private readonly categoryRepository: CategoryRepository,
+        private readonly customerService: CustomerService,
+    ) {}
 
     async create(data: CreateCategoryDto): Promise<Category> {
         try {
@@ -113,12 +118,18 @@ export class CategoryService {
         }
     }
 
-    async findAll(query: FindCategoriesDto) {
+    async findAll(customerId: string | undefined, query: FindCategoriesDto) {
         try {
-            this.logger.log(
-                `Fetching categories for market ${query.market_id}`,
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
             );
-            const page = await this.categoryRepository.findAllByMarket(query);
+            this.logger.log(`Fetching categories for market ${marketId}`);
+            const page = await this.categoryRepository.findAllByMarket({
+                ...query,
+                market_id: marketId,
+            });
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -148,8 +159,14 @@ export class CategoryService {
             );
             return marketCategory;
         } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                (error.code === 'P2003' || error.code === 'P2025')
+            ) {
+                throw this.marketCategoryRelationNotFound(error);
+            }
             this.handleError(error, {
-                notFound: { P2025: 'Category not found in market' },
+                notFound: { P2025: 'Category not found in this market' },
                 conflict: {
                     P2003:
                         'Cannot remove a category that has products in this market',

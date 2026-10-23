@@ -18,4 +18,6 @@ export const RedisKeys = {
     staffPermissions: (staffId: string) => `staff_permissions:${staffId}`,
     accountDeletionToken: (email: string) => `account_deletion:token:${email}`,
     blacklistedToken: (token: string) => `blacklisted:token:${token}`,
+    customerActiveMarket: (customerId: string) =>
+        `customer:active_market:${customerId}`,
 } as const;

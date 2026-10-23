@@ -56,7 +56,7 @@ export class ProductRepository {
         }).then(toProductDetail);
     }
 
-    async findAllPublic(query: FindProductsDto) {
+    async findAllPublic(query: FindProductsDto & { market_id: string }) {
         const nameMatchedIds = await this.findNameMatchedIds(query.name);
         if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
             return { items: [], next_cursor: null };

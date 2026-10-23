@@ -17,6 +17,7 @@ import { ACCOUNT_DELETION_TOKEN_TTL_SECONDS } from '../shared/redis.constants.js
 import { CustomerAuthService } from './customer-auth.service.js';
 import { CustomerService } from './customer.service.js';
 import { ChangePasswordDto } from './dto/change_password.dto.js';
+import { SetActiveMarketDto } from './dto/set-active-market.dto.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
 
@@ -53,6 +54,18 @@ export class CustomerController {
         @Body() data: UpdateCustomerDTO,
     ) {
         return this.customerService.updateCustomerDetails(customer.sub, data);
+    }
+
+    @Patch('active-market')
+    @ResponseMessage('Active market updated successfully')
+    setActiveMarket(
+        @CurrentCustomer() customer: CustomerJwtPayload,
+        @Body() data: SetActiveMarketDto,
+    ) {
+        return this.customerService.setActiveMarket(
+            customer.sub,
+            data.market_id,
+        );
     }
 
     @Post('delete/initiate')

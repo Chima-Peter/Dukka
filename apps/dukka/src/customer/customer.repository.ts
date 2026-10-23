@@ -89,6 +89,20 @@ export class CustomerRepository {
         });
     }
 
+    async updateActiveMarketId(
+        customerId: string,
+        marketId: string,
+    ): Promise<Customer> {
+        return await this.prisma.customer.update({
+            where: { id: customerId },
+            data: {
+                active_market: {
+                    connect: { id: marketId },
+                },
+            },
+        });
+    }
+
     async delete(customer_id: string): Promise<Customer> {
         return await this.prisma.customer.delete({
             where: { id: customer_id },
