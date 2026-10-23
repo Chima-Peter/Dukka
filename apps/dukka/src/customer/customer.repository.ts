@@ -92,13 +92,16 @@ export class CustomerRepository {
     async updateActiveMarketId(
         customerId: string,
         marketId: string,
-    ): Promise<Customer> {
+    ): Promise<{ active_market_id: string | null }> {
         return await this.prisma.customer.update({
             where: { id: customerId },
             data: {
                 active_market: {
                     connect: { id: marketId },
                 },
+            },
+            select: {
+                active_market_id: true,
             },
         });
     }

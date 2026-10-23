@@ -64,7 +64,7 @@ export class CustomerController {
     ) {
         return this.customerService.setActiveMarket(
             customer.sub,
-            data.market_id,
+            data.country_id,
         );
     }
 

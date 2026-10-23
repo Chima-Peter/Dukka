@@ -51,6 +51,15 @@ export class CountriesService {
         }
     }
 
+    async findByIDOrThrow(id: string): Promise<CountryWithMarket> {
+        const country = await this.countriesRepository.findById(id);
+        if (!country) {
+            throw new NotFoundException('Country not found!');
+        }
+
+        return country;
+     }
+
     async findAll(): Promise<CountryWithMarket[]> {
         try {
             this.logger.log(`Fetching open countries`);

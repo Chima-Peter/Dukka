@@ -12,10 +12,11 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import {
+    CountryStatus,
+    MarketStatus,
     TokenType,
     type Customer,
 } from '../../generated/prisma/client.js';
-import { MarketsService } from '../markets/markets.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
@@ -35,15 +36,15 @@ import {
     type JwtPayload,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import type { PublicCustomer } from './types/index.js';
 import { TokenRepository } from './token.repository.js';
+import { CountriesService } from '../countries/countries.service.js';
 
 @Injectable()
 export class CustomerService {
     private readonly logger = new Logger(CustomerService.name);
     constructor(
         private readonly customerRepository: CustomerRepository,
-        private readonly marketsService: MarketsService,
+        private readonly countriesService: CountriesService,
         private readonly supabaseService: SupabaseService,
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
@@ -139,33 +140,44 @@ export class CustomerService {
 
     async setActiveMarket(
         customerId: string,
-        marketId: string,
+        country_id: string,
     ): Promise<{ active_market_id: string }> {
         try {
             this.logger.log(
-                `Setting active market ${marketId} for customer ${customerId}`,
+                `Setting active market ${country_id} for customer ${customerId}`,
             );
 
-            const validation = await this.marketsService.validateIds({
-                market_ids: [marketId],
-            });
-            if (validation.invalid_ids.length > 0) {
-                throw new NotFoundException('Market not found');
+            const country =
+                await this.countriesService.findByIDOrThrow(country_id);
+            if (country.status !== CountryStatus.OPEN) {
+                throw new BadRequestException(
+                    'Cannot set country as active country as it is currently not open!',
+                );
             }
-            if (validation.inactive_ids.length > 0) {
-                throw new BadRequestException('Market is not active');
+            if (
+                country.market === null ||
+                country.market.status !== MarketStatus.OPEN
+            ) {
+                throw new BadRequestException(
+                    'Cannot set country as active country as its market is currently not open!',
+                );
             }
 
-            await this.customerRepository.updateActiveMarketId(
-                customerId,
-                marketId,
-            );
-            await this.persistActiveMarketToRedis(customerId, marketId);
+            const { active_market_id } =
+                await this.customerRepository.updateActiveMarketId(
+                    customerId,
+                    country.market.id,
+                );
+            if (active_market_id === null) {
+                throw new InternalServerErrorException('Failed to set active market')
+            }
+
+            await this.persistActiveMarketToRedis(customerId, active_market_id);
 
             this.logger.log(
-                `Active market ${marketId} set for customer ${customerId}`,
+                `Active market ${active_market_id} set for customer ${customerId}`,
             );
-            return { active_market_id: marketId };
+            return { active_market_id };
         } catch (error) {
             if (error instanceof HttpException) {
                 throw error;
