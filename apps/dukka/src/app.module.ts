@@ -32,7 +32,7 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { CartModule } from './cart/cart.module.js';
-import { OrdersModule } from './orders/orders.module';
+import { OrdersModule } from './orders/orders.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
