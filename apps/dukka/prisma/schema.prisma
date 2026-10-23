@@ -468,14 +468,41 @@ model Product {
   specs       Json
   status      ProductStatus @default(PENDING_REVIEW)
 
-  images   ProductImage[]
-  variants Variant[]
+  images          ProductImage[]
+  variants        Variant[]
+  pending_updates ProductPendingUpdate[]
 
   market_category_id String
   market_category    MarketCategory @relation(fields: [market_category_id], references: [id], onDelete: Restrict)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+}
+
+enum ProductPendingUpdateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ProductPendingUpdate {
+  id     String                     @id @default(uuid())
+  status ProductPendingUpdateStatus @default(PENDING)
+
+  name               String?
+  description        String?
+  specs              Json?
+  market_category_id String?
+
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@index([product_id, status])
 }
 
 model ProductImage {

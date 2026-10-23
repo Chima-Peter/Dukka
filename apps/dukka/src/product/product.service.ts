@@ -11,6 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
 import {
+    ProductPendingUpdateStatus,
     ProductStatus,
     type Product,
 } from '../../generated/prisma/client.js';
@@ -23,6 +24,7 @@ import {
 import { resolveMarketId } from '../shared/resolve-market-id.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
+import type { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
@@ -192,14 +194,182 @@ export class ProductService {
         }
     }
 
-    async update(id: string, data: UpdateProductDto): Promise<Product> {
+    async update(id: string, data: UpdateProductDto) {
         try {
-            this.logger.log(`Updating product ${id}`);
-            const product = await this.productRepository.update(id, data);
-            this.logger.log(`Product updated ${id}`);
-            return product;
+            this.logger.log(`Proposing update for product ${id}`);
+
+            if (
+                data.name === undefined &&
+                data.description === undefined &&
+                data.specs === undefined &&
+                data.market_category_id === undefined
+            ) {
+                throw new BadRequestException(
+                    'At least one product field must be updated',
+                );
+            }
+
+            const pending =
+                await this.productRepository.findPendingUpdateForProduct(id);
+            if (pending) {
+                throw new ConflictException(
+                    'Product already has a pending update',
+                );
+            }
+
+            const proposal = await this.productRepository.createPendingUpdate(
+                id,
+                data,
+            );
+            this.logger.log(
+                `Pending update ${proposal.id} created for product ${id}`,
+            );
+            return proposal;
         } catch (error) {
             this.handleError(error);
+        }
+    }
+
+    async findPendingUpdatesForStaff(query: FindProductPendingUpdatesDto) {
+        try {
+            this.logger.log('Fetching product pending updates for staff');
+            if (
+                query.from_date !== undefined &&
+                query.to_date !== undefined &&
+                new Date(query.from_date) > new Date(query.to_date)
+            ) {
+                throw new BadRequestException(
+                    'from_date cannot be greater than to_date',
+                );
+            }
+            return await this.productRepository.findPendingUpdatesSummary(
+                query,
+            );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findPendingUpdateById(id: string) {
+        try {
+            this.logger.log(`Fetching product pending update ${id}`);
+            const pendingUpdate =
+                await this.productRepository.findPendingUpdateById(id);
+            if (!pendingUpdate) {
+                throw new NotFoundException('Pending update not found');
+            }
+            return pendingUpdate;
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
+    async updatePendingUpdate(id: string, data: UpdateProductDto) {
+        try {
+            this.logger.log(`Updating product pending update ${id}`);
+
+            if (
+                data.name === undefined &&
+                data.description === undefined &&
+                data.specs === undefined &&
+                data.market_category_id === undefined
+            ) {
+                throw new BadRequestException(
+                    'At least one product field must be updated',
+                );
+            }
+
+            const result = await this.productRepository.updatePendingUpdate(
+                id,
+                data,
+            );
+
+            if ('error' in result) {
+                if (result.error === 'NOT_FOUND') {
+                    throw new NotFoundException('Pending update not found');
+                }
+                if (result.error === 'INVALID_STATUS') {
+                    throw new BadRequestException(
+                        'Only pending or rejected updates can be edited',
+                    );
+                }
+                throw new ConflictException(
+                    'Product already has a pending update',
+                );
+            }
+
+            this.logger.log(`Product pending update ${id} updated`);
+            return result.pendingUpdate;
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
+    async approvePendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+        try {
+            this.logger.log(
+                `Approving ${pendingUpdateIds.length} product pending update(s)`,
+            );
+            const pendingUpdates =
+                await this.productRepository.findPendingUpdatesByIds(
+                    pendingUpdateIds,
+                );
+            if (pendingUpdates.length !== pendingUpdateIds.length) {
+                throw new NotFoundException(
+                    'One or more pending updates were not found',
+                );
+            }
+            if (
+                pendingUpdates.some(
+                    (update) =>
+                        update.status !== ProductPendingUpdateStatus.PENDING,
+                )
+            ) {
+                throw new BadRequestException(
+                    'Only pending updates can be approved',
+                );
+            }
+
+            await this.productRepository.approvePendingUpdates(pendingUpdates);
+            this.logger.log(
+                `Approved ${pendingUpdateIds.length} product pending update(s)`,
+            );
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
+    async rejectPendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+        try {
+            this.logger.log(
+                `Rejecting ${pendingUpdateIds.length} product pending update(s)`,
+            );
+            const pendingUpdates =
+                await this.productRepository.findPendingUpdatesByIds(
+                    pendingUpdateIds,
+                );
+            if (pendingUpdates.length !== pendingUpdateIds.length) {
+                throw new NotFoundException(
+                    'One or more pending updates were not found',
+                );
+            }
+            if (
+                pendingUpdates.some(
+                    (update) =>
+                        update.status !== ProductPendingUpdateStatus.PENDING,
+                )
+            ) {
+                throw new BadRequestException(
+                    'Only pending updates can be rejected',
+                );
+            }
+
+            await this.productRepository.rejectPendingUpdates(pendingUpdateIds);
+            this.logger.log(
+                `Rejected ${pendingUpdateIds.length} product pending update(s)`,
+            );
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
         }
     }
 

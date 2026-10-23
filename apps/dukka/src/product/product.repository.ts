@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
     Prisma,
+    ProductPendingUpdateStatus,
     ProductStatus,
     VariantStatus,
     type Product,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
@@ -305,6 +307,262 @@ export class ProductRepository {
             where: { id },
             data: updateData,
         });
+    }
+
+    async findPendingUpdateForProduct(productId: string) {
+        return await this.prisma.productPendingUpdate.findFirst({
+            where: {
+                product_id: productId,
+                status: ProductPendingUpdateStatus.PENDING,
+            },
+            select: { id: true },
+        });
+    }
+
+    async createPendingUpdate(productId: string, data: UpdateProductDto) {
+        return await this.prisma.productPendingUpdate.create({
+            data: {
+                product: { connect: { id: productId } },
+                ...(data.name !== undefined && { name: data.name }),
+                ...(data.description !== undefined && {
+                    description: data.description,
+                }),
+                ...(data.specs !== undefined && {
+                    specs: data.specs as Prisma.InputJsonValue,
+                }),
+                ...(data.market_category_id !== undefined && {
+                    market_category_id: data.market_category_id,
+                }),
+            },
+            select: {
+                id: true,
+                status: true,
+                product_id: true,
+                created_at: true,
+                updated_at: true,
+            },
+        });
+    }
+
+    async findPendingUpdatesByIds(pendingUpdateIds: string[]) {
+        return await this.prisma.productPendingUpdate.findMany({
+            where: {
+                id: { in: pendingUpdateIds },
+            },
+            select: {
+                id: true,
+                status: true,
+                name: true,
+                description: true,
+                specs: true,
+                market_category_id: true,
+                product_id: true,
+            },
+        });
+    }
+
+    async approvePendingUpdates(
+        pendingUpdates: Array<{
+            id: string;
+            product_id: string;
+            name: string | null;
+            description: string | null;
+            specs: Prisma.JsonValue | null;
+            market_category_id: string | null;
+        }>,
+    ): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            for (const update of pendingUpdates) {
+                const updateData: Prisma.ProductUpdateInput = {
+                    ...(update.name !== null && { name: update.name }),
+                    ...(update.description !== null && {
+                        description: update.description,
+                    }),
+                    ...(update.specs !== null && {
+                        specs: update.specs as Prisma.InputJsonValue,
+                    }),
+                    ...(update.market_category_id !== null && {
+                        market_category: {
+                            connect: { id: update.market_category_id },
+                        },
+                    }),
+                };
+
+                await tx.product.update({
+                    where: { id: update.product_id },
+                    data: updateData,
+                });
+
+                await tx.productPendingUpdate.update({
+                    where: { id: update.id },
+                    data: { status: ProductPendingUpdateStatus.APPROVED },
+                });
+            }
+        });
+    }
+
+    async rejectPendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+        await this.prisma.productPendingUpdate.updateMany({
+            where: {
+                id: { in: pendingUpdateIds },
+                status: ProductPendingUpdateStatus.PENDING,
+            },
+            data: { status: ProductPendingUpdateStatus.REJECTED },
+        });
+    }
+
+    async updatePendingUpdate(id: string, data: UpdateProductDto) {
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.productPendingUpdate.findUnique({
+                where: { id },
+                select: {
+                    id: true,
+                    status: true,
+                    product_id: true,
+                },
+            });
+            if (!existing) {
+                return { error: 'NOT_FOUND' as const };
+            }
+            if (
+                existing.status !== ProductPendingUpdateStatus.PENDING &&
+                existing.status !== ProductPendingUpdateStatus.REJECTED
+            ) {
+                return { error: 'INVALID_STATUS' as const };
+            }
+
+            if (existing.status === ProductPendingUpdateStatus.REJECTED) {
+                const otherPending = await tx.productPendingUpdate.findFirst({
+                    where: {
+                        product_id: existing.product_id,
+                        status: ProductPendingUpdateStatus.PENDING,
+                        id: { not: id },
+                    },
+                    select: { id: true },
+                });
+                if (otherPending) {
+                    return { error: 'CONFLICT' as const };
+                }
+            }
+
+            const pendingUpdate = await tx.productPendingUpdate.update({
+                where: { id },
+                data: {
+                    ...(data.name !== undefined && { name: data.name }),
+                    ...(data.description !== undefined && {
+                        description: data.description,
+                    }),
+                    ...(data.specs !== undefined && {
+                        specs: data.specs as Prisma.InputJsonValue,
+                    }),
+                    ...(data.market_category_id !== undefined && {
+                        market_category_id: data.market_category_id,
+                    }),
+                    status: ProductPendingUpdateStatus.PENDING,
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    name: true,
+                    description: true,
+                    specs: true,
+                    market_category_id: true,
+                    product_id: true,
+                    created_at: true,
+                    updated_at: true,
+                },
+            });
+
+            return { pendingUpdate };
+        });
+    }
+
+    async findPendingUpdateById(id: string) {
+        const record = await this.prisma.productPendingUpdate.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                status: true,
+                name: true,
+                description: true,
+                specs: true,
+                market_category_id: true,
+                product_id: true,
+                created_at: true,
+                updated_at: true,
+                product: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        specs: true,
+                        status: true,
+                        market_category_id: true,
+                    },
+                },
+            },
+        });
+
+        if (!record) {
+            return null;
+        }
+
+        const { product, ...pending } = record;
+
+        return {
+            ...pending,
+            current_product: product,
+        };
+    }
+
+    async findPendingUpdatesSummary(query: FindProductPendingUpdatesDto) {
+        const limit = query.limit ?? 50;
+        const records = await this.prisma.productPendingUpdate.findMany({
+            where: {
+                ...(query.status !== undefined && { status: query.status }),
+                ...((query.from_date !== undefined ||
+                    query.to_date !== undefined) && {
+                    created_at: {
+                        ...(query.from_date !== undefined && {
+                            gte: new Date(query.from_date),
+                        }),
+                        ...(query.to_date !== undefined && {
+                            lte: new Date(query.to_date),
+                        }),
+                    },
+                }),
+            },
+            select: {
+                id: true,
+                status: true,
+                created_at: true,
+                updated_at: true,
+                product_id: true,
+                product: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const page = hasMore ? records.slice(0, limit) : records;
+        const items = page.map(({ product, ...rest }) => ({
+            ...rest,
+            product_name: product.name,
+        }));
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1].id : null,
+        };
     }
 
     async syncProductImages(
