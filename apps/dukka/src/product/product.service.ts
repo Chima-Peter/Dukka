@@ -14,6 +14,7 @@ import {
     MarketStatus,
     Prisma,
     ProductStatus,
+    VariantPendingUpdateStatus,
     VariantStatus,
     type Product,
 } from '../../generated/prisma/client.js';
@@ -32,6 +33,7 @@ import type { CreateVariantDto } from './dto/create-variant.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
+import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
 import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
@@ -320,55 +322,156 @@ export class ProductService {
     ) {
         try {
             this.logger.log(
-                `Updating variant ${variantId} on product ${productId}`,
+                `Proposing update for variant ${variantId} on product ${productId}`,
             );
 
-            const existing = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
-            );
-            if (!existing) {
-                throw new NotFoundException('Variant not found');
+            const { image_path, ...fields } = data;
+            if (
+                fields.variant_code === undefined &&
+                fields.color === undefined &&
+                fields.size === undefined &&
+                fields.variant_info === undefined &&
+                image_path === undefined
+            ) {
+                throw new BadRequestException(
+                    'At least one variant field must be updated',
+                );
+            }
+
+            const pending =
+                await this.productRepository.findPendingUpdateForVariant(
+                    variantId,
+                );
+            if (pending) {
+                throw new ConflictException(
+                    'Variant already has a pending update',
+                );
             }
 
             let image_url: string | undefined;
-            if (data.image_path) {
-                await assertValidImage(this.supabaseService, data.image_path, {
+            if (image_path) {
+                await assertValidImage(this.supabaseService, image_path, {
                     logger: this.logger,
                 });
                 image_url = this.supabaseService.getPublicURL(
-                    data.image_path,
+                    image_path,
                     PRODUCT_BUCKET,
                 );
             }
 
-            const { image_path: _, ...fields } = data;
-            const variant = await this.productRepository.updateVariant(
-                productId,
+            const proposal = await this.productRepository.createPendingUpdate(
                 variantId,
                 {
                     ...fields,
                     ...(image_url !== undefined && { image_url }),
                 },
             );
-
-            const previousUrl = existing.image?.image_url;
-            if (
-                image_url !== undefined &&
-                previousUrl &&
-                previousUrl !== image_url
-            ) {
-                await this.safeDeleteProductImage(previousUrl);
-            }
-
-            this.logger.log(`Variant updated ${variantId}`);
-            const { image, ...rest } = variant;
-            return {
-                ...rest,
-                image_url: image?.image_url ?? null,
-            };
+            this.logger.log(
+                `Pending update ${proposal.id} created for variant ${variantId}`,
+            );
+            return proposal;
         } catch (error) {
             this.handleError(error, 'Variant not found');
+        }
+    }
+
+    async findPendingUpdatesForStaff(query: FindVariantPendingUpdatesDto) {
+        try {
+            this.logger.log('Fetching variant pending updates for staff');
+            if (
+                query.from_date !== undefined &&
+                query.to_date !== undefined &&
+                new Date(query.from_date) > new Date(query.to_date)
+            ) {
+                throw new BadRequestException(
+                    'from_date cannot be greater than to_date',
+                );
+            }
+            return await this.productRepository.findPendingUpdatesSummary(
+                query,
+            );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findPendingUpdateById(id: string) {
+        try {
+            this.logger.log(`Fetching variant pending update ${id}`);
+            const pendingUpdate =
+                await this.productRepository.findPendingUpdateById(id);
+            if (!pendingUpdate) {
+                throw new NotFoundException('Pending update not found');
+            }
+            return pendingUpdate;
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
+    async updatePendingUpdate(id: string, data: UpdateVariantDto) {
+        try {
+            this.logger.log(`Updating variant pending update ${id}`);
+
+            const { image_path, ...fields } = data;
+            if (
+                fields.variant_code === undefined &&
+                fields.color === undefined &&
+                fields.size === undefined &&
+                fields.variant_info === undefined &&
+                image_path === undefined
+            ) {
+                throw new BadRequestException(
+                    'At least one variant field must be updated',
+                );
+            }
+
+            let image_url: string | undefined;
+            if (image_path) {
+                await assertValidImage(this.supabaseService, image_path, {
+                    logger: this.logger,
+                });
+                image_url = this.supabaseService.getPublicURL(
+                    image_path,
+                    PRODUCT_BUCKET,
+                );
+            }
+
+            const result = await this.productRepository.updatePendingUpdate(
+                id,
+                {
+                    ...fields,
+                    ...(image_url !== undefined && { image_url }),
+                },
+            );
+
+            if ('error' in result) {
+                if (result.error === 'NOT_FOUND') {
+                    throw new NotFoundException('Pending update not found');
+                }
+                if (result.error === 'INVALID_STATUS') {
+                    throw new BadRequestException(
+                        'Only pending or rejected updates can be edited',
+                    );
+                }
+                throw new ConflictException(
+                    'Variant already has a pending update',
+                );
+            }
+
+            const { previousImageUrl, pendingUpdate } = result;
+            if (
+                image_url !== undefined &&
+                previousImageUrl &&
+                previousImageUrl !== image_url
+            ) {
+                await this.safeDeleteProductImage(previousImageUrl);
+            }
+
+            this.logger.log(`Variant pending update ${id} updated`);
+            return pendingUpdate;
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
         }
     }
 
@@ -643,6 +746,87 @@ export class ProductService {
             'Rejecting',
             'rejected',
         );
+    }
+
+    async approvePendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+        try {
+            this.logger.log(
+                `Approving ${pendingUpdateIds.length} pending update(s)`,
+            );
+            const pendingUpdates =
+                await this.productRepository.findPendingUpdatesByIds(
+                    pendingUpdateIds,
+                );
+            if (pendingUpdates.length !== pendingUpdateIds.length) {
+                throw new NotFoundException(
+                    'One or more pending updates were not found',
+                );
+            }
+            if (
+                pendingUpdates.some(
+                    (update) =>
+                        update.status !== VariantPendingUpdateStatus.PENDING,
+                )
+            ) {
+                throw new BadRequestException(
+                    'Only pending updates can be approved',
+                );
+            }
+
+            const previousImageUrls = pendingUpdates
+                .filter((update) => update.image_url !== null)
+                .map((update) => update.variant.image?.image_url)
+                .filter((url): url is string => !!url);
+
+            await this.productRepository.approvePendingUpdates(pendingUpdates);
+
+            await this.safeDeleteProductImages(previousImageUrls);
+            this.logger.log(
+                `Approved ${pendingUpdateIds.length} pending update(s)`,
+            );
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
+    async rejectPendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+        try {
+            this.logger.log(
+                `Rejecting ${pendingUpdateIds.length} pending update(s)`,
+            );
+            const pendingUpdates =
+                await this.productRepository.findPendingUpdatesByIds(
+                    pendingUpdateIds,
+                );
+            if (pendingUpdates.length !== pendingUpdateIds.length) {
+                throw new NotFoundException(
+                    'One or more pending updates were not found',
+                );
+            }
+            if (
+                pendingUpdates.some(
+                    (update) =>
+                        update.status !== VariantPendingUpdateStatus.PENDING,
+                )
+            ) {
+                throw new BadRequestException(
+                    'Only pending updates can be rejected',
+                );
+            }
+
+            await this.productRepository.rejectPendingUpdates(pendingUpdateIds);
+
+            const proposedImageUrls = pendingUpdates
+                .map((update) => update.image_url)
+                .filter((url): url is string => !!url);
+            await this.safeDeleteProductImages(proposedImageUrls);
+
+            this.logger.log(
+                `Rejected ${pendingUpdateIds.length} pending update(s)`,
+            );
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
     }
 
     async archiveVariants(

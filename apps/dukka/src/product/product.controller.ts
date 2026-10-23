@@ -32,6 +32,8 @@ import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
+import { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
+import { PendingUpdateIdsDto } from './dto/pending-update-ids.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
 import { VariantIdsDto } from './dto/variant-ids.dto.js';
@@ -74,6 +76,44 @@ export class ProductController {
     @ResponseMessage('Products retrieved successfully')
     findAllForStaff(@Query() query: FindStaffProductsDto) {
         return this.productService.findAllForStaff(query);
+    }
+
+    @Get('variant-pending-updates')
+    @ResponseMessage('Variant pending updates retrieved successfully')
+    findPendingUpdates(@Query() query: FindVariantPendingUpdatesDto) {
+        return this.productService.findPendingUpdatesForStaff(query);
+    }
+
+    @Post('variant-pending-updates/approve')
+    @RequirePermission(StaffPermission.ProductsApprove)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variant pending updates approved successfully')
+    approvePendingUpdates(@Body() data: PendingUpdateIdsDto) {
+        return this.productService.approvePendingUpdates(data.ids);
+    }
+
+    @Post('variant-pending-updates/reject')
+    @RequirePermission(StaffPermission.ProductsReject)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variant pending updates rejected successfully')
+    rejectPendingUpdates(@Body() data: PendingUpdateIdsDto) {
+        return this.productService.rejectPendingUpdates(data.ids);
+    }
+
+    @Get('variant-pending-updates/:id')
+    @ResponseMessage('Variant pending update retrieved successfully')
+    findPendingUpdate(@Param('id', ParseUUIDPipe) id: string) {
+        return this.productService.findPendingUpdateById(id);
+    }
+
+    @Patch('variant-pending-updates/:id')
+    @RequirePermission(StaffPermission.ProductsUpdate)
+    @ResponseMessage('Variant pending update updated successfully')
+    updatePendingUpdate(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: UpdateVariantDto,
+    ) {
+        return this.productService.updatePendingUpdate(id, data);
     }
 
     @Get('staff/:id')
@@ -128,7 +168,7 @@ export class ProductController {
 
     @Patch(':id/variants/:variantId')
     @RequirePermission(StaffPermission.ProductsUpdate)
-    @ResponseMessage('Variant updated successfully')
+    @ResponseMessage('Variant update proposed successfully')
     updateVariant(
         @Param('id', ParseUUIDPipe) id: string,
         @Param('variantId', ParseUUIDPipe) variantId: string,

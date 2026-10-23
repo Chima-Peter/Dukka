@@ -503,9 +503,37 @@ model Variant {
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
   market_variants MarketVariant[]
+  pending_updates VariantPendingUpdate[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+}
+
+enum VariantPendingUpdateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model VariantPendingUpdate {
+  id     String                      @id @default(uuid())
+  status VariantPendingUpdateStatus  @default(PENDING)
+
+  variant_code String?
+  color        String?
+  size         String?
+  variant_info Json?
+  image_url    String?
+
+  variant_id String
+  variant    Variant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@index([variant_id, status])
 }
 
 model VariantImage {
