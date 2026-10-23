@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ProductService } from '../product/product.service.js';
+import { ProductVariantService } from '../product/product-variant.service.js';
 import { cartSelect, toCartView } from './mappers/cart.mapper.js';
 import type { CartView } from './types/cart.type.js';
 
@@ -14,7 +14,7 @@ import type { CartView } from './types/cart.type.js';
 export class CartRepository {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly productService: ProductService,
+        private readonly productVariantService: ProductVariantService,
     ) {}
 
     async findByCartId(cartId: string): Promise<CartView> {
@@ -95,7 +95,7 @@ export class CartRepository {
         quantity: number,
     ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
-            await this.productService.assertMarketVariantAvailable(
+            await this.productVariantService.assertMarketVariantAvailable(
                 marketVariantId,
                 tx,
             );
@@ -134,7 +134,7 @@ export class CartRepository {
         cartId?: string,
     ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
-            await this.productService.assertMarketVariantAvailable(
+            await this.productVariantService.assertMarketVariantAvailable(
                 marketVariantId,
                 tx,
             );

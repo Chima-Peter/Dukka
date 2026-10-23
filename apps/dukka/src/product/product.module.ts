@@ -4,11 +4,24 @@ import { MarketsModule } from '../markets/markets.module.js';
 import { ProductController } from './product.controller.js';
 import { ProductRepository } from './product.repository.js';
 import { ProductService } from './product.service.js';
+import { ProductVariantController } from './product-variant.controller.js';
+import { ProductVariantRepository } from './product-variant.repository.js';
+import { ProductVariantService } from './product-variant.service.js';
 
 @Module({
     imports: [MarketsModule, forwardRef(() => CustomerModule)],
-    controllers: [ProductController],
-    providers: [ProductService, ProductRepository],
-    exports: [ProductService, ProductRepository],
+    controllers: [ProductController, ProductVariantController],
+    providers: [
+        ProductService,
+        ProductRepository,
+        ProductVariantService,
+        ProductVariantRepository,
+    ],
+    exports: [
+        ProductService,
+        ProductRepository,
+        ProductVariantService,
+        ProductVariantRepository,
+    ],
 })
 export class ProductModule {}

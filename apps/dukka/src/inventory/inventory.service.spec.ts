@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomerService } from '../customer/customer.service.js';
-import { ProductRepository } from '../product/product.repository.js';
+import { ProductVariantRepository } from '../product/product-variant.repository.js';
 import { ServiceStateService } from '../service/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import { InventoryRepository } from './inventory.repository.js';
@@ -34,7 +34,7 @@ describe('InventoryService', () => {
                     },
                 },
                 {
-                    provide: ProductRepository,
+                    provide: ProductVariantRepository,
                     useValue: {
                         findMarketVariantByIdOrThrow: vi.fn(),
                     },

@@ -10,7 +10,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { WarehouseStatus } from '../../generated/prisma/client.js';
 import { CustomerService } from '../customer/customer.service.js';
-import { ProductRepository } from '../product/product.repository.js';
+import { ProductVariantRepository } from '../product/product-variant.repository.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -38,7 +38,7 @@ export class InventoryService {
 
     constructor(
         private readonly inventoryRepository: InventoryRepository,
-        private readonly productRepository: ProductRepository,
+        private readonly productVariantRepository: ProductVariantRepository,
         private readonly warehouseRepository: WarehouseRepository,
         private readonly serviceStateService: ServiceStateService,
         private readonly customerService: CustomerService,
@@ -56,7 +56,7 @@ export class InventoryService {
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
 
             const marketVariant =
-                await this.productRepository.findMarketVariantByIdOrThrow(
+                await this.productVariantRepository.findMarketVariantByIdOrThrow(
                     data.market_variant_id,
                 );
             if (marketVariant.market_id !== data.market_id) {
@@ -103,7 +103,7 @@ export class InventoryService {
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
 
             const marketVariant =
-                await this.productRepository.findMarketVariantByIdOrThrow(
+                await this.productVariantRepository.findMarketVariantByIdOrThrow(
                     data.market_variant_id,
                 );
             if (marketVariant.market_id !== data.market_id) {

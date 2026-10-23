@@ -8,8 +8,8 @@ vi.mock('@app/queues', () => ({
     MailQueueService: class MailQueueService {},
 }));
 
-vi.mock('../markets/markets.service.js', () => ({
-    MarketsService: class MarketsService {},
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
 }));
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
@@ -50,27 +50,14 @@ describe('ProductController', () => {
                         create: vi.fn(),
                         findAll: vi.fn(),
                         findAllForStaff: vi.fn(),
-                        findPendingUpdatesForStaff: vi.fn(),
-                        findPendingUpdateById: vi.fn(),
-                        updatePendingUpdate: vi.fn(),
-                        approvePendingUpdates: vi.fn(),
-                        rejectPendingUpdates: vi.fn(),
                         findOne: vi.fn(),
                         findOneForStaff: vi.fn(),
                         update: vi.fn(),
                         updateImages: vi.fn(),
-                        addVariant: vi.fn(),
-                        updateVariant: vi.fn(),
-                        addVariantToMarket: vi.fn(),
-                        updateMarketVariant: vi.fn(),
-                        removeVariantFromMarket: vi.fn(),
-                        getMarketVariant: vi.fn(),
                         approve: vi.fn(),
                         reject: vi.fn(),
                         archive: vi.fn(),
-                        approveVariants: vi.fn(),
-                        rejectVariants: vi.fn(),
-                        archiveVariants: vi.fn(),
+                        getImageUploadURLs: vi.fn(),
                     },
                 },
             ],

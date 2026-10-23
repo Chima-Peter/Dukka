@@ -8,10 +8,6 @@ vi.mock('@app/queues', () => ({
     MailQueueService: class MailQueueService {},
 }));
 
-vi.mock('../markets/markets.service.js', () => ({
-    MarketsService: class MarketsService {},
-}));
-
 vi.mock('../customer/customer.service.js', () => ({
     CustomerService: class CustomerService {},
 }));
@@ -35,9 +31,6 @@ describe('ProductService', () => {
         const { SupabaseService } = await import(
             '../../../../libs/common/src/index.ts'
         );
-        const { MarketsService } = await import(
-            '../markets/markets.service.js'
-        );
         const { CustomerService } = await import(
             '../customer/customer.service.js'
         );
@@ -50,21 +43,9 @@ describe('ProductService', () => {
                     useValue: {
                         create: vi.fn(),
                         findById: vi.fn(),
-                        findVariantInProduct: vi.fn(),
                         update: vi.fn(),
                         updateStatus: vi.fn(),
-                        findVariantsInProduct: vi.fn(),
-                        findPendingUpdateForVariant: vi.fn(),
-                        createPendingUpdate: vi.fn(),
-                        findPendingUpdatesByIds: vi.fn(),
-                        findPendingUpdatesSummary: vi.fn(),
-                        findPendingUpdateById: vi.fn(),
-                        updatePendingUpdate: vi.fn(),
-                        approvePendingUpdates: vi.fn(),
-                        rejectPendingUpdates: vi.fn(),
-                        updateVariantsStatus: vi.fn(),
                         archiveProduct: vi.fn(),
-                        archiveVariants: vi.fn(),
                     },
                 },
                 {
@@ -76,13 +57,6 @@ describe('ProductService', () => {
                         ),
                         getObjectInfo: vi.fn(),
                         deleteFile: vi.fn(),
-                    },
-                },
-                {
-                    provide: MarketsService,
-                    useValue: {
-                        findOne: vi.fn(),
-                        validateIds: vi.fn(),
                     },
                 },
                 {
