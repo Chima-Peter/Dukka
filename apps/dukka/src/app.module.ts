@@ -32,6 +32,7 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { CartModule } from './cart/cart.module.js';
+import { OrdersModule } from './orders/orders.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -142,6 +143,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         InventoryModule,
         CategoryModule,
         ReviewsModule,
+        OrdersModule,
     ],
     providers: [
         {
