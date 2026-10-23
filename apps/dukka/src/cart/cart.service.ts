@@ -166,6 +166,16 @@ export class CartService {
         }
     }
 
+    async clearCart(cartId: string): Promise<void> {
+        try {
+            this.logger.log(`Clearing cart ${cartId}`);
+            await this.cartRepository.clearCart(cartId);
+            this.logger.log(`Cart ${cartId} cleared`);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     private async applyTotal(cart: CartView): Promise<CartView> {
         const total = this.calculateTotal(cart.items);
         return await this.cartRepository.setTotal(cart.id, total);

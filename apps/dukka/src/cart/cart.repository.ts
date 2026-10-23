@@ -237,4 +237,26 @@ export class CartRepository {
             });
         })
     }
+
+    async clearCart(cartId: string): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            const cart = await tx.cart.findUnique({
+                where: { id: cartId },
+                select: { id: true },
+            });
+
+            if (!cart) {
+                throw new NotFoundException('Cart not found');
+            }
+
+            await tx.cartItems.deleteMany({
+                where: { cart_id: cartId },
+            });
+
+            await tx.cart.update({
+                where: { id: cartId },
+                data: { total: 0 },
+            });
+        });
+    }
 }
