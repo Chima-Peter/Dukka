@@ -4,7 +4,6 @@ import {
     ProductStatus,
     VariantStatus,
     type Product,
-    type Variant,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
@@ -519,29 +518,45 @@ export class ProductRepository {
         });
     }
 
-    async updateVariantStatus(
-        productId: string,
-        variantId: string,
-        status: VariantStatus,
-    ): Promise<Variant> {
-        return await this.prisma.variant.update({
+    async findVariantsInProduct(productId: string, variantIds: string[]) {
+        return await this.prisma.variant.findMany({
             where: {
-                id: variantId,
                 product_id: productId,
+                id: { in: variantIds },
+            },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+    }
+
+    async updateVariantsStatus(
+        productId: string,
+        variantIds: string[],
+        status: VariantStatus,
+    ): Promise<void> {
+        await this.prisma.variant.updateMany({
+            where: {
+                product_id: productId,
+                id: { in: variantIds },
             },
             data: { status },
         });
     }
 
-    async archiveVariant(productId: string, variantId: string): Promise<Variant> {
-        return await this.prisma.$transaction(async (tx) => {
+    async archiveVariants(
+        productId: string,
+        variantIds: string[],
+    ): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
             await tx.marketVariant.deleteMany({
-                where: { variant_id: variantId },
+                where: { variant_id: { in: variantIds } },
             });
-            return await tx.variant.update({
+            await tx.variant.updateMany({
                 where: {
-                    id: variantId,
                     product_id: productId,
+                    id: { in: variantIds },
                 },
                 data: { status: VariantStatus.ARCHIVED },
             });

@@ -53,9 +53,10 @@ describe('ProductService', () => {
                         findVariantInProduct: vi.fn(),
                         update: vi.fn(),
                         updateStatus: vi.fn(),
-                        updateVariantStatus: vi.fn(),
+                        findVariantsInProduct: vi.fn(),
+                        updateVariantsStatus: vi.fn(),
                         archiveProduct: vi.fn(),
-                        archiveVariant: vi.fn(),
+                        archiveVariants: vi.fn(),
                     },
                 },
                 {

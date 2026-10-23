@@ -16,7 +16,6 @@ import {
     ProductStatus,
     VariantStatus,
     type Product,
-    type Variant,
 } from '../../generated/prisma/client.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { MarketsService } from '../markets/markets.service.js';
@@ -612,32 +611,32 @@ export class ProductService {
         }
     }
 
-    async approveVariant(
+    async approveVariants(
         productId: string,
-        variantId: string,
-    ): Promise<Variant> {
-        return this.transitionVariantStatus(
+        variantIds: string[],
+    ): Promise<void> {
+        return this.transitionVariantsStatus(
             productId,
-            variantId,
+            variantIds,
             VariantStatus.ACTIVE,
             [
                 VariantStatus.PENDING_REVIEW,
                 VariantStatus.ARCHIVED,
                 VariantStatus.REJECTED,
             ],
-            'Variant is already approved',
+            'One or more variants are already approved',
             'Approving',
             'approved',
         );
     }
 
-    async rejectVariant(
+    async rejectVariants(
         productId: string,
-        variantId: string,
-    ): Promise<Variant> {
-        return this.transitionVariantStatus(
+        variantIds: string[],
+    ): Promise<void> {
+        return this.transitionVariantsStatus(
             productId,
-            variantId,
+            variantIds,
             VariantStatus.REJECTED,
             [VariantStatus.PENDING_REVIEW],
             'Only variants pending review can be rejected',
@@ -646,35 +645,28 @@ export class ProductService {
         );
     }
 
-    async archiveVariant(
+    async archiveVariants(
         productId: string,
-        variantId: string,
-    ): Promise<Variant> {
+        variantIds: string[],
+    ): Promise<void> {
         try {
-            this.logger.log(`Archiving variant ${variantId}`);
-            const existing = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
+            this.logger.log(
+                `Archiving ${variantIds.length} variant(s) on product ${productId}`,
             );
-            if (!existing) {
-                throw new NotFoundException('Variant not found');
-            }
-            const allowedFrom: VariantStatus[] = [
-                VariantStatus.ACTIVE,
-                VariantStatus.REJECTED,
-                VariantStatus.PENDING_REVIEW,
-            ];
-            if (!allowedFrom.includes(existing.status)) {
-                throw new BadRequestException(
-                    'Variant is already archived or cannot be archived from its current status',
-                );
-            }
-            const variant = await this.productRepository.archiveVariant(
+            await this.assertVariantsReadyForTransition(
                 productId,
-                variantId,
+                variantIds,
+                [
+                    VariantStatus.ACTIVE,
+                    VariantStatus.REJECTED,
+                    VariantStatus.PENDING_REVIEW,
+                ],
+                'One or more variants are already archived or cannot be archived from their current status',
             );
-            this.logger.log(`Variant archived ${variantId}`);
-            return variant;
+            await this.productRepository.archiveVariants(productId, variantIds);
+            this.logger.log(
+                `Archived ${variantIds.length} variant(s) on product ${productId}`,
+            );
         } catch (error) {
             this.handleError(error, 'Variant not found');
         }
@@ -720,34 +712,51 @@ export class ProductService {
         }
     }
 
-    private async transitionVariantStatus(
+    private async assertVariantsReadyForTransition(
         productId: string,
-        variantId: string,
+        variantIds: string[],
+        allowedFrom: VariantStatus[],
+        invalidMessage: string,
+    ): Promise<void> {
+        const existing = await this.productRepository.findVariantsInProduct(
+            productId,
+            variantIds,
+        );
+        if (existing.length !== variantIds.length) {
+            throw new NotFoundException('One or more variants were not found');
+        }
+        if (existing.some((variant) => !allowedFrom.includes(variant.status))) {
+            throw new BadRequestException(invalidMessage);
+        }
+    }
+
+    private async transitionVariantsStatus(
+        productId: string,
+        variantIds: string[],
         nextStatus: VariantStatus,
         allowedFrom: VariantStatus[],
         invalidMessage: string,
         actionLog: string,
         doneLog: string,
-    ): Promise<Variant> {
+    ): Promise<void> {
         try {
-            this.logger.log(`${actionLog} variant ${variantId}`);
-            const existing = await this.productRepository.findVariantInProduct(
-                productId,
-                variantId,
+            this.logger.log(
+                `${actionLog} ${variantIds.length} variant(s) on product ${productId}`,
             );
-            if (!existing) {
-                throw new NotFoundException('Variant not found');
-            }
-            if (!allowedFrom.includes(existing.status)) {
-                throw new BadRequestException(invalidMessage);
-            }
-            const variant = await this.productRepository.updateVariantStatus(
+            await this.assertVariantsReadyForTransition(
                 productId,
-                variantId,
+                variantIds,
+                allowedFrom,
+                invalidMessage,
+            );
+            await this.productRepository.updateVariantsStatus(
+                productId,
+                variantIds,
                 nextStatus,
             );
-            this.logger.log(`Variant ${doneLog} ${variantId}`);
-            return variant;
+            this.logger.log(
+                `${variantIds.length} variant(s) ${doneLog} on product ${productId}`,
+            );
         } catch (error) {
             this.handleError(error, 'Variant not found');
         }

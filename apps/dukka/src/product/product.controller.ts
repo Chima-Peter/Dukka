@@ -34,6 +34,7 @@ import { UpdateProductDto } from './dto/update-product.dto.js';
 import { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
 import { UpdateVariantDto } from './dto/update-variant.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
+import { VariantIdsDto } from './dto/variant-ids.dto.js';
 import { ProductService } from './product.service.js';
 
 @Auth('staff')
@@ -136,37 +137,37 @@ export class ProductController {
         return this.productService.updateVariant(id, variantId, data);
     }
 
-    @Post(':id/variants/:variantId/approve')
+    @Post(':id/variants/approve')
     @RequirePermission(StaffPermission.ProductsApprove)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Variant approved successfully')
-    approveVariant(
+    @ResponseMessage('Variants approved successfully')
+    approveVariants(
         @Param('id', ParseUUIDPipe) id: string,
-        @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Body() data: VariantIdsDto,
     ) {
-        return this.productService.approveVariant(id, variantId);
+        return this.productService.approveVariants(id, data.variant_ids);
     }
 
-    @Post(':id/variants/:variantId/reject')
+    @Post(':id/variants/reject')
     @RequirePermission(StaffPermission.ProductsReject)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Variant rejected successfully')
-    rejectVariant(
+    @ResponseMessage('Variants rejected successfully')
+    rejectVariants(
         @Param('id', ParseUUIDPipe) id: string,
-        @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Body() data: VariantIdsDto,
     ) {
-        return this.productService.rejectVariant(id, variantId);
+        return this.productService.rejectVariants(id, data.variant_ids);
     }
 
-    @Post(':id/variants/:variantId/archive')
+    @Post(':id/variants/archive')
     @RequirePermission(StaffPermission.ProductsArchive)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Variant archived successfully')
-    archiveVariant(
+    @ResponseMessage('Variants archived successfully')
+    archiveVariants(
         @Param('id', ParseUUIDPipe) id: string,
-        @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Body() data: VariantIdsDto,
     ) {
-        return this.productService.archiveVariant(id, variantId);
+        return this.productService.archiveVariants(id, data.variant_ids);
     }
 
     @Post(':id/variants/:variantId/markets')
