@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -6,7 +7,10 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { Order } from '../../generated/prisma/client.js';
+import {
+    OrderStatus,
+    type Order,
+} from '../../generated/prisma/client.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -19,7 +23,13 @@ import type {
     CreateGuestOrderInput,
     CreateOrderInput,
 } from './types/create-order.type.js';
-import type { OrderSummaryPage } from './types/order.type.js';
+import type {
+    CustomerOrderDetail,
+    OrderSummaryPage,
+    StaffOrderDetail,
+    TransitionedOrder,
+    TransitionOrderStatusInput,
+} from './types/order.type.js';
 
 @Injectable()
 export class OrdersService {
@@ -33,6 +43,7 @@ export class OrdersService {
     ): Promise<Order> {
         try {
             this.logger.log(`Creating order for customer ${customerId}`);
+            this.assertHasItems(data.items);
             const order = await this.ordersRepository.createForCustomer(
                 customerId,
                 data,
@@ -49,6 +60,7 @@ export class OrdersService {
     async createForGuest(data: CreateGuestOrderInput): Promise<Order> {
         try {
             this.logger.log(`Creating guest order for ${data.guest_email}`);
+            this.assertHasItems(data.items);
             const order = await this.ordersRepository.createForGuest(data);
             this.logger.log(`Guest order ${order.id} created`);
             return order;
@@ -84,6 +96,111 @@ export class OrdersService {
             return await this.ordersRepository.findForStaff(query);
         } catch (error) {
             this.handleError(error);
+        }
+    }
+
+    async findOneForCustomer(
+        customerId: string,
+        orderId: string,
+    ): Promise<CustomerOrderDetail> {
+        try {
+            this.logger.log(
+                `Fetching order ${orderId} for customer ${customerId}`,
+            );
+            const order = await this.ordersRepository.findOneForCustomer(
+                customerId,
+                orderId,
+            );
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
+            return order;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOneForStaff(
+        orderId: string,
+        marketId: string,
+        staffMarketIds: string[],
+    ): Promise<StaffOrderDetail> {
+        try {
+            this.logger.log(
+                `Fetching staff order ${orderId} for market ${marketId}`,
+            );
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            const order = await this.ordersRepository.findOneForStaff(
+                orderId,
+                marketId,
+            );
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
+            return order;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async transitionStatus(
+        data: TransitionOrderStatusInput,
+    ): Promise<TransitionedOrder> {
+        try {
+            this.logger.log(
+                `Transitioning order ${data.order_id} to ${data.to_status}`,
+            );
+            if (data.from_statuses.length === 0) {
+                throw new BadRequestException(
+                    'from_statuses must include at least one status',
+                );
+            }
+
+            const result =
+                await this.ordersRepository.transitionStatus(data);
+
+            if (!result.ok) {
+                if (result.reason === 'not_found') {
+                    throw new NotFoundException('Order not found');
+                }
+                throw new BadRequestException(
+                    `Cannot transition order from ${result.current_status} to ${data.to_status}`,
+                );
+            }
+
+            this.logger.log(
+                `Order ${result.order.id} transitioned to ${result.order.status}`,
+            );
+            return result.order;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async cancelForCustomer(
+        customerId: string,
+        orderId: string,
+    ): Promise<TransitionedOrder> {
+        try {
+            this.logger.log(
+                `Cancelling order ${orderId} for customer ${customerId}`,
+            );
+            return await this.transitionStatus({
+                order_id: orderId,
+                customer_id: customerId,
+                from_statuses: [OrderStatus.PENDING, OrderStatus.PROCESSING],
+                to_status: OrderStatus.CANCELLED,
+            });
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private assertHasItems(items: { length: number }): void {
+        if (items.length === 0) {
+            throw new BadRequestException(
+                'Order must include at least one item',
+            );
         }
     }
 

@@ -603,7 +603,7 @@ model Order {
   customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   order_inventories OrderInventory[]
-  order_tems OrderItems[]
+  order_items OrderItems[]
   order_payment_attempts OrderPaymentAttempt[]
 
   created_at DateTime @default(now())

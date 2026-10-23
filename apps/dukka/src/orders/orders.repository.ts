@@ -1,11 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma, type Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { FindOrdersDto } from './dto/find-orders.dto.js';
 import type { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
 import {
+    customerOrderDetailSelect,
     orderSummarySelect,
+    staffOrderDetailSelect,
     toOrderSummary,
 } from './mappers/order.mapper.js';
 import type {
@@ -15,7 +17,13 @@ import type {
     CreateOrderItemInput,
     GuestAddressSnapshot,
 } from './types/create-order.type.js';
-import type { OrderSummaryPage } from './types/order.type.js';
+import type {
+    CustomerOrderDetail,
+    OrderSummaryPage,
+    StaffOrderDetail,
+    TransitionOrderStatusInput,
+    TransitionOrderStatusResult,
+} from './types/order.type.js';
 
 @Injectable()
 export class OrdersRepository {
@@ -57,20 +65,107 @@ export class OrdersRepository {
         customerId: string,
         query: FindOrdersDto,
     ): Promise<OrderSummaryPage> {
-        return await this.findSummaries({
-            customer_id: customerId,
-            ...(query.status !== undefined && { status: query.status }),
-            ...this.createdAtFilter(query.from_date, query.to_date),
-        }, query);
+        return await this.findSummaries(
+            {
+                customer_id: customerId,
+                ...(query.status !== undefined && { status: query.status }),
+                ...this.createdAtFilter(query.from_date, query.to_date),
+            },
+            query,
+        );
     }
 
     async findForStaff(query: FindStaffOrdersDto): Promise<OrderSummaryPage> {
-        return await this.findSummaries({
-            market_id: query.market_id,
-            ...(query.status !== undefined && { status: query.status }),
-            ...(query.guest_only === true && { customer_id: null }),
-            ...this.createdAtFilter(query.from_date, query.to_date),
-        }, query);
+        return await this.findSummaries(
+            {
+                market_id: query.market_id,
+                ...(query.status !== undefined && { status: query.status }),
+                ...(query.guest_only === true && { customer_id: null }),
+                ...this.createdAtFilter(query.from_date, query.to_date),
+            },
+            query,
+        );
+    }
+
+    async findOneForCustomer(
+        customerId: string,
+        orderId: string,
+    ): Promise<CustomerOrderDetail | null> {
+        return await this.prisma.order.findFirst({
+            where: {
+                id: orderId,
+                customer_id: customerId,
+            },
+            select: customerOrderDetailSelect,
+        });
+    }
+
+    async findOneForStaff(
+        orderId: string,
+        marketId: string,
+    ): Promise<StaffOrderDetail | null> {
+        return await this.prisma.order.findFirst({
+            where: {
+                id: orderId,
+                market_id: marketId,
+            },
+            select: staffOrderDetailSelect,
+        });
+    }
+
+    async transitionStatus(
+        data: TransitionOrderStatusInput,
+    ): Promise<TransitionOrderStatusResult> {
+        const updated = await this.prisma.order.updateMany({
+            where: {
+                id: data.order_id,
+                ...(data.customer_id !== undefined && {
+                    customer_id: data.customer_id,
+                }),
+                ...(data.market_id !== undefined && {
+                    market_id: data.market_id,
+                }),
+                status: {
+                    in: data.from_statuses,
+                },
+            },
+            data: {
+                status: data.to_status,
+            },
+        });
+
+        if (updated.count > 0) {
+            return {
+                ok: true,
+                order: {
+                    id: data.order_id,
+                    status: data.to_status,
+                },
+            };
+        }
+
+        const order = await this.prisma.order.findFirst({
+            where: {
+                id: data.order_id,
+                ...(data.customer_id !== undefined && {
+                    customer_id: data.customer_id,
+                }),
+                ...(data.market_id !== undefined && {
+                    market_id: data.market_id,
+                }),
+            },
+            select: { id: true, status: true },
+        });
+
+        if (!order) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        return {
+            ok: false,
+            reason: 'invalid_transition',
+            current_status: order.status,
+        };
     }
 
     private async findSummaries(
@@ -116,10 +211,6 @@ export class OrdersRepository {
     }
 
     private async create(data: CreateOrderBase): Promise<Order> {
-        if (data.items.length === 0) {
-            throw new BadRequestException('Order must include at least one item');
-        }
-
         return await this.prisma.order.create({
             data: {
                 order_number: this.generateOrderNumber(),
@@ -148,7 +239,7 @@ export class OrdersRepository {
                           },
                       }
                     : {}),
-                order_tems: {
+                order_items: {
                     create: data.items.map((item) => this.toLineItem(item)),
                 },
             },

@@ -1,4 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    ParseUUIDPipe,
+    Post,
+    Query,
+} from '@nestjs/common';
 import {
     Auth,
     CurrentCustomer,
@@ -8,6 +17,7 @@ import {
     type StaffJwtPayload,
 } from '@app/common';
 import { FindOrdersDto } from './dto/find-orders.dto.js';
+import { FindStaffOrderDto } from './dto/find-staff-order.dto.js';
 import { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
 import { OrdersService } from './orders.service.js';
 
@@ -33,5 +43,41 @@ export class OrdersController {
         @Query() query: FindStaffOrdersDto,
     ) {
         return this.ordersService.findForStaff(query, staff.market_ids);
+    }
+
+    @Get('staff/:id')
+    @Auth('staff')
+    @ResponseMessage('Order retrieved successfully')
+    findOneForStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: FindStaffOrderDto,
+    ) {
+        return this.ordersService.findOneForStaff(
+            id,
+            query.market_id,
+            staff.market_ids,
+        );
+    }
+
+    @Get(':id')
+    @Auth('customer')
+    @ResponseMessage('Order retrieved successfully')
+    findOneForCustomer(
+        @CurrentCustomer() customer: CustomerJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.ordersService.findOneForCustomer(customer.sub, id);
+    }
+
+    @Post(':id/cancel')
+    @Auth('customer')
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Order cancelled successfully')
+    cancelForCustomer(
+        @CurrentCustomer() customer: CustomerJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.ordersService.cancelForCustomer(customer.sub, id);
     }
 }
