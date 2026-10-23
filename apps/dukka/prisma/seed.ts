@@ -8,6 +8,7 @@ import {
     POINT_STATUS,
     PrismaClient,
     ProductStatus,
+    VariantStatus,
     StaffAuditAction,
     StaffInvitationStatus,
     TokenType,
@@ -1032,6 +1033,10 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
         }
 
         for (const variantDef of productDef.variants) {
+            const variantStatus =
+                variantDef.markets.length > 0
+                    ? VariantStatus.ACTIVE
+                    : VariantStatus.PENDING_REVIEW;
             const variant = await prisma.variant.upsert({
                 where: { variant_code: variantDef.variant_code },
                 create: {
@@ -1039,6 +1044,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                     color: variantDef.color,
                     size: variantDef.size,
                     variant_info: variantDef.variant_info,
+                    status: variantStatus,
                     product_id: product.id,
                     ...(variantDef.image_url !== undefined && {
                         image: {
@@ -1050,6 +1056,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                     color: variantDef.color,
                     size: variantDef.size,
                     variant_info: variantDef.variant_info,
+                    status: variantStatus,
                     product_id: product.id,
                 },
             });

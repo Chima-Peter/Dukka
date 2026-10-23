@@ -14,7 +14,9 @@ import {
     MarketStatus,
     Prisma,
     ProductStatus,
+    VariantStatus,
     type Product,
+    type Variant,
 } from '../../generated/prisma/client.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { MarketsService } from '../markets/markets.service.js';
@@ -424,6 +426,19 @@ export class ProductService {
                 );
             }
 
+            const variant = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!variant) {
+                throw new NotFoundException('Variant not found');
+            }
+            if (variant.status !== VariantStatus.ACTIVE) {
+                throw new BadRequestException(
+                    'Only approved variants can be added to a market',
+                );
+            }
+
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             const market = await this.marketsService.findOne(
                 data.market_id,
@@ -573,14 +588,96 @@ export class ProductService {
     }
 
     async archive(id: string): Promise<Product> {
-        return this.transitionStatus(
-            id,
-            ProductStatus.ARCHIVED,
-            [ProductStatus.ACTIVE, ProductStatus.REJECTED, ProductStatus.PENDING_REVIEW],
-            'Product is already archived or cannot be archived from its current status',
-            'Archiving',
-            'archived',
+        try {
+            this.logger.log(`Archiving product ${id}`);
+            const existing = await this.productRepository.findById(id);
+            if (!existing) {
+                throw new NotFoundException('Product not found');
+            }
+            const allowedFrom: ProductStatus[] = [
+                ProductStatus.ACTIVE,
+                ProductStatus.REJECTED,
+                ProductStatus.PENDING_REVIEW,
+            ];
+            if (!allowedFrom.includes(existing.status)) {
+                throw new BadRequestException(
+                    'Product is already archived or cannot be archived from its current status',
+                );
+            }
+            const product = await this.productRepository.archiveProduct(id);
+            this.logger.log(`Product archived ${id}`);
+            return product;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async approveVariant(
+        productId: string,
+        variantId: string,
+    ): Promise<Variant> {
+        return this.transitionVariantStatus(
+            productId,
+            variantId,
+            VariantStatus.ACTIVE,
+            [
+                VariantStatus.PENDING_REVIEW,
+                VariantStatus.ARCHIVED,
+                VariantStatus.REJECTED,
+            ],
+            'Variant is already approved',
+            'Approving',
+            'approved',
         );
+    }
+
+    async rejectVariant(
+        productId: string,
+        variantId: string,
+    ): Promise<Variant> {
+        return this.transitionVariantStatus(
+            productId,
+            variantId,
+            VariantStatus.REJECTED,
+            [VariantStatus.PENDING_REVIEW],
+            'Only variants pending review can be rejected',
+            'Rejecting',
+            'rejected',
+        );
+    }
+
+    async archiveVariant(
+        productId: string,
+        variantId: string,
+    ): Promise<Variant> {
+        try {
+            this.logger.log(`Archiving variant ${variantId}`);
+            const existing = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!existing) {
+                throw new NotFoundException('Variant not found');
+            }
+            const allowedFrom: VariantStatus[] = [
+                VariantStatus.ACTIVE,
+                VariantStatus.REJECTED,
+                VariantStatus.PENDING_REVIEW,
+            ];
+            if (!allowedFrom.includes(existing.status)) {
+                throw new BadRequestException(
+                    'Variant is already archived or cannot be archived from its current status',
+                );
+            }
+            const variant = await this.productRepository.archiveVariant(
+                productId,
+                variantId,
+            );
+            this.logger.log(`Variant archived ${variantId}`);
+            return variant;
+        } catch (error) {
+            this.handleError(error, 'Variant not found');
+        }
     }
 
     private assertPriceRange(minPrice?: number, maxPrice?: number): void {
@@ -620,6 +717,39 @@ export class ProductService {
             return product;
         } catch (error) {
             this.handleError(error);
+        }
+    }
+
+    private async transitionVariantStatus(
+        productId: string,
+        variantId: string,
+        nextStatus: VariantStatus,
+        allowedFrom: VariantStatus[],
+        invalidMessage: string,
+        actionLog: string,
+        doneLog: string,
+    ): Promise<Variant> {
+        try {
+            this.logger.log(`${actionLog} variant ${variantId}`);
+            const existing = await this.productRepository.findVariantInProduct(
+                productId,
+                variantId,
+            );
+            if (!existing) {
+                throw new NotFoundException('Variant not found');
+            }
+            if (!allowedFrom.includes(existing.status)) {
+                throw new BadRequestException(invalidMessage);
+            }
+            const variant = await this.productRepository.updateVariantStatus(
+                productId,
+                variantId,
+                nextStatus,
+            );
+            this.logger.log(`Variant ${doneLog} ${variantId}`);
+            return variant;
+        } catch (error) {
+            this.handleError(error, 'Variant not found');
         }
     }
 

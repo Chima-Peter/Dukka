@@ -50,8 +50,12 @@ describe('ProductService', () => {
                     useValue: {
                         create: vi.fn(),
                         findById: vi.fn(),
+                        findVariantInProduct: vi.fn(),
                         update: vi.fn(),
                         updateStatus: vi.fn(),
+                        updateVariantStatus: vi.fn(),
+                        archiveProduct: vi.fn(),
+                        archiveVariant: vi.fn(),
                     },
                 },
                 {

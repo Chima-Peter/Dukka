@@ -136,6 +136,39 @@ export class ProductController {
         return this.productService.updateVariant(id, variantId, data);
     }
 
+    @Post(':id/variants/:variantId/approve')
+    @RequirePermission(StaffPermission.ProductsApprove)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variant approved successfully')
+    approveVariant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('variantId', ParseUUIDPipe) variantId: string,
+    ) {
+        return this.productService.approveVariant(id, variantId);
+    }
+
+    @Post(':id/variants/:variantId/reject')
+    @RequirePermission(StaffPermission.ProductsReject)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variant rejected successfully')
+    rejectVariant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('variantId', ParseUUIDPipe) variantId: string,
+    ) {
+        return this.productService.rejectVariant(id, variantId);
+    }
+
+    @Post(':id/variants/:variantId/archive')
+    @RequirePermission(StaffPermission.ProductsArchive)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variant archived successfully')
+    archiveVariant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('variantId', ParseUUIDPipe) variantId: string,
+    ) {
+        return this.productService.archiveVariant(id, variantId);
+    }
+
     @Post(':id/variants/:variantId/markets')
     @RequirePermission(StaffPermission.ProductsApprove)
     @HttpCode(HttpStatus.OK)

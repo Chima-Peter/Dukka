@@ -1,6 +1,15 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import {
+    VariantStatus,
+    type Prisma,
+} from '../../../generated/prisma/client.js';
 
-export function productListSummarySelect(marketId?: string) {
+export function productListSummarySelect(
+    marketId?: string,
+    variantStatus?: VariantStatus,
+) {
+    const hasVariantWhere =
+        marketId !== undefined || variantStatus !== undefined;
+
     return {
         id: true,
         name: true,
@@ -26,18 +35,26 @@ export function productListSummarySelect(marketId?: string) {
             },
         },
         variants: {
-            ...(marketId !== undefined && {
+            ...(hasVariantWhere && {
                 where: {
-                    market_variants: {
-                        some: {
-                            market: { id: marketId, status: 'OPEN' },
+                    ...(variantStatus !== undefined
+                        ? { status: variantStatus }
+                        : marketId !== undefined
+                          ? { status: VariantStatus.ACTIVE }
+                          : {}),
+                    ...(marketId !== undefined && {
+                        market_variants: {
+                            some: {
+                                market: { id: marketId, status: 'OPEN' },
+                            },
                         },
-                    },
+                    }),
                 },
             }),
             orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
             take: 1,
             select: {
+                status: true,
                 market_variants: {
                     ...(marketId !== undefined && {
                         where: {
@@ -115,6 +132,7 @@ export const productDetailSelect = {
             color: true,
             size: true,
             variant_info: true,
+            status: true,
             created_at: true,
             updated_at: true,
             image: {
@@ -130,6 +148,9 @@ export function productDetailWithMarketSelect(marketId?: string) {
     return {
         ...productDetailSelect,
         variants: {
+            where: {
+                status: VariantStatus.ACTIVE,
+            },
             orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
             select: {
                 id: true,
@@ -137,6 +158,7 @@ export function productDetailWithMarketSelect(marketId?: string) {
                 color: true,
                 size: true,
                 variant_info: true,
+                status: true,
                 created_at: true,
                 updated_at: true,
                 image: {

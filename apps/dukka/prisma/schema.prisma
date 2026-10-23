@@ -454,6 +454,13 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum VariantStatus {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
 model Product {
   id          String        @id @default(uuid())
   name        String
@@ -490,6 +497,7 @@ model Variant {
   color        String?
   size         String?
   variant_info Json
+  status       VariantStatus @default(PENDING_REVIEW)
 
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)

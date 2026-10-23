@@ -12,7 +12,10 @@ import {
     Min,
     MinLength,
 } from 'class-validator';
-import { ProductStatus } from '../../../generated/prisma/client.js';
+import {
+    ProductStatus,
+    VariantStatus,
+} from '../../../generated/prisma/client.js';
 
 export class FindStaffProductsDto {
     @IsOptional()
@@ -55,6 +58,10 @@ export class FindStaffProductsDto {
     @IsOptional()
     @IsEnum(ProductStatus)
     status?: ProductStatus;
+
+    @IsOptional()
+    @IsEnum(VariantStatus)
+    variant_status?: VariantStatus;
 
     @IsOptional()
     @Transform(({ value }) => {
