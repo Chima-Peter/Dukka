@@ -240,6 +240,7 @@ model Market {
   warehouses          Warehouse[]
   service_states      ServiceState[]
   shipping_addresses  ShippingAddress[]
+  market_payment_methods MarketPaymentMethod[]
 }
 
 enum StaffInvitationStatus {
@@ -486,6 +487,7 @@ model MarketVariant {
   inventory_line_items InventoryLineItem[]
   reviews              Reviews[]
   cart_item            CartItems[]
+  order_items OrderItems[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -561,15 +563,63 @@ model Inventory {
   @@unique([market_variant_id, warehouse_id])
 }
 
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
 model Order {
   id         String   @id @default(uuid())
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  order_number String @unique
+  status OrderStatus @default(PENDING)
 
-  customer_id   String  @default("deleted")
-  customer      Customer    @relation(fields: [customer_id], references: [id], onDelete: SetDefault)
+  currency String
+  subtotal Decimal @db.Decimal(12, 2)
+  shipping_fee Decimal @db.Decimal(12, 2)
+  discount_amount Decimal @db.Decimal(12, 2)
+  points_discount Decimal @db.Decimal(12, 2)
+  coupon_discount Decimal @db.Decimal(12, 2)
+  total_amount Decimal @db.Decimal(12, 2)
+
+  guest_email String?
+  guest_name String?
+  guest_phone_number String?
+
+  shipping_address Json
+  billing_address Json
+
+  customer_id   String?
+  customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   order_inventories OrderInventory[]
+  order_tems OrderItems[]
+  order_payment_attempts OrderPaymentAttempt[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model OrderItems {
+  id         String   @id @default(uuid())
+  quantity   Int
+  price      Decimal @db.Decimal(12, 2)
+  total Decimal @db.Decimal(12, 2)
+
+  product_name String
+  product_image String
+  product_specs Json
+
+  order_id String
+  order    Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  market_variant_id String?
+  market_variant    MarketVariant? @relation(fields: [market_variant_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 enum OrderInventoryStatus {
@@ -612,6 +662,60 @@ model InventoryLineItem {
 
   @@unique([order_inventory_id, market_variant_id])
   @@index([market_variant_id])
+}
+
+model PaymentMethod {
+  id         String   @id @default(uuid())
+  name       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([name])
+
+  market_payment_methods MarketPaymentMethod[]
+  order_payment_attempts OrderPaymentAttempt[]
+}
+
+model MarketPaymentMethod {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  payment_method_id String
+  payment_method    PaymentMethod @relation(fields: [payment_method_id], references: [id], onDelete: Restrict)
+
+  @@unique([market_id, payment_method_id])
+  @@index([market_id])
+  @@index([payment_method_id])
+}
+
+enum OrderPaymentAttemptStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model OrderPaymentAttempt {
+  id         String   @id @default(uuid())
+  payment_intent_id String?
+  payment_intent_url String?
+  status OrderPaymentAttemptStatus @default(PENDING)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  order_id String
+  order    Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  payment_method_id String
+  payment_method    PaymentMethod @relation(fields: [payment_method_id], references: [id], onDelete: Restrict)
+
+  @@unique([order_id, payment_method_id])
+  @@index([order_id])
+  @@index([payment_method_id])
 }
 
 model Reviews {
