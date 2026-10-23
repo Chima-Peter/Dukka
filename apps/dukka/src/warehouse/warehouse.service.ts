@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    CountryStatus,
     WarehouseStatus,
-    type Warehouse,
 } from '../../generated/prisma/client.js';
-import { MarketsService } from '../markets/markets.service.js';
+import { CountriesService } from '../countries/countries.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -24,6 +24,7 @@ import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
+import type { WarehouseRecord } from './types/warehouse.type.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 
 @Injectable()
@@ -32,21 +33,23 @@ export class WarehouseService {
 
     constructor(
         private readonly warehouseRepository: WarehouseRepository,
-        private readonly marketsService: MarketsService,
         private readonly staffService: StaffService,
+        private readonly countriesService: CountriesService,
     ) {}
 
     async create(
         data: CreateWarehouseDto,
         staffMarketIds: string[],
-    ): Promise<Warehouse> {
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
-                `Creating warehouse ${data.name} in market ${data.market_id}`,
+                `Creating warehouse ${data.name} in country ${data.country_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
-            await this.assertMarketsValid([data.market_id]);
-            await this.assertManagerValid(data.manager_id, data.market_id);
+            const marketId = await this.requireCountryMarket(
+                data.country_id,
+                staffMarketIds,
+            );
+            await this.assertManagerValid(data.manager_id, marketId);
             const warehouse = await this.warehouseRepository.create(data);
             this.logger.log(`Warehouse created ${warehouse.id}`);
             return warehouse;
@@ -68,7 +71,7 @@ export class WarehouseService {
         }
     }
 
-    async findOne(id: string): Promise<Warehouse> {
+    async findOne(id: string): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Fetching warehouse ${id}`);
             return await this.warehouseRepository.findByIdOrThrow(id);
@@ -81,11 +84,11 @@ export class WarehouseService {
         id: string,
         data: UpdateWarehouseDto,
         staffMarketIds: string[],
-    ): Promise<Warehouse> {
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Updating warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            this.assertWarehouseMarketAccess(existing, staffMarketIds);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update a closed warehouse',
@@ -103,17 +106,20 @@ export class WarehouseService {
         id: string,
         data: UpdateWarehouseManagerDto,
         staffMarketIds: string[],
-    ): Promise<Warehouse> {
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Updating manager for warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            const marketId = this.assertWarehouseMarketAccess(
+                existing,
+                staffMarketIds,
+            );
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update manager of a closed warehouse',
                 );
             }
-            await this.assertManagerValid(data.manager_id, existing.market_id);
+            await this.assertManagerValid(data.manager_id, marketId);
             const warehouse = await this.warehouseRepository.updateManager(
                 id,
                 data.manager_id,
@@ -125,11 +131,11 @@ export class WarehouseService {
         }
     }
 
-    async close(id: string, staffMarketIds: string[]): Promise<Warehouse> {
+    async close(id: string, staffMarketIds: string[]): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Closing warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            this.assertWarehouseMarketAccess(existing, staffMarketIds);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException('Warehouse is already closed');
             }
@@ -141,11 +147,11 @@ export class WarehouseService {
         }
     }
 
-    async open(id: string, staffMarketIds: string[]): Promise<Warehouse> {
+    async open(id: string, staffMarketIds: string[]): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Opening warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            this.assertWarehouseMarketAccess(existing, staffMarketIds);
             if (existing.status === WarehouseStatus.OPEN) {
                 throw new BadRequestException('Warehouse is already open');
             }
@@ -157,31 +163,44 @@ export class WarehouseService {
         }
     }
 
-    private async assertMarketsValid(marketIds: string[]): Promise<void> {
-        const result = await this.marketsService.validateIds({
-            market_ids: marketIds,
-        });
-        if (!result.valid) {
-            const parts: string[] = [];
-            if (result.invalid_ids.length > 0) {
-                parts.push(
-                    `Invalid market id(s): ${result.invalid_ids.join(', ')}`,
-                );
-            }
-            if (result.inactive_ids.length > 0) {
-                parts.push(
-                    `Inactive market id(s): ${result.inactive_ids.join(', ')}`,
-                );
-            }
-            throw new BadRequestException({
-                message:
-                    parts.length > 0
-                        ? parts.join('; ')
-                        : 'One or more market ids are invalid',
-                invalid_ids: result.invalid_ids,
-                inactive_ids: result.inactive_ids,
-            });
+    private assertWarehouseMarketAccess(
+        warehouse: WarehouseRecord,
+        staffMarketIds: string[],
+    ): string {
+        const marketId = warehouse.country.market_id;
+        if (!marketId) {
+            throw new BadRequestException(
+                'Warehouse country is not assigned to a market',
+            );
         }
+        assertStaffHasMarkets(staffMarketIds, [marketId]);
+        return marketId;
+    }
+
+    private async requireCountryMarket(
+        countryId: string,
+        staffMarketIds: string[],
+    ): Promise<string> {
+        const country =
+            await this.countriesService.findWithMarketStatus(countryId);
+        if (!country) {
+            throw new NotFoundException('Country not found');
+        }
+        if (country.status !== CountryStatus.APPROVED) {
+            throw new BadRequestException(
+                'Only approved countries can have warehouses',
+            );
+        }
+        if (!country.market_id || !country.market) {
+            throw new BadRequestException(
+                'Country must be assigned to a market before managing warehouses',
+            );
+        }
+        if (!country.market.is_active) {
+            throw new BadRequestException('Market is inactive');
+        }
+        assertStaffHasMarkets(staffMarketIds, [country.market_id]);
+        return country.market_id;
     }
 
     private async assertManagerValid(
@@ -251,8 +270,8 @@ export class WarehouseService {
         error: PrismaClientKnownRequestError,
     ): NotFoundException {
         switch (prismaMissingRecordModel(error)) {
-            case 'market':
-                return new NotFoundException('Market not found');
+            case 'country':
+                return new NotFoundException('Country not found');
             case 'staff':
                 return new NotFoundException('Manager not found');
             case 'warehouse':
@@ -261,8 +280,8 @@ export class WarehouseService {
                 break;
         }
 
-        if (prismaHintIncludes(error, 'market_id', "'market'")) {
-            return new NotFoundException('Market not found');
+        if (prismaHintIncludes(error, 'country_id', "'country'")) {
+            return new NotFoundException('Country not found');
         }
         if (prismaHintIncludes(error, 'manager', 'staff')) {
             return new NotFoundException('Manager not found');

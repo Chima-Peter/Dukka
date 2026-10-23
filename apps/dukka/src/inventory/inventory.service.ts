@@ -68,7 +68,7 @@ export class InventoryService {
             const warehouse = await this.warehouseRepository.findByIdOrThrow(
                 data.warehouse_id,
             );
-            if (warehouse.market_id !== data.market_id) {
+            if (warehouse.country.market_id !== data.market_id) {
                 throw new BadRequestException(
                     'Warehouse does not belong to the specified market',
                 );
@@ -115,7 +115,7 @@ export class InventoryService {
             const warehouse = await this.warehouseRepository.findByIdOrThrow(
                 data.warehouse_id,
             );
-            if (warehouse.market_id !== data.market_id) {
+            if (warehouse.country.market_id !== data.market_id) {
                 throw new BadRequestException(
                     'Warehouse does not belong to the specified market',
                 );
@@ -210,7 +210,7 @@ export class InventoryService {
                 await this.serviceStateService.findWarehouseCoveringState(
                     data.service_state_id,
                 );
-            if (warehouse.market_id !== data.market_id) {
+            if (warehouse.country.market_id !== data.market_id) {
                 throw new BadRequestException(
                     'Warehouse covering this state does not belong to the specified market',
                 );

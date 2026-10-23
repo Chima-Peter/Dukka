@@ -9,7 +9,7 @@ import {
 
 export class FindServiceStatesDto {
     @IsUUID()
-    market_id!: string;
+    country_id!: string;
 
     @IsOptional()
     @IsUUID()

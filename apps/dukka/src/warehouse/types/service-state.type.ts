@@ -1,6 +1,7 @@
 export type ServiceStateItem = {
     id: string;
-    market_id: string;
+    country_id: string;
+    market_id: string | null;
     state_name: string;
     warehouse_ids: string[];
     created_at: Date;

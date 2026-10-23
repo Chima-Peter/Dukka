@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    CountryStatus,
     WarehouseStatus,
-    type Warehouse,
 } from '../../generated/prisma/client.js';
-import { MarketsService } from '../markets/markets.service.js';
+import { CountriesService } from '../countries/countries.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -27,6 +27,7 @@ import type {
     ServiceStateItem,
     WarehouseServiceStateItem,
 } from './types/service-state.type.js';
+import type { WarehouseRecord } from './types/warehouse.type.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 
 @Injectable()
@@ -36,7 +37,7 @@ export class ServiceStateService {
     constructor(
         private readonly serviceStateRepository: ServiceStateRepository,
         private readonly warehouseRepository: WarehouseRepository,
-        private readonly marketsService: MarketsService,
+        private readonly countriesService: CountriesService,
     ) {}
 
     async create(
@@ -45,15 +46,19 @@ export class ServiceStateService {
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(
-                `Creating service state ${data.state_name} in market ${data.market_id}`,
+                `Creating service state ${data.state_name} in country ${data.country_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
-            await this.assertMarketsValid([data.market_id]);
+            const marketId = await this.requireCountryMarket(
+                data.country_id,
+                staffMarketIds,
+            );
             const serviceState = await this.serviceStateRepository.create(
-                data.market_id,
+                data.country_id,
                 data.state_name,
             );
-            this.logger.log(`Service state created ${serviceState.id}`);
+            this.logger.log(
+                `Service state created ${serviceState.id} (market ${marketId})`,
+            );
             return serviceState;
         } catch (error) {
             this.handleError(error);
@@ -63,7 +68,7 @@ export class ServiceStateService {
     async findAll(query: FindServiceStatesDto) {
         try {
             this.logger.log(
-                `Fetching service states for market ${query.market_id}`,
+                `Fetching service states for country ${query.country_id}`,
             );
             const page = await this.serviceStateRepository.findAll(query);
             return {
@@ -75,7 +80,9 @@ export class ServiceStateService {
         }
     }
 
-    async findWarehouseCoveringState(serviceStateId: string): Promise<Warehouse> {
+    async findWarehouseCoveringState(
+        serviceStateId: string,
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
                 `Fetching warehouse covering service state ${serviceStateId}`,
@@ -102,10 +109,10 @@ export class ServiceStateService {
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(`Updating service state ${id}`);
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            await this.requireCountryMarket(data.country_id, staffMarketIds);
             const serviceState = await this.serviceStateRepository.update(
                 id,
-                data.market_id,
+                data.country_id,
                 data.state_name,
             );
             this.logger.log(`Service state updated ${id}`);
@@ -117,15 +124,15 @@ export class ServiceStateService {
 
     async delete(
         id: string,
-        marketId: string,
+        countryId: string,
         staffMarketIds: string[],
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(`Deleting service state ${id}`);
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            await this.requireCountryMarket(countryId, staffMarketIds);
             const serviceState = await this.serviceStateRepository.delete(
                 id,
-                marketId,
+                countryId,
             );
             this.logger.log(`Service state deleted ${id}`);
             return serviceState;
@@ -145,14 +152,20 @@ export class ServiceStateService {
             );
             const serviceState =
                 await this.serviceStateRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [serviceState.market_id]);
+            const marketId = serviceState.country.market_id;
+            if (!marketId) {
+                throw new BadRequestException(
+                    'Service state country is not assigned to a market',
+                );
+            }
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
 
             const warehouse = await this.warehouseRepository.findByIdOrThrow(
                 data.warehouse_id,
             );
-            if (warehouse.market_id !== serviceState.market_id) {
+            if (warehouse.country.market_id !== marketId) {
                 throw new BadRequestException(
-                    'Warehouse does not belong to the same market as the service state',
+                    'Warehouse does not belong to the same market as the service state country',
                 );
             }
             if (warehouse.status === WarehouseStatus.CLOSED) {
@@ -185,7 +198,13 @@ export class ServiceStateService {
             );
             const serviceState =
                 await this.serviceStateRepository.findByIdOrThrow(id);
-            assertStaffHasMarkets(staffMarketIds, [serviceState.market_id]);
+            const marketId = serviceState.country.market_id;
+            if (!marketId) {
+                throw new BadRequestException(
+                    'Service state country is not assigned to a market',
+                );
+            }
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
             const link = await this.serviceStateRepository.unassignWarehouse(
                 id,
                 warehouseId,
@@ -199,31 +218,30 @@ export class ServiceStateService {
         }
     }
 
-    private async assertMarketsValid(marketIds: string[]): Promise<void> {
-        const result = await this.marketsService.validateIds({
-            market_ids: marketIds,
-        });
-        if (!result.valid) {
-            const parts: string[] = [];
-            if (result.invalid_ids.length > 0) {
-                parts.push(
-                    `Invalid market id(s): ${result.invalid_ids.join(', ')}`,
-                );
-            }
-            if (result.inactive_ids.length > 0) {
-                parts.push(
-                    `Inactive market id(s): ${result.inactive_ids.join(', ')}`,
-                );
-            }
-            throw new BadRequestException({
-                message:
-                    parts.length > 0
-                        ? parts.join('; ')
-                        : 'One or more market ids are invalid',
-                invalid_ids: result.invalid_ids,
-                inactive_ids: result.inactive_ids,
-            });
+    private async requireCountryMarket(
+        countryId: string,
+        staffMarketIds: string[],
+    ): Promise<string> {
+        const country =
+            await this.countriesService.findWithMarketStatus(countryId);
+        if (!country) {
+            throw new NotFoundException('Country not found');
         }
+        if (country.status !== CountryStatus.APPROVED) {
+            throw new BadRequestException(
+                'Only approved countries can have service states',
+            );
+        }
+        if (!country.market_id || !country.market) {
+            throw new BadRequestException(
+                'Country must be assigned to a market before managing service states',
+            );
+        }
+        if (!country.market.is_active) {
+            throw new BadRequestException('Market is inactive');
+        }
+        assertStaffHasMarkets(staffMarketIds, [country.market_id]);
+        return country.market_id;
     }
 
     private handleError(error: unknown): never {
@@ -236,7 +254,7 @@ export class ServiceStateService {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
                 throw new ConflictException(
-                    'Service state already exists for this market or warehouse link already exists',
+                    'Service state already exists for this country or warehouse link already exists',
                 );
             }
             if (error.code === 'P2003' || error.code === 'P2025') {
@@ -257,8 +275,8 @@ export class ServiceStateService {
         error: PrismaClientKnownRequestError,
     ): NotFoundException {
         switch (prismaMissingRecordModel(error)) {
-            case 'market':
-                return new NotFoundException('Market not found');
+            case 'country':
+                return new NotFoundException('Country not found');
             case 'warehouse':
                 return new NotFoundException('Warehouse not found');
             case 'servicestate':
@@ -271,8 +289,8 @@ export class ServiceStateService {
                 break;
         }
 
-        if (prismaHintIncludes(error, 'market_id', "'market'")) {
-            return new NotFoundException('Market not found');
+        if (prismaHintIncludes(error, 'country_id', "'country'")) {
+            return new NotFoundException('Country not found');
         }
         if (prismaHintIncludes(error, 'warehouse')) {
             return new NotFoundException('Warehouse not found');

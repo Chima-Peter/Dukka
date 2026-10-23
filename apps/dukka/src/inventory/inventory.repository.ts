@@ -96,7 +96,10 @@ export class InventoryRepository {
         quantity: number,
     ): Promise<{ available_quantity: number }> {
         const scope = {
-            warehouse: { id: warehouseId, market_id: marketId },
+            warehouse: {
+                id: warehouseId,
+                country: { market_id: marketId },
+            },
             market_variant: { id: marketVariantId, market_id: marketId },
         };
 
@@ -151,7 +154,7 @@ export class InventoryRepository {
                                 inventories: {
                                     where: {
                                         warehouse: {
-                                            market_id: marketId,
+                                            country: { market_id: marketId },
                                             status: WarehouseStatus.OPEN,
                                         },
                                     },
@@ -201,7 +204,7 @@ export class InventoryRepository {
                     market_id: query.market_id,
                 },
                 warehouse: {
-                    market_id: query.market_id,
+                    country: { market_id: query.market_id },
                 },
             },
             query,
@@ -219,7 +222,7 @@ export class InventoryRepository {
                     variant: { product_id: productId },
                 },
                 warehouse: {
-                    market_id: query.market_id,
+                    country: { market_id: query.market_id },
                 },
             },
             query,
@@ -234,7 +237,7 @@ export class InventoryRepository {
             {
                 warehouse: {
                     id: warehouseId,
-                    market_id: query.market_id,
+                    country: { market_id: query.market_id },
                 },
                 market_variant: {
                     market_id: query.market_id,
@@ -255,7 +258,7 @@ export class InventoryRepository {
                     market_id: query.market_id,
                 },
                 warehouse: {
-                    market_id: query.market_id,
+                    country: { market_id: query.market_id },
                 },
             },
             query,
@@ -393,7 +396,11 @@ export class InventoryRepository {
                     updated_at: true,
                     warehouse: {
                         select: {
-                            market_id: true,
+                            country: {
+                                select: {
+                                    market_id: true,
+                                },
+                            },
                         },
                     },
                 },

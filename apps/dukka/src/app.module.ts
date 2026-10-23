@@ -24,6 +24,7 @@ import { RolesModule } from './roles/roles.module.js';
 import { PermissionsModule } from './permissions/permissions.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { CurrenciesModule } from './currencies/currencies.module.js';
+import { CountriesModule } from './countries/countries.module.js';
 import { MarketsModule } from './markets/markets.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { ProductModule } from './product/product.module.js';
@@ -135,6 +136,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         RolesModule,
         PermissionsModule,
         CurrenciesModule,
+        CountriesModule,
         MarketsModule,
         StaffModule,
         InvitationsModule,

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CountriesService } from '../countries/countries.service.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 import { WarehouseService } from './warehouse.service.js';
 
@@ -17,21 +18,18 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
     ),
 }));
 
-vi.mock('../markets/markets.service.js', () => ({
-    MarketsService: class MarketsService {},
-}));
-
 vi.mock('../staff/staff.service.js', () => ({
     StaffService: class StaffService {},
+}));
+
+vi.mock('../countries/countries.service.js', () => ({
+    CountriesService: class CountriesService {},
 }));
 
 describe('WarehouseService', () => {
     let service: WarehouseService;
 
     beforeEach(async () => {
-        const { MarketsService } = await import(
-            '../markets/markets.service.js'
-        );
         const { StaffService } = await import('../staff/staff.service.js');
 
         const module: TestingModule = await Test.createTestingModule({
@@ -49,15 +47,15 @@ describe('WarehouseService', () => {
                     },
                 },
                 {
-                    provide: MarketsService,
+                    provide: StaffService,
                     useValue: {
                         validateIds: vi.fn(),
                     },
                 },
                 {
-                    provide: StaffService,
+                    provide: CountriesService,
                     useValue: {
-                        validateIds: vi.fn(),
+                        findWithMarketStatus: vi.fn(),
                     },
                 },
             ],

@@ -14,7 +14,11 @@ export const inventoryRowSelect = {
     warehouse: {
         select: {
             name: true,
-            market_id: true,
+            country: {
+                select: {
+                    market_id: true,
+                },
+            },
         },
     },
     market_variant: {
@@ -43,7 +47,11 @@ export const orderInventoryRowSelect = {
     updated_at: true,
     warehouse: {
         select: {
-            market_id: true,
+            country: {
+                select: {
+                    market_id: true,
+                },
+            },
         },
     },
 } satisfies Prisma.OrderInventorySelect;
@@ -63,7 +71,7 @@ export function toInventoryItem(row: InventoryRow): InventoryItem {
         market_variant_id: row.market_variant_id,
         warehouse_id: row.warehouse_id,
         warehouse_name: row.warehouse.name,
-        market_id: row.warehouse.market_id,
+        market_id: row.warehouse.country.market_id!,
         variant_id: row.market_variant.variant_id,
         variant_code: row.market_variant.variant.variant_code,
         product_id: row.market_variant.variant.product_id,
@@ -82,7 +90,7 @@ export function toOrderInventoryItem(
         id: row.id,
         order_id: row.order_id,
         warehouse_id: row.warehouse_id,
-        market_id: row.warehouse.market_id,
+        market_id: row.warehouse.country.market_id!,
         status: row.status,
         expires_at: row.expires_at,
         created_at: row.created_at,

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MarketsModule } from '../markets/markets.module.js';
+import { CountriesModule } from '../countries/countries.module.js';
 import { StaffModule } from '../staff/staff.module.js';
 import { ServiceStateController } from './service-state.controller.js';
 import { ServiceStateRepository } from './service-state.repository.js';
@@ -9,7 +9,7 @@ import { WarehouseRepository } from './warehouse.repository.js';
 import { WarehouseService } from './warehouse.service.js';
 
 @Module({
-    imports: [MarketsModule, StaffModule],
+    imports: [StaffModule, CountriesModule],
     controllers: [WarehouseController, ServiceStateController],
     providers: [
         WarehouseService,

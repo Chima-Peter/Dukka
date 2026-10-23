@@ -1,7 +1,9 @@
 import {
     BadRequestException,
     ConflictException,
+    forwardRef,
     HttpException,
+    Inject,
     Injectable,
     InternalServerErrorException,
     Logger,
@@ -9,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import { CountriesService } from '../countries/countries.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -24,6 +27,8 @@ export class MarketsService {
 
     constructor(
         private readonly marketsRepository: MarketsRepository,
+        @Inject(forwardRef(() => CountriesService))
+        private readonly countriesService: CountriesService,
         private readonly mailQueueService: MailQueueService,
     ) {}
 
@@ -138,6 +143,13 @@ export class MarketsService {
             if (existing.is_active) {
                 throw new BadRequestException(
                     'Deactivate the market before deleting it',
+                );
+            }
+            const countryCount =
+                await this.countriesService.countByMarketId(id);
+            if (countryCount > 0) {
+                throw new ConflictException(
+                    'Market cannot be deleted while it still has countries assigned',
                 );
             }
             const contacts =
@@ -263,6 +275,11 @@ export class MarketsService {
                 );
                 if (prismaHintIncludes(error, 'currency')) {
                     throw new NotFoundException('Currency not found');
+                }
+                if (prismaHintIncludes(error, 'country')) {
+                    throw new ConflictException(
+                        'Market cannot be deleted while it still has countries assigned',
+                    );
                 }
                 throw new ConflictException(
                     'Market cannot be deleted while it is still assigned to staff',

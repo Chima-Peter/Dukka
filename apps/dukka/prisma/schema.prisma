@@ -227,6 +227,29 @@ model Currency {
   market Market?
 }
 
+enum CountryStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Country {
+  id         String        @id @default(uuid())
+  code       String        @unique
+  name       String
+  status     CountryStatus @default(PENDING_REVIEW)
+  market_id  String?
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+
+  market         Market?        @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  service_states ServiceState[]
+  warehouses     Warehouse[]
+
+  @@index([market_id])
+  @@index([status])
+}
+
 model Market {
   id          String   @id @default(uuid())
   name        String
@@ -237,13 +260,12 @@ model Market {
   updated_at  DateTime @updatedAt
 
   currency            Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
+  countries           Country[]
   role_markets        RoleMarket[]
   staff_markets       StaffMarket[]
   invitation_markets  StaffInvitationMarket[]
   market_categories   MarketCategory[]
   market_variants     MarketVariant[]
-  warehouses          Warehouse[]
-  service_states      ServiceState[]
   shipping_addresses  ShippingAddress[]
   market_payment_methods MarketPaymentMethod[]
   orders              Order[]
@@ -509,8 +531,8 @@ enum WarehouseStatus {
 
 model Warehouse {
   id         String          @id @default(uuid())
-  market_id  String
-  market     Market          @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  country_id String
+  country    Country         @relation(fields: [country_id], references: [id], onDelete: Restrict)
   name       String
   manager_id String
   manager    Staff           @relation(fields: [manager_id], references: [id], onDelete: Restrict)
@@ -524,12 +546,14 @@ model Warehouse {
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+
+  @@index([country_id])
 }
 
 model ServiceState {
-  id         String   @id @default(uuid())
-  market_id  String
-  market     Market   @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  id         String  @id @default(uuid())
+  country_id String
+  country    Country @relation(fields: [country_id], references: [id], onDelete: Restrict)
   state_name String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -537,8 +561,8 @@ model ServiceState {
   warehouse_service_states WarehouseServiceState[]
   shipping_addresses       ShippingAddress[]
 
-  @@unique([market_id, state_name])
-  @@index([market_id])
+  @@unique([country_id, state_name])
+  @@index([country_id])
 }
 
 model WarehouseServiceState {

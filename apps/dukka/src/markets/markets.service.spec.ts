@@ -1,8 +1,16 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
+
+vi.mock('../countries/countries.service.js', () => ({
+    CountriesService: class CountriesService {},
+}));
 
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
@@ -47,10 +55,16 @@ describe('MarketsService', () => {
         delete: ReturnType<typeof vi.fn>;
         findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
     };
+    let countriesService: {
+        countByMarketId: ReturnType<typeof vi.fn>;
+    };
 
     beforeEach(async () => {
         const { MailQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
+        );
+        const { CountriesService } = await import(
+            '../countries/countries.service.js'
         );
 
         marketsRepository = {
@@ -63,6 +77,9 @@ describe('MarketsService', () => {
             delete: vi.fn(),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
         };
+        countriesService = {
+            countByMarketId: vi.fn().mockResolvedValue(0),
+        };
         mailQueue = {
             enqueueSend: vi.fn(),
             enqueueSendMany: vi.fn(),
@@ -74,6 +91,10 @@ describe('MarketsService', () => {
                 {
                     provide: MarketsRepository,
                     useValue: marketsRepository,
+                },
+                {
+                    provide: CountriesService,
+                    useValue: countriesService,
                 },
                 {
                     provide: MailQueueService,
@@ -186,6 +207,7 @@ describe('MarketsService', () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
             { id: 'market-1', is_active: false },
         ]);
+        countriesService.countByMarketId.mockResolvedValue(0);
         marketsRepository.delete.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
@@ -195,6 +217,18 @@ describe('MarketsService', () => {
         await service.delete('market-1');
 
         expect(marketsRepository.delete).toHaveBeenCalledWith('market-1');
+    });
+
+    it('rejects delete when market still has countries', async () => {
+        marketsRepository.findExistingByIds.mockResolvedValue([
+            { id: 'market-1', is_active: false },
+        ]);
+        countriesService.countByMarketId.mockResolvedValue(2);
+
+        await expect(service.delete('market-1')).rejects.toBeInstanceOf(
+            ConflictException,
+        );
+        expect(marketsRepository.delete).not.toHaveBeenCalled();
     });
 
     it('rejects update when market is missing', async () => {

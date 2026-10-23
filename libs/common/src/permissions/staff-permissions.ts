@@ -97,6 +97,30 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete currencies',
     },
     {
+        name: 'countries:create',
+        description: 'Create countries',
+    },
+    {
+        name: 'countries:update',
+        description: 'Update countries',
+    },
+    {
+        name: 'countries:delete',
+        description: 'Delete countries',
+    },
+    {
+        name: 'countries:approve',
+        description: 'Approve or reject countries',
+    },
+    {
+        name: 'countries:assign_market',
+        description: 'Assign countries to markets',
+    },
+    {
+        name: 'countries:remove_market',
+        description: 'Remove countries from markets',
+    },
+    {
         name: 'categories:create',
         description: 'Create product categories and add them to markets',
     },
@@ -195,6 +219,12 @@ export const StaffPermission = {
     CurrenciesCreate: 'currencies:create',
     CurrenciesUpdate: 'currencies:update',
     CurrenciesDelete: 'currencies:delete',
+    CountriesCreate: 'countries:create',
+    CountriesUpdate: 'countries:update',
+    CountriesDelete: 'countries:delete',
+    CountriesApprove: 'countries:approve',
+    CountriesAssignMarket: 'countries:assign_market',
+    CountriesRemoveMarket: 'countries:remove_market',
     CategoriesCreate: 'categories:create',
     CategoriesUpdate: 'categories:update',
     CategoriesDelete: 'categories:delete',

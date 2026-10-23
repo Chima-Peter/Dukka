@@ -71,7 +71,7 @@ export class ServiceStateController {
     ) {
         return this.serviceStateService.delete(
             id,
-            query.market_id,
+            query.country_id,
             staff.market_ids,
         );
     }

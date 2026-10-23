@@ -1,6 +1,26 @@
+import type { Warehouse } from '../../../generated/prisma/client.js';
+
+export type WarehouseCountrySummary = {
+    id: string;
+    market_id: string | null;
+};
+
+export type WarehouseRecord = Warehouse & {
+    country: WarehouseCountrySummary;
+};
+
 export type CreateWarehouseRecord = {
-    market_id: string;
+    country_id: string;
     name: string;
     manager_id: string;
     address: string;
 };
+
+export const warehouseWithCountry = {
+    country: {
+        select: {
+            id: true,
+            market_id: true,
+        },
+    },
+} as const;
