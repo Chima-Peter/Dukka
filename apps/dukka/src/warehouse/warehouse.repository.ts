@@ -4,6 +4,7 @@ import {
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { FindStaffWarehousesDto } from './dto/find-staff-warehouses.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import {
@@ -29,6 +30,19 @@ export class WarehouseRepository {
     }
 
     async findAll(query: FindWarehousesDto) {
+        return this.findPage({
+            ...query,
+            status: WarehouseStatus.OPEN,
+        });
+    }
+
+    async findAllForStaff(query: FindStaffWarehousesDto) {
+        return this.findPage(query);
+    }
+
+    private async findPage(
+        query: FindWarehousesDto & { status?: WarehouseStatus },
+    ) {
         const limit = query.limit ?? 50;
         const where: Prisma.WarehouseWhereInput = {
             ...(query.country_id !== undefined && {

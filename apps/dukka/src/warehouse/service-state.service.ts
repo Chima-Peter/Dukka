@@ -23,6 +23,7 @@ import {
 import type { AssignWarehouseServiceStateDto } from './dto/assign-warehouse-service-state.dto.js';
 import type { CreateServiceStateDto } from './dto/create-service-state.dto.js';
 import type { FindServiceStatesDto } from './dto/find-service-states.dto.js';
+import type { FindStaffServiceStatesDto } from './dto/find-staff-service-states.dto.js';
 import type { UpdateServiceStateDto } from './dto/update-service-state.dto.js';
 import { ServiceStateRepository } from './service-state.repository.js';
 import type {
@@ -70,9 +71,25 @@ export class ServiceStateService {
     async findAll(query: FindServiceStatesDto) {
         try {
             this.logger.log(
-                `Fetching service states for country ${query.country_id}`,
+                `Fetching open service states for country ${query.country_id}`,
             );
             const page = await this.serviceStateRepository.findAll(query);
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findAllForStaff(query: FindStaffServiceStatesDto) {
+        try {
+            this.logger.log(
+                `Fetching staff service states for country ${query.country_id}`,
+            );
+            const page =
+                await this.serviceStateRepository.findAllForStaff(query);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,

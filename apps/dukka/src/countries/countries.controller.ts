@@ -9,6 +9,7 @@ import {
     ParseUUIDPipe,
     Patch,
     Post,
+    Query,
 } from '@nestjs/common';
 import {
     Auth,
@@ -22,6 +23,7 @@ import {
 import { CountriesService } from './countries.service.js';
 import { AssignCountryMarketDto } from './dto/assign-country-market.dto.js';
 import { CreateCountryDto } from './dto/create-country.dto.js';
+import { FindStaffCountriesDto } from './dto/find-staff-countries.dto.js';
 import { UpdateCountryDto } from './dto/update-country.dto.js';
 
 @Auth('staff')
@@ -41,6 +43,12 @@ export class CountriesController {
     @ResponseMessage('Countries retrieved successfully')
     findAll() {
         return this.countriesService.findAll();
+    }
+
+    @Get('staff')
+    @ResponseMessage('Countries retrieved successfully')
+    findAllForStaff(@Query() query: FindStaffCountriesDto) {
+        return this.countriesService.findAllForStaff(query.status);
     }
 
     @Patch(':id')

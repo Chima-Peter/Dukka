@@ -44,6 +44,34 @@ export class ServiceStateRepository {
     }
 
     async findAll(query: FindServiceStatesDto) {
+        return this.findPage({
+            country_id: query.country_id,
+            status: ServiceStateStatus.OPEN,
+            cursor: query.cursor,
+            limit: query.limit,
+        });
+    }
+
+    async findAllForStaff(query: {
+        country_id: string;
+        status?: ServiceStateStatus;
+        cursor?: string;
+        limit?: number;
+    }) {
+        return this.findPage({
+            country_id: query.country_id,
+            status: query.status,
+            cursor: query.cursor,
+            limit: query.limit,
+        });
+    }
+
+    private async findPage(query: {
+        country_id: string;
+        status?: ServiceStateStatus;
+        cursor?: string;
+        limit?: number;
+    }) {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.serviceState.findMany({
             where: {

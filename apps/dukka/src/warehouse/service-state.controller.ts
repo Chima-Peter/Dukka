@@ -24,6 +24,7 @@ import { AssignWarehouseServiceStateDto } from './dto/assign-warehouse-service-s
 import { CreateServiceStateDto } from './dto/create-service-state.dto.js';
 import { DeleteServiceStateDto } from './dto/delete-service-state.dto.js';
 import { FindServiceStatesDto } from './dto/find-service-states.dto.js';
+import { FindStaffServiceStatesDto } from './dto/find-staff-service-states.dto.js';
 import { UpdateServiceStateDto } from './dto/update-service-state.dto.js';
 import { ServiceStateService } from './service-state.service.js';
 
@@ -47,6 +48,12 @@ export class ServiceStateController {
     @ResponseMessage('Service states retrieved successfully')
     findAll(@Query() query: FindServiceStatesDto) {
         return this.serviceStateService.findAll(query);
+    }
+
+    @Get('staff')
+    @ResponseMessage('Service states retrieved successfully')
+    findAllForStaff(@Query() query: FindStaffServiceStatesDto) {
+        return this.serviceStateService.findAllForStaff(query);
     }
 
     @Patch(':id')

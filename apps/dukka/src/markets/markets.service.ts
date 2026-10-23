@@ -44,10 +44,25 @@ export class MarketsService {
         }
     }
 
-    async findAll(market_ids: string[]): Promise<MarketWithCurrency[]> {
+    async findAll(): Promise<MarketWithCurrency[]> {
         try {
-            this.logger.log('Fetching markets');
-            return await this.marketsRepository.findAll(market_ids);
+            this.logger.log('Fetching open markets');
+            return await this.marketsRepository.findAll();
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findAllForStaff(
+        market_ids: string[],
+        status?: MarketStatus,
+    ): Promise<MarketWithCurrency[]> {
+        try {
+            this.logger.log('Fetching staff markets');
+            return await this.marketsRepository.findAllForStaff(
+                market_ids,
+                status,
+            );
         } catch (error) {
             this.handleError(error);
         }

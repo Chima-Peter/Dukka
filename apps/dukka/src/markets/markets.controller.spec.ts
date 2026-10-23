@@ -6,6 +6,7 @@ import { MarketsService } from './markets.service.js';
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentStaff: () => () => undefined,
+    Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     StaffPermission: new Proxy(
@@ -55,6 +56,7 @@ describe('MarketsController', () => {
                         create: vi.fn(),
                         validateIds: vi.fn(),
                         findAll: vi.fn(),
+                        findAllForStaff: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),
                         open: vi.fn(),

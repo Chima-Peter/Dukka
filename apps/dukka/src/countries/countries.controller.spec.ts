@@ -33,6 +33,7 @@ describe('CountriesController', () => {
                     useValue: {
                         create: vi.fn(),
                         findAll: vi.fn(),
+                        findAllForStaff: vi.fn(),
                         update: vi.fn(),
                         open: vi.fn(),
                         close: vi.fn(),

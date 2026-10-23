@@ -49,8 +49,19 @@ export class CountriesService {
 
     async findAll(): Promise<CountryWithMarket[]> {
         try {
-            this.logger.log('Fetching countries');
+            this.logger.log('Fetching open countries');
             return await this.countriesRepository.findAll();
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findAllForStaff(
+        status?: CountryStatus,
+    ): Promise<CountryWithMarket[]> {
+        try {
+            this.logger.log('Fetching staff countries');
+            return await this.countriesRepository.findAllForStaff(status);
         } catch (error) {
             this.handleError(error);
         }

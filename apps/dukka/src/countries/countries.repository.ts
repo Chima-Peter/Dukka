@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type {
-    Country,
+import {
     CountryStatus,
+    type Country,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateCountryDto } from './dto/create-country.dto.js';
@@ -28,6 +28,19 @@ export class CountriesRepository {
 
     async findAll(): Promise<CountryWithMarket[]> {
         return await this.prisma.country.findMany({
+            where: { status: CountryStatus.OPEN },
+            include: countryWithMarket,
+            orderBy: { created_at: 'desc' },
+        });
+    }
+
+    async findAllForStaff(
+        status?: CountryStatus,
+    ): Promise<CountryWithMarket[]> {
+        return await this.prisma.country.findMany({
+            where: {
+                ...(status !== undefined && { status }),
+            },
             include: countryWithMarket,
             orderBy: { created_at: 'desc' },
         });

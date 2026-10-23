@@ -42,13 +42,27 @@ export class MarketsRepository {
         });
     }
 
-    async findAll(market_ids: string[]): Promise<MarketWithCurrency[]> {
+    async findAll(): Promise<MarketWithCurrency[]> {
+        return await this.prisma.market.findMany({
+            where: { status: MarketStatus.OPEN },
+            include: marketWithCurrency,
+            orderBy: { created_at: 'desc' },
+        });
+    }
+
+    async findAllForStaff(
+        market_ids: string[],
+        status?: MarketStatus,
+    ): Promise<MarketWithCurrency[]> {
         if (market_ids.length === 0) {
             return [];
         }
 
         return await this.prisma.market.findMany({
-            where: { id: { in: market_ids } },
+            where: {
+                id: { in: market_ids },
+                ...(status !== undefined && { status }),
+            },
             include: marketWithCurrency,
             orderBy: { created_at: 'desc' },
         });

@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-    IsEnum,
     IsInt,
     IsOptional,
     IsString,
@@ -10,7 +9,6 @@ import {
     Min,
     MinLength,
 } from 'class-validator';
-import { WarehouseStatus } from '../../../generated/prisma/client.js';
 
 export class FindWarehousesDto {
     @IsOptional()
@@ -30,10 +28,6 @@ export class FindWarehousesDto {
     @MinLength(1)
     @MaxLength(256)
     name?: string;
-
-    @IsOptional()
-    @IsEnum(WarehouseStatus)
-    status?: WarehouseStatus;
 
     @IsOptional()
     @IsUUID()
