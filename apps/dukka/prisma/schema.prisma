@@ -241,6 +241,7 @@ model Market {
   service_states      ServiceState[]
   shipping_addresses  ShippingAddress[]
   market_payment_methods MarketPaymentMethod[]
+  orders              Order[]
 }
 
 enum StaffInvitationStatus {
@@ -512,6 +513,7 @@ model Warehouse {
 
   inventory                Inventory[]
   order_inventories        OrderInventory[]
+  orders                   Order[]
   warehouse_service_states WarehouseServiceState[]
 
   created_at DateTime @default(now())
@@ -591,6 +593,12 @@ model Order {
   shipping_address Json
   billing_address Json
 
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  warehouse_id String
+  warehouse    Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Restrict)
+
   customer_id   String?
   customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
@@ -600,6 +608,10 @@ model Order {
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+
+  @@index([market_id])
+  @@index([warehouse_id])
+  @@index([customer_id])
 }
 
 model OrderItems {

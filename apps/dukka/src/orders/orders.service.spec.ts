@@ -14,6 +14,8 @@ describe('OrdersService', () => {
                     useValue: {
                         createForCustomer: vi.fn(),
                         createForGuest: vi.fn(),
+                        findForCustomer: vi.fn(),
+                        findForStaff: vi.fn(),
                     },
                 },
             ],

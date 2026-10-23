@@ -38,6 +38,8 @@ export type CreateOrderMoneyInput = {
     points_discount: number;
     coupon_discount: number;
     total_amount: number;
+    market_id: string;
+    warehouse_id: string;
     items: CreateOrderItemInput[];
 };
 
@@ -53,5 +55,13 @@ export type CreateGuestOrderInput = CreateOrderMoneyInput & {
     country: string;
     state: string;
     street_address: string;
-    market_id: string;
+};
+
+export type CreateOrderBase = CreateOrderMoneyInput & {
+    shipping_address: OrderAddressSnapshot | GuestAddressSnapshot;
+    billing_address: OrderAddressSnapshot | GuestAddressSnapshot;
+    customer_id?: string;
+    guest_email?: string;
+    guest_name?: string;
+    guest_phone_number?: string;
 };
