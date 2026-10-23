@@ -2,6 +2,7 @@ import {
     IsEmail,
     IsOptional,
     IsString,
+    IsUUID,
     MaxLength,
     MinLength,
 } from 'class-validator';
@@ -34,7 +35,13 @@ export class CreateShippingAddressDto {
     @IsString()
     @MinLength(1)
     @MaxLength(128)
-    state_province!: string;
+    country!: string;
+
+    @IsUUID()
+    state!: string;
+
+    @IsUUID()
+    market_id!: string;
 
     @IsString()
     @MinLength(1)

@@ -57,20 +57,30 @@ model Token {
 }
 
 model ShippingAddress {
-  id    String    @id @default(uuid())
-  first_name  String
-  last_name String
-  email String      @unique
+  id              String  @id @default(uuid())
+  first_name      String
+  last_name       String
+  email           String  @unique
   phone_number    String
-  whatsapp_number    String?
-  state_province    String
+  whatsapp_number String?
+  country         String
   street_address  String
-  
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
 
-  customer_id   String
-  customer    Customer  @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  state         String
+  service_state ServiceState @relation(fields: [state], references: [id], onDelete: Restrict)
+
+  market_id String
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@index([market_id])
+  @@index([state])
 }
 
 model Points {
@@ -221,14 +231,15 @@ model Market {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  currency           Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
-  role_markets       RoleMarket[]
-  staff_markets      StaffMarket[]
-  invitation_markets StaffInvitationMarket[]
-  market_categories  MarketCategory[]
-  market_variants    MarketVariant[]
-  warehouses         Warehouse[]
-  service_states     ServiceState[]
+  currency            Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
+  role_markets        RoleMarket[]
+  staff_markets       StaffMarket[]
+  invitation_markets  StaffInvitationMarket[]
+  market_categories   MarketCategory[]
+  market_variants     MarketVariant[]
+  warehouses          Warehouse[]
+  service_states      ServiceState[]
+  shipping_addresses  ShippingAddress[]
 }
 
 enum StaffInvitationStatus {
@@ -514,6 +525,7 @@ model ServiceState {
   updated_at DateTime @updatedAt
 
   warehouse_service_states WarehouseServiceState[]
+  shipping_addresses       ShippingAddress[]
 
   @@unique([market_id, state_name])
   @@index([market_id])

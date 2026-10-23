@@ -585,15 +585,6 @@ async function seedCustomers() {
             phone_number: '+2348033333333',
             gender: Gender.FEMALE,
             date_of_birth: new Date('1995-08-20'),
-            shipping: {
-                first_name: 'Adaeze',
-                last_name: 'Nnamdi',
-                email: 'ship.adaeze@dukka.local',
-                phone_number: '+2348033333333',
-                whatsapp_number: '+2348033333333',
-                state_province: 'Lagos',
-                street_address: '12 Admiralty Way, Lekki',
-            },
             points_balance: 250,
             points_history: [
                 {
@@ -619,15 +610,6 @@ async function seedCustomers() {
             phone_number: '+233202222222',
             gender: Gender.MALE,
             date_of_birth: new Date('1992-02-11'),
-            shipping: {
-                first_name: 'Kofi',
-                last_name: 'Asante',
-                email: 'ship.kofi@dukka.local',
-                phone_number: '+233202222222',
-                whatsapp_number: '+233202222222',
-                state_province: 'Greater Accra',
-                street_address: '45 Independence Ave, Accra',
-            },
             points_balance: 120,
             points_history: [
                 {
@@ -693,18 +675,6 @@ async function seedCustomers() {
             },
         });
 
-        const existingAddress = await prisma.shippingAddress.findUnique({
-            where: { email: customerDef.shipping.email },
-        });
-        if (!existingAddress) {
-            await prisma.shippingAddress.create({
-                data: {
-                    ...customerDef.shipping,
-                    customer_id: customer.id,
-                },
-            });
-        }
-
         const points = await prisma.points.upsert({
             where: { customer_id: customer.id },
             create: {
@@ -733,8 +703,92 @@ async function seedCustomers() {
         customers.push(customer);
     }
 
-    console.log(`Seeded ${customers.length} customer(s) with addresses and points`);
+    console.log(`Seeded ${customers.length} customer(s) with points`);
     return customers;
+}
+
+async function seedShippingAddresses(
+    customers: { id: string; email: string }[],
+    markets: { id: string; code: string }[],
+) {
+    const shippingDefs = [
+        {
+            customer_email: 'adaeze.customer@dukka.local',
+            first_name: 'Adaeze',
+            last_name: 'Nnamdi',
+            email: 'ship.adaeze@dukka.local',
+            phone_number: '+2348033333333',
+            whatsapp_number: '+2348033333333',
+            country: 'Nigeria',
+            market_code: 'NG',
+            state_name: 'Lagos',
+            street_address: '12 Admiralty Way, Lekki',
+        },
+        {
+            customer_email: 'kofi.customer@dukka.local',
+            first_name: 'Kofi',
+            last_name: 'Asante',
+            email: 'ship.kofi@dukka.local',
+            phone_number: '+233202222222',
+            whatsapp_number: '+233202222222',
+            country: 'Ghana',
+            market_code: 'GH',
+            state_name: 'Greater Accra',
+            street_address: '45 Independence Ave, Accra',
+        },
+    ] as const;
+
+    let created = 0;
+
+    for (const shipping of shippingDefs) {
+        const customer = customers.find(
+            (row) => row.email === shipping.customer_email,
+        );
+        const market = markets.find((row) => row.code === shipping.market_code);
+        if (!customer || !market) {
+            continue;
+        }
+
+        const serviceState = await prisma.serviceState.findUnique({
+            where: {
+                market_id_state_name: {
+                    market_id: market.id,
+                    state_name: shipping.state_name,
+                },
+            },
+            select: { id: true },
+        });
+        if (!serviceState) {
+            throw new Error(
+                `Missing service state ${shipping.state_name} for market ${shipping.market_code}`,
+            );
+        }
+
+        const existingAddress = await prisma.shippingAddress.findUnique({
+            where: { email: shipping.email },
+        });
+        if (existingAddress) {
+            continue;
+        }
+
+        await prisma.shippingAddress.create({
+            data: {
+                first_name: shipping.first_name,
+                last_name: shipping.last_name,
+                email: shipping.email,
+                phone_number: shipping.phone_number,
+                whatsapp_number: shipping.whatsapp_number,
+                country: shipping.country,
+                street_address: shipping.street_address,
+                state: serviceState.id,
+                market_id: market.id,
+                customer_id: customer.id,
+            },
+        });
+        created += 1;
+    }
+
+    console.log(`Seeded ${created} shipping address(es)`);
 }
 
 async function seedCatalog(markets: { id: string; code: string }[]) {
@@ -1434,6 +1488,7 @@ async function main() {
         demoStaff,
         marketVariants,
     );
+    await seedShippingAddresses(customers, markets);
     await seedOrdersReviewsAndFulfillment(
         customers,
         warehouses,

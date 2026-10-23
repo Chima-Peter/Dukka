@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { ShippingAddress } from '../../generated/prisma/client.js';
+import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
 import type { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
 import { ShippingAddressRepository } from './shipping_address.repository.js';
@@ -48,8 +49,7 @@ export class ShippingAddressService {
                 error instanceof PrismaClientKnownRequestError &&
                 error.code === 'P2003'
             ) {
-                this.logger.warn(`Customer not found: ${error.message}`);
-                throw new NotFoundException('Customer not found');
+                this.throwForeignKeyNotFound(error);
             }
 
             this.logger.error(`Internal server error: ${error}`);
@@ -136,6 +136,12 @@ export class ShippingAddressService {
             }
             if (
                 error instanceof PrismaClientKnownRequestError &&
+                error.code === 'P2003'
+            ) {
+                this.throwForeignKeyNotFound(error);
+            }
+            if (
+                error instanceof PrismaClientKnownRequestError &&
                 error.code === 'P2025'
             ) {
                 throw new NotFoundException('Shipping address not found');
@@ -172,5 +178,30 @@ export class ShippingAddressService {
                 'An unexpected error occurred. Try again later.',
             );
         }
+    }
+
+    private throwForeignKeyNotFound(
+        error: PrismaClientKnownRequestError,
+    ): never {
+        this.logger.warn(`Related record not found: ${error.message}`);
+
+        if (prismaHintIncludes(error, 'customer_id', 'customer')) {
+            throw new NotFoundException('Customer not found');
+        }
+        if (prismaHintIncludes(error, 'market_id', 'market')) {
+            throw new NotFoundException('Market not found');
+        }
+        if (
+            prismaHintIncludes(
+                error,
+                'state',
+                'service_state',
+                'servicestate',
+            )
+        ) {
+            throw new NotFoundException('Service state not found');
+        }
+
+        throw new NotFoundException('Related record not found');
     }
 }

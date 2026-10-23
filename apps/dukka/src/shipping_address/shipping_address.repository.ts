@@ -64,8 +64,10 @@ export class ShippingAddressRepository {
                 ...(data.whatsapp_number !== undefined && {
                     whatsapp_number: data.whatsapp_number,
                 }),
-                ...(data.state_province !== undefined && {
-                    state_province: data.state_province,
+                ...(data.country !== undefined && { country: data.country }),
+                ...(data.state !== undefined && { state: data.state }),
+                ...(data.market_id !== undefined && {
+                    market_id: data.market_id,
                 }),
                 ...(data.street_address !== undefined && {
                     street_address: data.street_address,
