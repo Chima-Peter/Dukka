@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
-    CountryStatus,
+    ServiceCountryStatus,
     MarketStatus,
     ServiceStateStatus,
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
-import { CountriesService } from '../countries/countries.service.js';
+import { ServiceCountryService } from './service-country.service.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
@@ -32,8 +32,8 @@ import type {
     ServiceStateItem,
     WarehouseServiceStateItem,
 } from './types/service-state.type.js';
-import type { WarehouseRecord } from './types/warehouse.type.js';
-import { WarehouseRepository } from './warehouse.repository.js';
+import type { WarehouseRecord } from '../warehouse/types/warehouse.type.js';
+import { WarehouseService } from '../warehouse/warehouse.service.js';
 
 @Injectable()
 export class ServiceStateService {
@@ -41,8 +41,8 @@ export class ServiceStateService {
 
     constructor(
         private readonly serviceStateRepository: ServiceStateRepository,
-        private readonly warehouseRepository: WarehouseRepository,
-        private readonly countriesService: CountriesService,
+        private readonly warehouseService: WarehouseService,
+        private readonly serviceCountryService: ServiceCountryService,
         private readonly customerService: CustomerService,
     ) {}
 
@@ -52,9 +52,9 @@ export class ServiceStateService {
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(
-                `Creating service state ${data.state_name} in country ${data.country_id}`,
+                `Creating service state ${data.state_name} in service country ${data.country_id}`,
             );
-            const marketId = await this.requireCountryMarket(
+            const marketId = await this.requireServiceCountryMarket(
                 data.country_id,
                 staffMarketIds,
             );
@@ -88,7 +88,7 @@ export class ServiceStateService {
             this.logger.log(
                 marketId !== undefined
                     ? `Fetching open service states for market ${marketId}`
-                    : `Fetching open service states for country ${query.country_id}`,
+                    : `Fetching open service states for service country ${query.country_id}`,
             );
             const page = await this.serviceStateRepository.findAll({
                 ...query,
@@ -106,7 +106,7 @@ export class ServiceStateService {
     async findAllForStaff(query: FindStaffServiceStatesDto) {
         try {
             this.logger.log(
-                `Fetching staff service states for country ${query.country_id}`,
+                `Fetching staff service states for service country ${query.country_id}`,
             );
             const page =
                 await this.serviceStateRepository.findAllForStaff(query);
@@ -148,7 +148,7 @@ export class ServiceStateService {
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(`Updating service state ${id}`);
-            await this.requireCountryMarket(data.country_id, staffMarketIds);
+            await this.requireServiceCountryMarket(data.country_id, staffMarketIds);
             const existing =
                 await this.serviceStateRepository.findByIdOrThrow(id);
             if (existing.status === ServiceStateStatus.CLOSED) {
@@ -176,7 +176,7 @@ export class ServiceStateService {
             this.logger.log(`Opening service state ${id}`);
             const existing =
                 await this.serviceStateRepository.findByIdOrThrow(id);
-            await this.requireCountryMarket(
+            await this.requireServiceCountryMarket(
                 existing.country_id,
                 staffMarketIds,
             );
@@ -204,7 +204,7 @@ export class ServiceStateService {
             this.logger.log(`Closing service state ${id}`);
             const existing =
                 await this.serviceStateRepository.findByIdOrThrow(id);
-            await this.requireCountryMarket(
+            await this.requireServiceCountryMarket(
                 existing.country_id,
                 staffMarketIds,
             );
@@ -231,7 +231,7 @@ export class ServiceStateService {
     ): Promise<ServiceStateItem> {
         try {
             this.logger.log(`Deleting service state ${id}`);
-            await this.requireCountryMarket(countryId, staffMarketIds);
+            await this.requireServiceCountryMarket(countryId, staffMarketIds);
             const existing =
                 await this.serviceStateRepository.findByIdOrThrow(id);
             if (existing.status !== ServiceStateStatus.CLOSED) {
@@ -274,7 +274,7 @@ export class ServiceStateService {
             }
             assertStaffHasMarkets(staffMarketIds, [marketId]);
 
-            const warehouse = await this.warehouseRepository.findByIdOrThrow(
+            const warehouse = await this.warehouseService.findOne(
                 data.warehouse_id,
             );
             if (warehouse.country.market_id !== marketId) {
@@ -332,23 +332,23 @@ export class ServiceStateService {
         }
     }
 
-    private async requireCountryMarket(
+    private async requireServiceCountryMarket(
         countryId: string,
         staffMarketIds: string[],
     ): Promise<string> {
         const country =
-            await this.countriesService.findWithMarketStatus(countryId);
+            await this.serviceCountryService.findWithMarketStatus(countryId);
         if (!country) {
-            throw new NotFoundException('Country not found');
+            throw new NotFoundException('Service country not found');
         }
-        if (country.status !== CountryStatus.OPEN) {
+        if (country.status !== ServiceCountryStatus.OPEN) {
             throw new BadRequestException(
-                'Only open countries can have service states',
+                'Only open service countries can have service states',
             );
         }
         if (!country.market_id || !country.market) {
             throw new BadRequestException(
-                'Country must be assigned to a market before managing service states',
+                'Service country must be assigned to a market before managing service states',
             );
         }
         if (country.market.status !== MarketStatus.OPEN) {
@@ -390,7 +390,7 @@ export class ServiceStateService {
     ): NotFoundException {
         switch (prismaMissingRecordModel(error)) {
             case 'country':
-                return new NotFoundException('Country not found');
+                return new NotFoundException('Service country not found');
             case 'warehouse':
                 return new NotFoundException('Warehouse not found');
             case 'servicestate':
@@ -404,7 +404,7 @@ export class ServiceStateService {
         }
 
         if (prismaHintIncludes(error, 'country_id', "'country'")) {
-            return new NotFoundException('Country not found');
+            return new NotFoundException('Service country not found');
         }
         if (prismaHintIncludes(error, 'warehouse')) {
             return new NotFoundException('Warehouse not found');

@@ -32,7 +32,7 @@ import { UpdateServiceStateDto } from './dto/update-service-state.dto.js';
 import { ServiceStateService } from './service-state.service.js';
 
 @Auth('staff')
-@Controller('warehouses-service-states')
+@Controller('service/states')
 export class ServiceStateController {
     constructor(private readonly serviceStateService: ServiceStateService) {}
 

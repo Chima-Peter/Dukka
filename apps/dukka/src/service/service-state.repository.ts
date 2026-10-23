@@ -11,7 +11,7 @@ import type {
     ServiceStateItem,
     WarehouseServiceStateItem,
 } from './types/service-state.type.js';
-import type { WarehouseRecord } from './types/warehouse.type.js';
+import type { WarehouseRecord } from '../warehouse/types/warehouse.type.js';
 
 type ServiceStateWithRelations = ServiceState & {
     country: { market_id: string | null };

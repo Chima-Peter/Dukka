@@ -1,80 +1,73 @@
 import {
     BadRequestException,
     ConflictException,
-    forwardRef,
     HttpException,
-    Inject,
     Injectable,
     InternalServerErrorException,
     Logger,
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { CountryStatus } from '../../generated/prisma/client.js';
-import { CustomerService } from '../customer/customer.service.js';
+import { ServiceCountryStatus } from '../../generated/prisma/client.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     isNestedConnectFailure,
     prismaHintIncludes,
 } from '../shared/prisma-relation-error.js';
-import { resolveMarketId } from '../shared/resolve-market-id.js';
-import { CountriesRepository } from './countries.repository.js';
-import type { AssignCountryMarketDto } from './dto/assign-country-market.dto.js';
-import type { CreateCountryDto } from './dto/create-country.dto.js';
-import type { FindCountriesDto } from './dto/find-countries.dto.js';
-import type { UpdateCountryDto } from './dto/update-country.dto.js';
+import { ServiceCountryRepository } from './service-country.repository.js';
+import type { AssignServiceCountryMarketDto } from './dto/assign-service-country-market.dto.js';
+import type { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
+import type { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 import type {
-    CountryWithMarket,
-    CountryWithMarketStatus,
-} from './types/country.type.js';
+    ServiceCountryWithMarket,
+    ServiceCountryWithMarketStatus,
+} from './types/service-country.type.js';
 
 @Injectable()
-export class CountriesService {
-    private readonly logger = new Logger(CountriesService.name);
+export class ServiceCountryService {
+    private readonly logger = new Logger(ServiceCountryService.name);
 
     constructor(
-        private readonly countriesRepository: CountriesRepository,
-        @Inject(forwardRef(() => MarketsService))
+        private readonly serviceCountryRepository: ServiceCountryRepository,
         private readonly marketsService: MarketsService,
-        private readonly customerService: CustomerService,
     ) {}
 
-    async create(data: CreateCountryDto): Promise<CountryWithMarket> {
+    async create(data: CreateServiceCountryDto): Promise<ServiceCountryWithMarket> {
         try {
-            this.logger.log(`Creating country ${data.code}`);
-            const country = await this.countriesRepository.create(data);
-            this.logger.log(`Country created ${country.id}`);
+            this.logger.log(`Creating service country ${data.code}`);
+            const country = await this.serviceCountryRepository.create(data);
+            this.logger.log(`Service country created ${country.id}`);
             return country;
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async findByIDOrThrow(id: string): Promise<CountryWithMarket> {
-        const country = await this.countriesRepository.findById(id);
+    async findByIDOrThrow(id: string): Promise<ServiceCountryWithMarket> {
+        const country = await this.serviceCountryRepository.findById(id);
         if (!country) {
-            throw new NotFoundException('Country not found!');
+            throw new NotFoundException('Service country not found!');
         }
 
         return country;
      }
 
-    async findAll(): Promise<CountryWithMarket[]> {
+    async findAll(): Promise<ServiceCountryWithMarket[]> {
         try {
-            this.logger.log(`Fetching open countries`);
-            return await this.countriesRepository.findAll();
+            this.logger.log(`Fetching open service countries`);
+            return await this.serviceCountryRepository.findAll();
         } catch (error) {
             this.handleError(error);
         }
     }
 
     async findAllForStaff(
-        status?: CountryStatus,
-    ): Promise<CountryWithMarket[]> {
+        status?: ServiceCountryStatus,
+    ): Promise<ServiceCountryWithMarket[]> {
         try {
-            this.logger.log('Fetching staff countries');
-            return await this.countriesRepository.findAllForStaff(status);
+            this.logger.log('Fetching staff service countries');
+            return await this.serviceCountryRepository.findAllForStaff(status);
         } catch (error) {
             this.handleError(error);
         }
@@ -82,9 +75,9 @@ export class CountriesService {
 
     async findWithMarketStatus(
         id: string,
-    ): Promise<CountryWithMarketStatus | null> {
+    ): Promise<ServiceCountryWithMarketStatus | null> {
         try {
-            return await this.countriesRepository.findWithMarketStatus(id);
+            return await this.serviceCountryRepository.findWithMarketStatus(id);
         } catch (error) {
             this.handleError(error);
         }
@@ -92,7 +85,7 @@ export class CountriesService {
 
     async countByMarketId(marketId: string): Promise<number> {
         try {
-            return await this.countriesRepository.countByMarketId(marketId);
+            return await this.serviceCountryRepository.countByMarketId(marketId);
         } catch (error) {
             this.handleError(error);
         }
@@ -100,52 +93,52 @@ export class CountriesService {
 
     async update(
         id: string,
-        data: UpdateCountryDto,
-    ): Promise<CountryWithMarket> {
+        data: UpdateServiceCountryDto,
+    ): Promise<ServiceCountryWithMarket> {
         try {
-            this.logger.log(`Updating country ${id}`);
-            const existing = await this.requireCountry(id);
-            if (existing.status === CountryStatus.CLOSED) {
-                throw new BadRequestException('Cannot update a closed country');
+            this.logger.log(`Updating service country ${id}`);
+            const existing = await this.requireServiceCountry(id);
+            if (existing.status === ServiceCountryStatus.CLOSED) {
+                throw new BadRequestException('Cannot update a closed service country');
             }
-            const country = await this.countriesRepository.update(id, data);
-            this.logger.log(`Country updated ${id}`);
+            const country = await this.serviceCountryRepository.update(id, data);
+            this.logger.log(`Service country updated ${id}`);
             return country;
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async open(id: string): Promise<CountryWithMarket> {
+    async open(id: string): Promise<ServiceCountryWithMarket> {
         try {
-            this.logger.log(`Opening country ${id}`);
-            const existing = await this.requireCountry(id);
-            if (existing.status === CountryStatus.OPEN) {
-                throw new BadRequestException('Country is already open');
+            this.logger.log(`Opening service country ${id}`);
+            const existing = await this.requireServiceCountry(id);
+            if (existing.status === ServiceCountryStatus.OPEN) {
+                throw new BadRequestException('Service country is already open');
             }
-            const country = await this.countriesRepository.updateStatus(
+            const country = await this.serviceCountryRepository.updateStatus(
                 id,
-                CountryStatus.OPEN,
+                ServiceCountryStatus.OPEN,
             );
-            this.logger.log(`Country opened ${id}`);
+            this.logger.log(`Service country opened ${id}`);
             return country;
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async close(id: string): Promise<CountryWithMarket> {
+    async close(id: string): Promise<ServiceCountryWithMarket> {
         try {
-            this.logger.log(`Closing country ${id}`);
-            const existing = await this.requireCountry(id);
-            if (existing.status === CountryStatus.CLOSED) {
-                throw new BadRequestException('Country is already closed');
+            this.logger.log(`Closing service country ${id}`);
+            const existing = await this.requireServiceCountry(id);
+            if (existing.status === ServiceCountryStatus.CLOSED) {
+                throw new BadRequestException('Service country is already closed');
             }
-            const country = await this.countriesRepository.updateStatus(
+            const country = await this.serviceCountryRepository.updateStatus(
                 id,
-                CountryStatus.CLOSED,
+                ServiceCountryStatus.CLOSED,
             );
-            this.logger.log(`Country closed ${id}`);
+            this.logger.log(`Service country closed ${id}`);
             return country;
         } catch (error) {
             this.handleError(error);
@@ -154,24 +147,24 @@ export class CountriesService {
 
     async assignMarket(
         id: string,
-        data: AssignCountryMarketDto,
+        data: AssignServiceCountryMarketDto,
         staffMarketIds: string[],
-    ): Promise<CountryWithMarket> {
+    ): Promise<ServiceCountryWithMarket> {
         try {
             this.logger.log(
-                `Assigning country ${id} to market ${data.market_id}`,
+                `Assigning service country ${id} to market ${data.market_id}`,
             );
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
 
-            const country = await this.requireCountry(id);
-            if (country.status !== CountryStatus.OPEN) {
+            const country = await this.requireServiceCountry(id);
+            if (country.status !== ServiceCountryStatus.OPEN) {
                 throw new BadRequestException(
-                    'Only open countries can be assigned to a market',
+                    'Only open service countries can be assigned to a market',
                 );
             }
             if (country.market_id) {
                 throw new ConflictException(
-                    'Country is already assigned to a market',
+                    'Service country is already assigned to a market',
                 );
             }
 
@@ -185,12 +178,12 @@ export class CountriesService {
                 throw new BadRequestException('Market is not open');
             }
 
-            const updated = await this.countriesRepository.assignMarket(
+            const updated = await this.serviceCountryRepository.assignMarket(
                 id,
                 data.market_id,
             );
             this.logger.log(
-                `Country ${id} assigned to market ${data.market_id}`,
+                `Service country ${id} assigned to market ${data.market_id}`,
             );
             return updated;
         } catch (error) {
@@ -202,27 +195,27 @@ export class CountriesService {
         id: string,
         marketId: string,
         staffMarketIds: string[],
-    ): Promise<CountryWithMarket> {
+    ): Promise<ServiceCountryWithMarket> {
         try {
             this.logger.log(
-                `Removing country ${id} from market ${marketId}`,
+                `Removing service country ${id} from market ${marketId}`,
             );
             assertStaffHasMarkets(staffMarketIds, [marketId]);
 
-            const country = await this.requireCountry(id);
+            const country = await this.requireServiceCountry(id);
             if (!country.market_id) {
                 throw new BadRequestException(
-                    'Country is not assigned to a market',
+                    'Service country is not assigned to a market',
                 );
             }
             if (country.market_id !== marketId) {
                 throw new NotFoundException(
-                    'Country is not assigned to this market',
+                    'Service country is not assigned to this market',
                 );
             }
 
-            const updated = await this.countriesRepository.removeMarket(id);
-            this.logger.log(`Country ${id} removed from market ${marketId}`);
+            const updated = await this.serviceCountryRepository.removeMarket(id);
+            this.logger.log(`Service country ${id} removed from market ${marketId}`);
             return updated;
         } catch (error) {
             this.handleError(error);
@@ -231,44 +224,44 @@ export class CountriesService {
 
     async delete(id: string): Promise<object> {
         try {
-            this.logger.log(`Deleting country ${id}`);
-            const country = await this.requireCountry(id);
-            if (country.status !== CountryStatus.CLOSED) {
+            this.logger.log(`Deleting service country ${id}`);
+            const country = await this.requireServiceCountry(id);
+            if (country.status !== ServiceCountryStatus.CLOSED) {
                 throw new BadRequestException(
                     'Close the country before deleting it',
                 );
             }
             if (country.market_id) {
                 throw new ConflictException(
-                    'Country cannot be deleted while it is still assigned to a market',
+                    'Service country cannot be deleted while it is still assigned to a market',
                 );
             }
             const serviceStateCount =
-                await this.countriesRepository.countServiceStates(id);
+                await this.serviceCountryRepository.countServiceStates(id);
             if (serviceStateCount > 0) {
                 throw new ConflictException(
-                    'Country cannot be deleted while it still has service states',
+                    'Service country cannot be deleted while it still has service states',
                 );
             }
             const warehouseCount =
-                await this.countriesRepository.countWarehouses(id);
+                await this.serviceCountryRepository.countWarehouses(id);
             if (warehouseCount > 0) {
                 throw new ConflictException(
-                    'Country cannot be deleted while it still has warehouses',
+                    'Service country cannot be deleted while it still has warehouses',
                 );
             }
-            await this.countriesRepository.delete(id);
-            this.logger.log(`Country deleted ${id}`);
+            await this.serviceCountryRepository.delete(id);
+            this.logger.log(`Service country deleted ${id}`);
             return { data: null };
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    private async requireCountry(id: string): Promise<CountryWithMarket> {
-        const country = await this.countriesRepository.findById(id);
+    private async requireServiceCountry(id: string): Promise<ServiceCountryWithMarket> {
+        const country = await this.serviceCountryRepository.findById(id);
         if (!country) {
-            throw new NotFoundException('Country not found');
+            throw new NotFoundException('Service country not found');
         }
         return country;
     }
@@ -283,7 +276,7 @@ export class CountriesService {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
                 throw new ConflictException(
-                    'A country with this code already exists',
+                    'A service country with this code already exists',
                 );
             }
             if (error.code === 'P2003') {
@@ -298,16 +291,16 @@ export class CountriesService {
                 }
                 if (prismaHintIncludes(error, 'service_state', 'servicestate')) {
                     throw new ConflictException(
-                        'Country cannot be deleted while it still has service states',
+                        'Service country cannot be deleted while it still has service states',
                     );
                 }
                 if (prismaHintIncludes(error, 'warehouse')) {
                     throw new ConflictException(
-                        'Country cannot be deleted while it still has warehouses',
+                        'Service country cannot be deleted while it still has warehouses',
                     );
                 }
                 throw new ConflictException(
-                    'Country cannot be deleted while it is still assigned to a market',
+                    'Service country cannot be deleted while it is still assigned to a market',
                 );
             }
             if (error.code === 'P2025') {
@@ -317,7 +310,7 @@ export class CountriesService {
                 ) {
                     throw new NotFoundException('Market not found');
                 }
-                throw new NotFoundException('Country not found');
+                throw new NotFoundException('Service country not found');
             }
         }
 

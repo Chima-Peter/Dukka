@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
-    CountryStatus,
+    ServiceCountryStatus,
     MarketStatus,
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
-import { CountriesService } from '../countries/countries.service.js';
+import { ServiceCountryService } from '../service/service-country.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -35,7 +35,7 @@ export class WarehouseService {
     constructor(
         private readonly warehouseRepository: WarehouseRepository,
         private readonly staffService: StaffService,
-        private readonly countriesService: CountriesService,
+        private readonly serviceCountryService: ServiceCountryService,
     ) {}
 
     async create(
@@ -44,9 +44,9 @@ export class WarehouseService {
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
-                `Creating warehouse ${data.name} in country ${data.country_id}`,
+                `Creating warehouse ${data.name} in service country ${data.country_id}`,
             );
-            const marketId = await this.requireCountryMarket(
+            const marketId = await this.requireServiceCountryMarket(
                 data.country_id,
                 staffMarketIds,
             );
@@ -178,23 +178,23 @@ export class WarehouseService {
         return marketId;
     }
 
-    private async requireCountryMarket(
+    private async requireServiceCountryMarket(
         countryId: string,
         staffMarketIds: string[],
     ): Promise<string> {
         const country =
-            await this.countriesService.findWithMarketStatus(countryId);
+            await this.serviceCountryService.findWithMarketStatus(countryId);
         if (!country) {
-            throw new NotFoundException('Country not found');
+            throw new NotFoundException('Service country not found');
         }
-        if (country.status !== CountryStatus.OPEN) {
+        if (country.status !== ServiceCountryStatus.OPEN) {
             throw new BadRequestException(
-                'Only open countries can have warehouses',
+                'Only open service countries can have warehouses',
             );
         }
         if (!country.market_id || !country.market) {
             throw new BadRequestException(
-                'Country must be assigned to a market before managing warehouses',
+                'Service country must be assigned to a market before managing warehouses',
             );
         }
         if (country.market.status !== MarketStatus.OPEN) {
@@ -272,7 +272,7 @@ export class WarehouseService {
     ): NotFoundException {
         switch (prismaMissingRecordModel(error)) {
             case 'country':
-                return new NotFoundException('Country not found');
+                return new NotFoundException('Service country not found');
             case 'staff':
                 return new NotFoundException('Manager not found');
             case 'warehouse':
@@ -282,7 +282,7 @@ export class WarehouseService {
         }
 
         if (prismaHintIncludes(error, 'country_id', "'country'")) {
-            return new NotFoundException('Country not found');
+            return new NotFoundException('Service country not found');
         }
         if (prismaHintIncludes(error, 'manager', 'staff')) {
             return new NotFoundException('Manager not found');

@@ -1,28 +1,28 @@
 import type {
-    Country,
-    CountryStatus,
+    ServiceCountry,
+    ServiceCountryStatus,
     MarketStatus,
 } from '../../../generated/prisma/client.js';
 
-export type CountryMarketSummary = {
+export type ServiceCountryMarketSummary = {
     id: string;
     code: string;
     name: string;
     status: MarketStatus;
 };
 
-export type CountryWithMarket = Country & {
-    market: CountryMarketSummary | null;
+export type ServiceCountryWithMarket = ServiceCountry & {
+    market: ServiceCountryMarketSummary | null;
 };
 
-export type CountryWithMarketStatus = {
+export type ServiceCountryWithMarketStatus = {
     id: string;
-    status: CountryStatus;
+    status: ServiceCountryStatus;
     market_id: string | null;
     market: { id: string; status: MarketStatus } | null;
 };
 
-export const countryWithMarket = {
+export const serviceCountryWithMarket = {
     market: {
         select: {
             id: true,

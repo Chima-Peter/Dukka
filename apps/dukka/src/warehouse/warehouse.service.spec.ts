@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CountriesService } from '../countries/countries.service.js';
+import { ServiceCountryService } from '../service/service-country.service.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 import { WarehouseService } from './warehouse.service.js';
 
@@ -22,8 +22,8 @@ vi.mock('../staff/staff.service.js', () => ({
     StaffService: class StaffService {},
 }));
 
-vi.mock('../countries/countries.service.js', () => ({
-    CountriesService: class CountriesService {},
+vi.mock('../service/service-country.service.js', () => ({
+    ServiceCountryService: class ServiceCountryService {},
 }));
 
 describe('WarehouseService', () => {
@@ -53,7 +53,7 @@ describe('WarehouseService', () => {
                     },
                 },
                 {
-                    provide: CountriesService,
+                    provide: ServiceCountryService,
                     useValue: {
                         findWithMarketStatus: vi.fn(),
                     },

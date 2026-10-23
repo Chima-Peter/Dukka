@@ -19,7 +19,7 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
     ),
 }));
 
-vi.mock('../warehouse/service-state.service.js', () => ({
+vi.mock('../service/service-state.service.js', () => ({
     ServiceStateService: class ServiceStateService {},
 }));
 

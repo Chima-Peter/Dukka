@@ -12,7 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import {
-    CountryStatus,
+    ServiceCountryStatus,
     MarketStatus,
     TokenType,
     type Customer,
@@ -37,14 +37,14 @@ import {
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { TokenRepository } from './token.repository.js';
-import { CountriesService } from '../countries/countries.service.js';
+import { ServiceCountryService } from '../service/service-country.service.js';
 
 @Injectable()
 export class CustomerService {
     private readonly logger = new Logger(CustomerService.name);
     constructor(
         private readonly customerRepository: CustomerRepository,
-        private readonly countriesService: CountriesService,
+        private readonly serviceCountryService: ServiceCountryService,
         private readonly supabaseService: SupabaseService,
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
@@ -148,8 +148,8 @@ export class CustomerService {
             );
 
             const country =
-                await this.countriesService.findByIDOrThrow(country_id);
-            if (country.status !== CountryStatus.OPEN) {
+                await this.serviceCountryService.findByIDOrThrow(country_id);
+            if (country.status !== ServiceCountryStatus.OPEN) {
                 throw new BadRequestException(
                     'Cannot set country as active country as it is currently not open!',
                 );

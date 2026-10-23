@@ -17,7 +17,7 @@ import {
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
 import { resolveMarketId } from '../shared/resolve-market-id.js';
-import { ServiceStateService } from '../warehouse/service-state.service.js';
+import { ServiceStateService } from '../service/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';

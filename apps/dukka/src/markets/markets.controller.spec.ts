@@ -3,14 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsController } from './markets.controller.js';
 import { MarketsService } from './markets.service.js';
 
-vi.mock('../countries/countries.service.js', () => ({
-    CountriesService: class CountriesService {},
-}));
-
-vi.mock('../customer/customer.service.js', () => ({
-    CustomerService: class CustomerService {},
-}));
-
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentStaff: () => () => undefined,

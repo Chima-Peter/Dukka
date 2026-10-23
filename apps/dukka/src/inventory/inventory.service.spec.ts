@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomerService } from '../customer/customer.service.js';
 import { ProductRepository } from '../product/product.repository.js';
-import { ServiceStateService } from '../warehouse/service-state.service.js';
+import { ServiceStateService } from '../service/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import { InventoryRepository } from './inventory.repository.js';
 import { InventoryService } from './inventory.service.js';

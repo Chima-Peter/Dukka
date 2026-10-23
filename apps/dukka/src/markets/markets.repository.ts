@@ -119,6 +119,12 @@ export class MarketsRepository {
         return await this.prisma.market.delete({ where: { id } });
     }
 
+    async countServiceCountries(market_id: string): Promise<number> {
+        return await this.prisma.serviceCountry.count({
+            where: { market_id },
+        });
+    }
+
     async findStaffContactsByMarketId(
         market_id: string,
     ): Promise<{ email: string; name: string }[]> {

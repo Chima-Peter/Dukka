@@ -1,64 +1,64 @@
 import { Injectable } from '@nestjs/common';
 import {
-    CountryStatus,
-    type Country,
+    ServiceCountryStatus,
+    type ServiceCountry,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { CreateCountryDto } from './dto/create-country.dto.js';
-import type { UpdateCountryDto } from './dto/update-country.dto.js';
+import type { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
+import type { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 import {
-    countryWithMarket,
-    type CountryWithMarket,
-    type CountryWithMarketStatus,
-} from './types/country.type.js';
+    serviceCountryWithMarket,
+    type ServiceCountryWithMarket,
+    type ServiceCountryWithMarketStatus,
+} from './types/service-country.type.js';
 
 @Injectable()
-export class CountriesRepository {
+export class ServiceCountryRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async create(data: CreateCountryDto): Promise<CountryWithMarket> {
-        return await this.prisma.country.create({
+    async create(data: CreateServiceCountryDto): Promise<ServiceCountryWithMarket> {
+        return await this.prisma.serviceCountry.create({
             data: {
                 code: data.code,
                 name: data.name,
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
-    async findAll(): Promise<CountryWithMarket[]> {
-        return await this.prisma.country.findMany({
+    async findAll(): Promise<ServiceCountryWithMarket[]> {
+        return await this.prisma.serviceCountry.findMany({
             where: {
-                status: CountryStatus.OPEN,
+                status: ServiceCountryStatus.OPEN,
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
             orderBy: { created_at: 'desc' },
         });
     }
 
     async findAllForStaff(
-        status?: CountryStatus,
-    ): Promise<CountryWithMarket[]> {
-        return await this.prisma.country.findMany({
+        status?: ServiceCountryStatus,
+    ): Promise<ServiceCountryWithMarket[]> {
+        return await this.prisma.serviceCountry.findMany({
             where: {
                 ...(status !== undefined && { status }),
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
             orderBy: { created_at: 'desc' },
         });
     }
 
-    async findById(id: string): Promise<CountryWithMarket | null> {
-        return await this.prisma.country.findUnique({
+    async findById(id: string): Promise<ServiceCountryWithMarket | null> {
+        return await this.prisma.serviceCountry.findUnique({
             where: { id },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
     async findWithMarketStatus(
         id: string,
-    ): Promise<CountryWithMarketStatus | null> {
-        return await this.prisma.country.findUnique({
+    ): Promise<ServiceCountryWithMarketStatus | null> {
+        return await this.prisma.serviceCountry.findUnique({
             where: { id },
             select: {
                 id: true,
@@ -73,58 +73,58 @@ export class CountriesRepository {
 
     async update(
         id: string,
-        data: UpdateCountryDto,
-    ): Promise<CountryWithMarket> {
-        return await this.prisma.country.update({
+        data: UpdateServiceCountryDto,
+    ): Promise<ServiceCountryWithMarket> {
+        return await this.prisma.serviceCountry.update({
             where: { id },
             data: {
                 ...(data.code !== undefined && { code: data.code }),
                 ...(data.name !== undefined && { name: data.name }),
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
     async updateStatus(
         id: string,
-        status: CountryStatus,
-    ): Promise<CountryWithMarket> {
-        return await this.prisma.country.update({
+        status: ServiceCountryStatus,
+    ): Promise<ServiceCountryWithMarket> {
+        return await this.prisma.serviceCountry.update({
             where: { id },
             data: { status },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
     async assignMarket(
         id: string,
         market_id: string,
-    ): Promise<CountryWithMarket> {
-        return await this.prisma.country.update({
+    ): Promise<ServiceCountryWithMarket> {
+        return await this.prisma.serviceCountry.update({
             where: { id },
             data: {
                 market: { connect: { id: market_id } },
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
-    async removeMarket(id: string): Promise<CountryWithMarket> {
-        return await this.prisma.country.update({
+    async removeMarket(id: string): Promise<ServiceCountryWithMarket> {
+        return await this.prisma.serviceCountry.update({
             where: { id },
             data: {
                 market: { disconnect: true },
             },
-            include: countryWithMarket,
+            include: serviceCountryWithMarket,
         });
     }
 
-    async delete(id: string): Promise<Country> {
-        return await this.prisma.country.delete({ where: { id } });
+    async delete(id: string): Promise<ServiceCountry> {
+        return await this.prisma.serviceCountry.delete({ where: { id } });
     }
 
     async countByMarketId(market_id: string): Promise<number> {
-        return await this.prisma.country.count({
+        return await this.prisma.serviceCountry.count({
             where: { market_id },
         });
     }

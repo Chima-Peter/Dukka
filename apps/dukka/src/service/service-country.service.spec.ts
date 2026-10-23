@@ -6,33 +6,29 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    CountryStatus,
+    ServiceCountryStatus,
     MarketStatus,
 } from '../../generated/prisma/client.js';
-import { CountriesRepository } from './countries.repository.js';
-import { CountriesService } from './countries.service.js';
+import { ServiceCountryRepository } from './service-country.repository.js';
+import { ServiceCountryService } from './service-country.service.js';
 
 vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
-}));
-
-vi.mock('../customer/customer.service.js', () => ({
-    CustomerService: class CustomerService {},
 }));
 
 const countryBase = {
     id: 'country-1',
     code: 'NG',
     name: 'Nigeria',
-    status: CountryStatus.PENDING,
+    status: ServiceCountryStatus.PENDING,
     market_id: null as string | null,
     created_at: new Date(),
     updated_at: new Date(),
     market: null,
 };
 
-describe('CountriesService', () => {
-    let service: CountriesService;
+describe('ServiceCountryService', () => {
+    let service: ServiceCountryService;
     let repository: {
         create: ReturnType<typeof vi.fn>;
         findAll: ReturnType<typeof vi.fn>;
@@ -53,9 +49,6 @@ describe('CountriesService', () => {
 
     beforeEach(async () => {
         const { MarketsService } = await import('../markets/markets.service.js');
-        const { CustomerService } = await import(
-            '../customer/customer.service.js'
-        );
 
         repository = {
             create: vi.fn(),
@@ -81,25 +74,19 @@ describe('CountriesService', () => {
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
-                CountriesService,
+                ServiceCountryService,
                 {
-                    provide: CountriesRepository,
+                    provide: ServiceCountryRepository,
                     useValue: repository,
                 },
                 {
                     provide: MarketsService,
                     useValue: marketsService,
                 },
-                {
-                    provide: CustomerService,
-                    useValue: {
-                        getActiveMarketId: vi.fn(),
-                    },
-                },
             ],
         }).compile();
 
-        service = module.get<CountriesService>(CountriesService);
+        service = module.get<ServiceCountryService>(ServiceCountryService);
     });
 
     it('should be defined', () => {
@@ -110,16 +97,16 @@ describe('CountriesService', () => {
         repository.findById.mockResolvedValue(countryBase);
         repository.updateStatus.mockResolvedValue({
             ...countryBase,
-            status: CountryStatus.OPEN,
+            status: ServiceCountryStatus.OPEN,
         });
 
         const result = await service.open(countryBase.id);
 
         expect(repository.updateStatus).toHaveBeenCalledWith(
             countryBase.id,
-            CountryStatus.OPEN,
+            ServiceCountryStatus.OPEN,
         );
-        expect(result.status).toBe(CountryStatus.OPEN);
+        expect(result.status).toBe(ServiceCountryStatus.OPEN);
     });
 
     it('rejects assigning a non-open country', async () => {
@@ -137,7 +124,7 @@ describe('CountriesService', () => {
     it('assigns an open country to a market', async () => {
         const open = {
             ...countryBase,
-            status: CountryStatus.OPEN,
+            status: ServiceCountryStatus.OPEN,
         };
         repository.findById.mockResolvedValue(open);
         repository.assignMarket.mockResolvedValue({
@@ -170,7 +157,7 @@ describe('CountriesService', () => {
     it('rejects deleting a country that is still assigned', async () => {
         repository.findById.mockResolvedValue({
             ...countryBase,
-            status: CountryStatus.CLOSED,
+            status: ServiceCountryStatus.CLOSED,
             market_id: 'market-1',
         });
 

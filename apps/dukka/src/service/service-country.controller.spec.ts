@@ -1,14 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CountriesController } from './countries.controller.js';
-import { CountriesService } from './countries.service.js';
+import { ServiceCountryController } from './service-country.controller.js';
+import { ServiceCountryService } from './service-country.service.js';
 
 vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
-}));
-
-vi.mock('../customer/customer.service.js', () => ({
-    CustomerService: class CustomerService {},
 }));
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
@@ -27,15 +23,15 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
     ),
 }));
 
-describe('CountriesController', () => {
-    let controller: CountriesController;
+describe('ServiceCountryController', () => {
+    let controller: ServiceCountryController;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            controllers: [CountriesController],
+            controllers: [ServiceCountryController],
             providers: [
                 {
-                    provide: CountriesService,
+                    provide: ServiceCountryService,
                     useValue: {
                         create: vi.fn(),
                         findAll: vi.fn(),
@@ -51,7 +47,7 @@ describe('CountriesController', () => {
             ],
         }).compile();
 
-        controller = module.get<CountriesController>(CountriesController);
+        controller = module.get<ServiceCountryController>(ServiceCountryController);
     });
 
     it('should be defined', () => {

@@ -9,10 +9,6 @@ import { MarketStatus } from '../../generated/prisma/client.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
 
-vi.mock('../countries/countries.service.js', () => ({
-    CountriesService: class CountriesService {},
-}));
-
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
     MAIL_QUEUE: 'mail',
@@ -54,18 +50,13 @@ describe('MarketsService', () => {
         update: ReturnType<typeof vi.fn>;
         setStatus: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
+        countServiceCountries: ReturnType<typeof vi.fn>;
         findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
-    };
-    let countriesService: {
-        countByMarketId: ReturnType<typeof vi.fn>;
     };
 
     beforeEach(async () => {
         const { MailQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
-        );
-        const { CountriesService } = await import(
-            '../countries/countries.service.js'
         );
 
         marketsRepository = {
@@ -76,10 +67,8 @@ describe('MarketsService', () => {
             update: vi.fn(),
             setStatus: vi.fn(),
             delete: vi.fn(),
+            countServiceCountries: vi.fn().mockResolvedValue(0),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
-        };
-        countriesService = {
-            countByMarketId: vi.fn().mockResolvedValue(0),
         };
         mailQueue = {
             enqueueSend: vi.fn(),
@@ -92,10 +81,6 @@ describe('MarketsService', () => {
                 {
                     provide: MarketsRepository,
                     useValue: marketsRepository,
-                },
-                {
-                    provide: CountriesService,
-                    useValue: countriesService,
                 },
                 {
                     provide: MailQueueService,
@@ -208,7 +193,7 @@ describe('MarketsService', () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
             { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
-        countriesService.countByMarketId.mockResolvedValue(0);
+        marketsRepository.countServiceCountries.mockResolvedValue(0);
         marketsRepository.delete.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
@@ -220,11 +205,11 @@ describe('MarketsService', () => {
         expect(marketsRepository.delete).toHaveBeenCalledWith('market-1');
     });
 
-    it('rejects delete when market still has countries', async () => {
+    it('rejects delete when market still has service countries', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
             { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
-        countriesService.countByMarketId.mockResolvedValue(2);
+        marketsRepository.countServiceCountries.mockResolvedValue(2);
 
         await expect(service.delete('market-1')).rejects.toBeInstanceOf(
             ConflictException,

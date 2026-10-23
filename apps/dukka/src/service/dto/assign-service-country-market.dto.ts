@@ -1,6 +1,6 @@
 import { IsUUID } from 'class-validator';
 
-export class AssignCountryMarketDto {
+export class AssignServiceCountryMarketDto {
     @IsUUID()
     market_id!: string;
 }

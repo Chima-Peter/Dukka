@@ -1,22 +1,19 @@
 import {
-    IsOptional,
     IsString,
     Matches,
     MaxLength,
     MinLength,
 } from 'class-validator';
 
-export class UpdateCountryDto {
-    @IsOptional()
+export class CreateServiceCountryDto {
     @IsString()
     @Matches(/^[A-Z]{2}$/, {
-        message: 'Country code must be 2 uppercase letters (e.g. NG)',
+        message: 'Service country code must be 2 uppercase letters (e.g. NG)',
     })
-    code?: string;
+    code!: string;
 
-    @IsOptional()
     @IsString()
     @MinLength(1)
     @MaxLength(128)
-    name?: string;
+    name!: string;
 }
