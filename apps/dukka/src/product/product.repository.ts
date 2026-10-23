@@ -74,14 +74,20 @@ export class ProductRepository {
                     market_category_id: query.market_category_id,
                 }),
                 market_category: {
-                    market_id: query.market_id,
+                    market: {
+                        id: query.market_id,
+                        is_active: true,
+                    },
                 },
                 status: ProductStatus.ACTIVE,
                 variants: {
                     some: {
                         market_variants: {
                             some: {
-                                market_id: query.market_id,
+                                market: {
+                                    id: query.market_id,
+                                    is_active: true,
+                                },
                                 ...(hasPriceFilter && {
                                     price: {
                                         ...(query.min_price !== undefined && {
@@ -234,7 +240,9 @@ export class ProductRepository {
                 variants: {
                     some: {
                         market_variants: {
-                            some: { market_id: marketId },
+                            some: {
+                                market: { id: marketId, is_active: true },
+                            },
                         },
                     },
                 },
@@ -598,7 +606,7 @@ export class ProductRepository {
     ) {
         return await this.prisma.marketVariant.findFirst({
             where: {
-                market_id: marketId,
+                market: { id: marketId, is_active: true },
                 variant_id: variantId,
                 variant: {
                     product_id: productId,

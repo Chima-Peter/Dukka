@@ -29,7 +29,9 @@ export function productListSummarySelect(marketId?: string) {
             ...(marketId !== undefined && {
                 where: {
                     market_variants: {
-                        some: { market_id: marketId },
+                        some: {
+                            market: { id: marketId, is_active: true },
+                        },
                     },
                 },
             }),
@@ -38,7 +40,9 @@ export function productListSummarySelect(marketId?: string) {
             select: {
                 market_variants: {
                     ...(marketId !== undefined && {
-                        where: { market_id: marketId },
+                        where: {
+                            market: { id: marketId, is_active: true },
+                        },
                     }),
                     take: 1,
                     select: {
@@ -142,7 +146,9 @@ export function productDetailWithMarketSelect(marketId?: string) {
                 },
                 market_variants: {
                     ...(marketId !== undefined && {
-                        where: { market_id: marketId },
+                        where: {
+                            market: { id: marketId, is_active: true },
+                        },
                     }),
                     select: {
                         id: true,

@@ -56,7 +56,7 @@ export class CategoryRepository {
     async findAllByMarket(query: FindCategoriesDto & { market_id: string }) {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.marketCategory.findMany({
-            where: { market_id: query.market_id },
+            where: { market: { id: query.market_id, is_active: true } },
             include: {
                 category: {
                     select: { name: true },

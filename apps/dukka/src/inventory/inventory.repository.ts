@@ -147,14 +147,21 @@ export class InventoryRepository {
                     select: {
                         id: true,
                         market_variants: {
-                            where: { market_id: marketId },
+                            where: {
+                                market: { id: marketId, is_active: true },
+                            },
                             select: {
                                 id: true,
                                 sold_out: true,
                                 inventories: {
                                     where: {
                                         warehouse: {
-                                            country: { market_id: marketId },
+                                            country: {
+                                                market: {
+                                                    id: marketId,
+                                                    is_active: true,
+                                                },
+                                            },
                                             status: WarehouseStatus.OPEN,
                                         },
                                     },
@@ -201,10 +208,18 @@ export class InventoryRepository {
             {
                 market_variant: {
                     variant_id: variantId,
-                    market_id: query.market_id,
+                    market: {
+                        id: query.market_id,
+                        is_active: true,
+                    },
                 },
                 warehouse: {
-                    country: { market_id: query.market_id },
+                    country: {
+                        market: {
+                            id: query.market_id,
+                            is_active: true,
+                        },
+                    },
                 },
             },
             query,
@@ -218,11 +233,19 @@ export class InventoryRepository {
         return this.findPage(
             {
                 market_variant: {
-                    market_id: query.market_id,
+                    market: {
+                        id: query.market_id,
+                        is_active: true,
+                    },
                     variant: { product_id: productId },
                 },
                 warehouse: {
-                    country: { market_id: query.market_id },
+                    country: {
+                        market: {
+                            id: query.market_id,
+                            is_active: true,
+                        },
+                    },
                 },
             },
             query,
