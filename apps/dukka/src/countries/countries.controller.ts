@@ -13,16 +13,20 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentCustomer,
     CurrentStaff,
+    OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { CountriesService } from './countries.service.js';
 import { AssignCountryMarketDto } from './dto/assign-country-market.dto.js';
 import { CreateCountryDto } from './dto/create-country.dto.js';
+import { FindCountriesDto } from './dto/find-countries.dto.js';
 import { FindStaffCountriesDto } from './dto/find-staff-countries.dto.js';
 import { UpdateCountryDto } from './dto/update-country.dto.js';
 

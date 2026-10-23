@@ -8,8 +8,13 @@ import {
 } from 'class-validator';
 
 export class FindServiceStatesDto {
+    @IsOptional()
     @IsUUID()
-    country_id!: string;
+    market_id?: string;
+
+    @IsOptional()
+    @IsUUID()
+    country_id?: string;
 
     @IsOptional()
     @IsUUID()

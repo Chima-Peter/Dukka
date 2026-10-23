@@ -22,7 +22,6 @@ import {
 import { StaffService } from '../staff/staff.service.js';
 import { WAREHOUSE_MANAGER_PERMISSIONS } from './constants/warehouse.constants.js';
 import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
-import type { FindStaffWarehousesDto } from './dto/find-staff-warehouses.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
@@ -62,22 +61,8 @@ export class WarehouseService {
 
     async findAll(query: FindWarehousesDto) {
         try {
-            this.logger.log('Fetching open warehouses');
+            this.logger.log('Fetching warehouses');
             const page = await this.warehouseRepository.findAll(query);
-            return {
-                items: page.items,
-                next_cursor: page.next_cursor,
-            };
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
-    async findAllForStaff(query: FindStaffWarehousesDto) {
-        try {
-            this.logger.log('Fetching staff warehouses');
-            const page =
-                await this.warehouseRepository.findAllForStaff(query);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,

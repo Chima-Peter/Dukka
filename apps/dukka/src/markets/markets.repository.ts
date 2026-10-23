@@ -42,15 +42,7 @@ export class MarketsRepository {
         });
     }
 
-    async findAll(): Promise<MarketWithCurrency[]> {
-        return await this.prisma.market.findMany({
-            where: { status: MarketStatus.OPEN },
-            include: marketWithCurrency,
-            orderBy: { created_at: 'desc' },
-        });
-    }
-
-    async findAllForStaff(
+    async findAll(
         market_ids: string[],
         status?: MarketStatus,
     ): Promise<MarketWithCurrency[]> {

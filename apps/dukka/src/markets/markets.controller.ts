@@ -14,14 +14,13 @@ import {
 import {
     Auth,
     CurrentStaff,
-    Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
 import { CreateMarketDto } from './dto/create-market.dto.js';
-import { FindStaffMarketsDto } from './dto/find-staff-markets.dto.js';
+import { FindMarketsDto } from './dto/find-markets.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
 import { ValidateMarketsDto } from './dto/validate-markets.dto.js';
 import { MarketsService } from './markets.service.js';
@@ -46,23 +45,13 @@ export class MarketsController {
     }
 
     @Get()
-    @Public()
-    @ResponseMessage('Markets retrieved successfully')
-    findAll() {
-        return this.marketsService.findAll();
-    }
-
-    @Get('staff')
     @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Markets retrieved successfully')
-    findAllForStaff(
+    findAll(
         @CurrentStaff() staff: StaffJwtPayload,
-        @Query() query: FindStaffMarketsDto,
+        @Query() query: FindMarketsDto,
     ) {
-        return this.marketsService.findAllForStaff(
-            staff.market_ids,
-            query.status,
-        );
+        return this.marketsService.findAll(staff.market_ids, query.status);
     }
 
     @Get(':id')

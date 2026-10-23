@@ -15,11 +15,13 @@ import {
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
 import { CountriesService } from '../countries/countries.service.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import { resolveMarketId } from '../shared/resolve-market-id.js';
 import type { AssignWarehouseServiceStateDto } from './dto/assign-warehouse-service-state.dto.js';
 import type { CreateServiceStateDto } from './dto/create-service-state.dto.js';
 import type { FindServiceStatesDto } from './dto/find-service-states.dto.js';
@@ -41,6 +43,7 @@ export class ServiceStateService {
         private readonly serviceStateRepository: ServiceStateRepository,
         private readonly warehouseRepository: WarehouseRepository,
         private readonly countriesService: CountriesService,
+        private readonly customerService: CustomerService,
     ) {}
 
     async create(
@@ -68,12 +71,29 @@ export class ServiceStateService {
         }
     }
 
-    async findAll(query: FindServiceStatesDto) {
+    async findAll(
+        customerId: string | undefined,
+        query: FindServiceStatesDto,
+    ) {
         try {
+            const marketId =
+                query.country_id === undefined
+                    ? await resolveMarketId(
+                          this.customerService,
+                          customerId,
+                          query.market_id,
+                      )
+                    : query.market_id;
+
             this.logger.log(
-                `Fetching open service states for country ${query.country_id}`,
+                marketId !== undefined
+                    ? `Fetching open service states for market ${marketId}`
+                    : `Fetching open service states for country ${query.country_id}`,
             );
-            const page = await this.serviceStateRepository.findAll(query);
+            const page = await this.serviceStateRepository.findAll({
+                ...query,
+                ...(marketId !== undefined && { market_id: marketId }),
+            });
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,

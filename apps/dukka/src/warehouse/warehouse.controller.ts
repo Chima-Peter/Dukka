@@ -13,14 +13,12 @@ import {
 import {
     Auth,
     CurrentStaff,
-    Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
-import { FindStaffWarehousesDto } from './dto/find-staff-warehouses.dto.js';
 import { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
@@ -42,16 +40,9 @@ export class WarehouseController {
     }
 
     @Get()
-    @Public()
     @ResponseMessage('Warehouses retrieved successfully')
     findAll(@Query() query: FindWarehousesDto) {
         return this.warehouseService.findAll(query);
-    }
-
-    @Get('staff')
-    @ResponseMessage('Warehouses retrieved successfully')
-    findAllForStaff(@Query() query: FindStaffWarehousesDto) {
-        return this.warehouseService.findAllForStaff(query);
     }
 
     @Get(':id')

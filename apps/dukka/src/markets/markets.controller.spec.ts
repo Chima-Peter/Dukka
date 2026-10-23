@@ -3,10 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsController } from './markets.controller.js';
 import { MarketsService } from './markets.service.js';
 
+vi.mock('../countries/countries.service.js', () => ({
+    CountriesService: class CountriesService {},
+}));
+
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
+}));
+
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentStaff: () => () => undefined,
-    Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     StaffPermission: new Proxy(
@@ -56,7 +63,6 @@ describe('MarketsController', () => {
                         create: vi.fn(),
                         validateIds: vi.fn(),
                         findAll: vi.fn(),
-                        findAllForStaff: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),
                         open: vi.fn(),

@@ -16,6 +16,10 @@ vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
 }));
 
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
+}));
+
 const countryBase = {
     id: 'country-1',
     code: 'NG',
@@ -49,6 +53,9 @@ describe('CountriesService', () => {
 
     beforeEach(async () => {
         const { MarketsService } = await import('../markets/markets.service.js');
+        const { CustomerService } = await import(
+            '../customer/customer.service.js'
+        );
 
         repository = {
             create: vi.fn(),
@@ -82,6 +89,12 @@ describe('CountriesService', () => {
                 {
                     provide: MarketsService,
                     useValue: marketsService,
+                },
+                {
+                    provide: CustomerService,
+                    useValue: {
+                        getActiveMarketId: vi.fn(),
+                    },
                 },
             ],
         }).compile();

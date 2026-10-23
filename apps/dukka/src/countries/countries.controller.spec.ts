@@ -7,12 +7,18 @@ vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
 }));
 
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
+}));
+
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     Public: () => () => undefined,
+    OptionalCustomerAuth: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     CurrentStaff: () => () => undefined,
+    CurrentCustomer: () => () => undefined,
     StaffPermission: new Proxy(
         {},
         {

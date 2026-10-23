@@ -13,11 +13,14 @@ import {
 } from '@nestjs/common';
 import {
     Auth,
+    CurrentCustomer,
     CurrentStaff,
+    OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
 import { AssignWarehouseServiceStateDto } from './dto/assign-warehouse-service-state.dto.js';
@@ -45,9 +48,15 @@ export class ServiceStateController {
 
     @Get()
     @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Service states retrieved successfully')
-    findAll(@Query() query: FindServiceStatesDto) {
-        return this.serviceStateService.findAll(query);
+    findAll(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Query() query: FindServiceStatesDto,
+    ) {
+        return this.serviceStateService.findAll(customer?.sub, query);
     }
 
     @Get('staff')

@@ -28,7 +28,9 @@ export class CountriesRepository {
 
     async findAll(): Promise<CountryWithMarket[]> {
         return await this.prisma.country.findMany({
-            where: { status: CountryStatus.OPEN },
+            where: {
+                status: CountryStatus.OPEN,
+            },
             include: countryWithMarket,
             orderBy: { created_at: 'desc' },
         });

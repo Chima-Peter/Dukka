@@ -11,15 +11,18 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { CountryStatus } from '../../generated/prisma/client.js';
+import { CustomerService } from '../customer/customer.service.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     isNestedConnectFailure,
     prismaHintIncludes,
 } from '../shared/prisma-relation-error.js';
+import { resolveMarketId } from '../shared/resolve-market-id.js';
 import { CountriesRepository } from './countries.repository.js';
 import type { AssignCountryMarketDto } from './dto/assign-country-market.dto.js';
 import type { CreateCountryDto } from './dto/create-country.dto.js';
+import type { FindCountriesDto } from './dto/find-countries.dto.js';
 import type { UpdateCountryDto } from './dto/update-country.dto.js';
 import type {
     CountryWithMarket,
@@ -34,6 +37,7 @@ export class CountriesService {
         private readonly countriesRepository: CountriesRepository,
         @Inject(forwardRef(() => MarketsService))
         private readonly marketsService: MarketsService,
+        private readonly customerService: CustomerService,
     ) {}
 
     async create(data: CreateCountryDto): Promise<CountryWithMarket> {
@@ -49,7 +53,7 @@ export class CountriesService {
 
     async findAll(): Promise<CountryWithMarket[]> {
         try {
-            this.logger.log('Fetching open countries');
+            this.logger.log(`Fetching open countries`);
             return await this.countriesRepository.findAll();
         } catch (error) {
             this.handleError(error);

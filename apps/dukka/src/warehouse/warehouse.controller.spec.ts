@@ -5,7 +5,6 @@ import { WarehouseController } from './warehouse.controller.js';
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     Auth: () => () => undefined,
     CurrentStaff: () => () => undefined,
-    Public: () => () => undefined,
     RequirePermission: () => () => undefined,
     ResponseMessage: () => () => undefined,
     StaffPermission: new Proxy(
@@ -34,7 +33,6 @@ describe('WarehouseController', () => {
                     useValue: {
                         create: vi.fn(),
                         findAll: vi.fn(),
-                        findAllForStaff: vi.fn(),
                         findOne: vi.fn(),
                         update: vi.fn(),
                         updateManager: vi.fn(),

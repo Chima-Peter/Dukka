@@ -45,6 +45,7 @@ export class ServiceStateRepository {
 
     async findAll(query: FindServiceStatesDto) {
         return this.findPage({
+            market_id: query.market_id,
             country_id: query.country_id,
             status: ServiceStateStatus.OPEN,
             cursor: query.cursor,
@@ -67,7 +68,8 @@ export class ServiceStateRepository {
     }
 
     private async findPage(query: {
-        country_id: string;
+        market_id?: string;
+        country_id?: string;
         status?: ServiceStateStatus;
         cursor?: string;
         limit?: number;
@@ -75,7 +77,12 @@ export class ServiceStateRepository {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.serviceState.findMany({
             where: {
-                country_id: query.country_id,
+                ...(query.market_id !== undefined && {
+                    country: { market_id: query.market_id },
+                }),
+                ...(query.country_id !== undefined && {
+                    country_id: query.country_id,
+                }),
                 ...(query.status !== undefined && { status: query.status }),
             },
             include: {
