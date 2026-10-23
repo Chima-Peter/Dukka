@@ -1,10 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
+import { MarketStatus } from '../../generated/prisma/client.js';
 
 export function assertMarketsActive(
-    markets: { id: string; is_active: boolean }[],
+    markets: { id: string; status: MarketStatus }[],
 ): void {
     const inactive_ids = markets
-        .filter((market) => !market.is_active)
+        .filter((market) => market.status !== MarketStatus.OPEN)
         .map((market) => market.id);
     if (inactive_ids.length === 0) {
         return;

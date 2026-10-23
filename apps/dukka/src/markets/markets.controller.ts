@@ -69,20 +69,20 @@ export class MarketsController {
         return this.marketsService.update(id, data);
     }
 
-    @Post(':id/activate')
-    @RequirePermission(StaffPermission.MarketsUpdate)
+    @Post(':id/open')
+    @RequirePermission(StaffPermission.MarketsOpen)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Market activated successfully')
-    activate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.activate(id);
+    @ResponseMessage('Market opened successfully')
+    open(@Param('id', ParseUUIDPipe) id: string) {
+        return this.marketsService.open(id);
     }
 
-    @Post(':id/deactivate')
-    @RequirePermission(StaffPermission.MarketsUpdate)
+    @Post(':id/close')
+    @RequirePermission(StaffPermission.MarketsClose)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Market deactivated successfully')
-    deactivate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.deactivate(id);
+    @ResponseMessage('Market closed successfully')
+    close(@Param('id', ParseUUIDPipe) id: string) {
+        return this.marketsService.close(id);
     }
 
     @Delete(':id')

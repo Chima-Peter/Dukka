@@ -61,6 +61,8 @@ const DEFAULT_ROLES = [
             'warehouses:open',
             'service_states:create',
             'service_states:update',
+            'service_states:open',
+            'service_states:close',
             'service_states:delete',
             'inventory:create',
             'products:update',
@@ -153,12 +155,12 @@ async function seedMarkets() {
                 name: market.name,
                 code: market.code,
                 currency_id: currency.id,
-                is_active: true,
+                status: 'OPEN',
             },
             update: {
                 name: market.name,
                 currency_id: currency.id,
-                is_active: true,
+                status: 'OPEN',
             },
         });
     }
@@ -177,12 +179,12 @@ async function seedCountries() {
             create: {
                 code: market.code,
                 name: market.name,
-                status: 'APPROVED',
+                status: 'OPEN',
                 market_id: market.id,
             },
             update: {
                 name: market.name,
-                status: 'APPROVED',
+                status: 'OPEN',
                 market_id: market.id,
             },
         });
@@ -1166,8 +1168,11 @@ async function seedWarehousesAndInventory(
             create: {
                 country_id: country.id,
                 state_name: stateDef.state_name,
+                status: 'OPEN',
             },
-            update: {},
+            update: {
+                status: 'OPEN',
+            },
         });
 
         serviceStates.push({

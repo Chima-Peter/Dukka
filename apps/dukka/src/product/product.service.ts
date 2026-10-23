@@ -11,6 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
 import {
+    MarketStatus,
     Prisma,
     ProductStatus,
     type Product,
@@ -428,8 +429,8 @@ export class ProductService {
                 data.market_id,
                 staffMarketIds,
             );
-            if (!market.is_active) {
-                throw new BadRequestException('Market is inactive');
+            if (market.status !== MarketStatus.OPEN) {
+                throw new BadRequestException('Market is not open');
             }
 
             const marketVariant =

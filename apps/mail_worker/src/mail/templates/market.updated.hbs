@@ -15,15 +15,11 @@
 {{#> details}}
   {{> detail-row label="Name" value=marketName}}
   {{> detail-row label="Code" value=marketCode}}
-  {{#if isActive}}
-  {{> detail-row label="Active" value="Yes"}}
-  {{else}}
-  {{> detail-row label="Active" value="No"}}
-  {{/if}}
+  {{> detail-row label="Status" value=status}}
 {{/details}}
 
 {{#> tip title="Heads up"}}
-  If this market was deactivated, some related workflows may pause until it is reactivated. Check with your administrator if you rely on this market daily.
+  If this market was closed, some related workflows may pause until it is opened again. Check with your administrator if you rely on this market daily.
 {{/tip}}
 
 <p style="margin:0;">

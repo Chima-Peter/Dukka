@@ -1,8 +1,11 @@
+import type { ServiceStateStatus } from '../../../generated/prisma/client.js';
+
 export type ServiceStateItem = {
     id: string;
     country_id: string;
     market_id: string | null;
     state_name: string;
+    status: ServiceStateStatus;
     warehouse_ids: string[];
     created_at: Date;
     updated_at: Date;

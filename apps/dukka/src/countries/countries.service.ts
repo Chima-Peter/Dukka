@@ -80,7 +80,10 @@ export class CountriesService {
     ): Promise<CountryWithMarket> {
         try {
             this.logger.log(`Updating country ${id}`);
-            await this.requireCountry(id);
+            const existing = await this.requireCountry(id);
+            if (existing.status === CountryStatus.CLOSED) {
+                throw new BadRequestException('Cannot update a closed country');
+            }
             const country = await this.countriesRepository.update(id, data);
             this.logger.log(`Country updated ${id}`);
             return country;
@@ -89,26 +92,40 @@ export class CountriesService {
         }
     }
 
-    async approve(id: string): Promise<CountryWithMarket> {
-        return this.transitionStatus(
-            id,
-            CountryStatus.APPROVED,
-            [CountryStatus.PENDING_REVIEW],
-            'Only countries pending review can be approved',
-            'Approving',
-            'approved',
-        );
+    async open(id: string): Promise<CountryWithMarket> {
+        try {
+            this.logger.log(`Opening country ${id}`);
+            const existing = await this.requireCountry(id);
+            if (existing.status === CountryStatus.OPEN) {
+                throw new BadRequestException('Country is already open');
+            }
+            const country = await this.countriesRepository.updateStatus(
+                id,
+                CountryStatus.OPEN,
+            );
+            this.logger.log(`Country opened ${id}`);
+            return country;
+        } catch (error) {
+            this.handleError(error);
+        }
     }
 
-    async reject(id: string): Promise<CountryWithMarket> {
-        return this.transitionStatus(
-            id,
-            CountryStatus.REJECTED,
-            [CountryStatus.PENDING_REVIEW],
-            'Only countries pending review can be rejected',
-            'Rejecting',
-            'rejected',
-        );
+    async close(id: string): Promise<CountryWithMarket> {
+        try {
+            this.logger.log(`Closing country ${id}`);
+            const existing = await this.requireCountry(id);
+            if (existing.status === CountryStatus.CLOSED) {
+                throw new BadRequestException('Country is already closed');
+            }
+            const country = await this.countriesRepository.updateStatus(
+                id,
+                CountryStatus.CLOSED,
+            );
+            this.logger.log(`Country closed ${id}`);
+            return country;
+        } catch (error) {
+            this.handleError(error);
+        }
     }
 
     async assignMarket(
@@ -123,9 +140,9 @@ export class CountriesService {
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
 
             const country = await this.requireCountry(id);
-            if (country.status !== CountryStatus.APPROVED) {
+            if (country.status !== CountryStatus.OPEN) {
                 throw new BadRequestException(
-                    'Only approved countries can be assigned to a market',
+                    'Only open countries can be assigned to a market',
                 );
             }
             if (country.market_id) {
@@ -141,7 +158,7 @@ export class CountriesService {
                 throw new NotFoundException('Market not found');
             }
             if (validation.inactive_ids.length > 0) {
-                throw new BadRequestException('Market is inactive');
+                throw new BadRequestException('Market is not open');
             }
 
             const updated = await this.countriesRepository.assignMarket(
@@ -192,6 +209,11 @@ export class CountriesService {
         try {
             this.logger.log(`Deleting country ${id}`);
             const country = await this.requireCountry(id);
+            if (country.status !== CountryStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Close the country before deleting it',
+                );
+            }
             if (country.market_id) {
                 throw new ConflictException(
                     'Country cannot be deleted while it is still assigned to a market',
@@ -214,31 +236,6 @@ export class CountriesService {
             await this.countriesRepository.delete(id);
             this.logger.log(`Country deleted ${id}`);
             return { data: null };
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
-    private async transitionStatus(
-        id: string,
-        nextStatus: CountryStatus,
-        allowedFrom: CountryStatus[],
-        invalidMessage: string,
-        actionLog: string,
-        doneLog: string,
-    ): Promise<CountryWithMarket> {
-        try {
-            this.logger.log(`${actionLog} country ${id}`);
-            const existing = await this.requireCountry(id);
-            if (!allowedFrom.includes(existing.status)) {
-                throw new BadRequestException(invalidMessage);
-            }
-            const country = await this.countriesRepository.updateStatus(
-                id,
-                nextStatus,
-            );
-            this.logger.log(`Country ${doneLog} ${id}`);
-            return country;
         } catch (error) {
             this.handleError(error);
         }

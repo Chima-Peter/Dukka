@@ -10,6 +10,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     CountryStatus,
+    MarketStatus,
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
 import { CountriesService } from '../countries/countries.service.js';
@@ -186,9 +187,9 @@ export class WarehouseService {
         if (!country) {
             throw new NotFoundException('Country not found');
         }
-        if (country.status !== CountryStatus.APPROVED) {
+        if (country.status !== CountryStatus.OPEN) {
             throw new BadRequestException(
-                'Only approved countries can have warehouses',
+                'Only open countries can have warehouses',
             );
         }
         if (!country.market_id || !country.market) {
@@ -196,8 +197,8 @@ export class WarehouseService {
                 'Country must be assigned to a market before managing warehouses',
             );
         }
-        if (!country.market.is_active) {
-            throw new BadRequestException('Market is inactive');
+        if (country.market.status !== MarketStatus.OPEN) {
+            throw new BadRequestException('Market is not open');
         }
         assertStaffHasMarkets(staffMarketIds, [country.market_id]);
         return country.market_id;

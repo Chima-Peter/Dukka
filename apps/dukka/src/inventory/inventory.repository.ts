@@ -148,7 +148,7 @@ export class InventoryRepository {
                         id: true,
                         market_variants: {
                             where: {
-                                market: { id: marketId, is_active: true },
+                                market: { id: marketId, status: 'OPEN' },
                             },
                             select: {
                                 id: true,
@@ -159,7 +159,7 @@ export class InventoryRepository {
                                             country: {
                                                 market: {
                                                     id: marketId,
-                                                    is_active: true,
+                                                    status: 'OPEN',
                                                 },
                                             },
                                             status: WarehouseStatus.OPEN,
@@ -210,14 +210,14 @@ export class InventoryRepository {
                     variant_id: variantId,
                     market: {
                         id: query.market_id,
-                        is_active: true,
+                        status: 'OPEN',
                     },
                 },
                 warehouse: {
                     country: {
                         market: {
                             id: query.market_id,
-                            is_active: true,
+                            status: 'OPEN',
                         },
                     },
                 },
@@ -235,7 +235,7 @@ export class InventoryRepository {
                 market_variant: {
                     market: {
                         id: query.market_id,
-                        is_active: true,
+                        status: 'OPEN',
                     },
                     variant: { product_id: productId },
                 },
@@ -243,7 +243,7 @@ export class InventoryRepository {
                     country: {
                         market: {
                             id: query.market_id,
-                            is_active: true,
+                            status: 'OPEN',
                         },
                     },
                 },

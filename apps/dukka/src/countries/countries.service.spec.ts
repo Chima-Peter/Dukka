@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CountryStatus } from '../../generated/prisma/client.js';
+import {
+    CountryStatus,
+    MarketStatus,
+} from '../../generated/prisma/client.js';
 import { CountriesRepository } from './countries.repository.js';
 import { CountriesService } from './countries.service.js';
 
@@ -17,7 +20,7 @@ const countryBase = {
     id: 'country-1',
     code: 'NG',
     name: 'Nigeria',
-    status: CountryStatus.PENDING_REVIEW,
+    status: CountryStatus.PENDING,
     market_id: null as string | null,
     created_at: new Date(),
     updated_at: new Date(),
@@ -90,23 +93,23 @@ describe('CountriesService', () => {
         expect(service).toBeDefined();
     });
 
-    it('approves a country pending review', async () => {
+    it('opens a pending country', async () => {
         repository.findById.mockResolvedValue(countryBase);
         repository.updateStatus.mockResolvedValue({
             ...countryBase,
-            status: CountryStatus.APPROVED,
+            status: CountryStatus.OPEN,
         });
 
-        const result = await service.approve(countryBase.id);
+        const result = await service.open(countryBase.id);
 
         expect(repository.updateStatus).toHaveBeenCalledWith(
             countryBase.id,
-            CountryStatus.APPROVED,
+            CountryStatus.OPEN,
         );
-        expect(result.status).toBe(CountryStatus.APPROVED);
+        expect(result.status).toBe(CountryStatus.OPEN);
     });
 
-    it('rejects assigning an unapproved country', async () => {
+    it('rejects assigning a non-open country', async () => {
         repository.findById.mockResolvedValue(countryBase);
 
         await expect(
@@ -118,20 +121,20 @@ describe('CountriesService', () => {
         ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('assigns an approved country to a market', async () => {
-        const approved = {
+    it('assigns an open country to a market', async () => {
+        const open = {
             ...countryBase,
-            status: CountryStatus.APPROVED,
+            status: CountryStatus.OPEN,
         };
-        repository.findById.mockResolvedValue(approved);
+        repository.findById.mockResolvedValue(open);
         repository.assignMarket.mockResolvedValue({
-            ...approved,
+            ...open,
             market_id: 'market-1',
             market: {
                 id: 'market-1',
                 code: 'NG',
                 name: 'Nigeria Market',
-                is_active: true,
+                status: MarketStatus.OPEN,
             },
         });
 
@@ -154,7 +157,7 @@ describe('CountriesService', () => {
     it('rejects deleting a country that is still assigned', async () => {
         repository.findById.mockResolvedValue({
             ...countryBase,
-            status: CountryStatus.APPROVED,
+            status: CountryStatus.CLOSED,
             market_id: 'market-1',
         });
 

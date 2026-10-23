@@ -1,13 +1,14 @@
 import type {
     Country,
     CountryStatus,
+    MarketStatus,
 } from '../../../generated/prisma/client.js';
 
 export type CountryMarketSummary = {
     id: string;
     code: string;
     name: string;
-    is_active: boolean;
+    status: MarketStatus;
 };
 
 export type CountryWithMarket = Country & {
@@ -18,7 +19,7 @@ export type CountryWithMarketStatus = {
     id: string;
     status: CountryStatus;
     market_id: string | null;
-    market: { id: string; is_active: boolean } | null;
+    market: { id: string; status: MarketStatus } | null;
 };
 
 export const countryWithMarket = {
@@ -27,7 +28,7 @@ export const countryWithMarket = {
             id: true,
             code: true,
             name: true,
-            is_active: true,
+            status: true,
         },
     },
 } as const;

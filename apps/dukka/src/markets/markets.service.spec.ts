@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MarketStatus } from '../../generated/prisma/client.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
 
@@ -51,7 +52,7 @@ describe('MarketsService', () => {
         findExistingByIds: ReturnType<typeof vi.fn>;
         findById: ReturnType<typeof vi.fn>;
         update: ReturnType<typeof vi.fn>;
-        setActive: ReturnType<typeof vi.fn>;
+        setStatus: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
         findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
     };
@@ -73,7 +74,7 @@ describe('MarketsService', () => {
             findExistingByIds: vi.fn(),
             findById: vi.fn(),
             update: vi.fn(),
-            setActive: vi.fn(),
+            setStatus: vi.fn(),
             delete: vi.fn(),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
         };
@@ -110,9 +111,9 @@ describe('MarketsService', () => {
         expect(service).toBeDefined();
     });
 
-    it('rejects update when market is inactive', async () => {
+    it('rejects update when market is closed', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: false },
+            { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
 
         await expect(
@@ -123,13 +124,13 @@ describe('MarketsService', () => {
 
     it('skips staff email on update by default', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: true },
+            { id: 'market-1', status: MarketStatus.OPEN },
         ]);
         marketsRepository.update.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
-            is_active: true,
+            status: MarketStatus.OPEN,
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
@@ -141,60 +142,60 @@ describe('MarketsService', () => {
         expect(mailQueue.enqueueSendMany).not.toHaveBeenCalled();
     });
 
-    it('activates an inactive market', async () => {
+    it('opens a closed market', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: false },
+            { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
-        marketsRepository.setActive.mockResolvedValue({
+        marketsRepository.setStatus.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
-            is_active: true,
+            status: MarketStatus.OPEN,
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
-        await service.activate('market-1');
+        await service.open('market-1');
 
-        expect(marketsRepository.setActive).toHaveBeenCalledWith(
+        expect(marketsRepository.setStatus).toHaveBeenCalledWith(
             'market-1',
-            true,
+            MarketStatus.OPEN,
         );
     });
 
-    it('rejects activate when market is already active', async () => {
+    it('rejects open when market is already open', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: true },
+            { id: 'market-1', status: MarketStatus.OPEN },
         ]);
 
-        await expect(service.activate('market-1')).rejects.toBeInstanceOf(
+        await expect(service.open('market-1')).rejects.toBeInstanceOf(
             BadRequestException,
         );
-        expect(marketsRepository.setActive).not.toHaveBeenCalled();
+        expect(marketsRepository.setStatus).not.toHaveBeenCalled();
     });
 
-    it('deactivates an active market', async () => {
+    it('closes an open market', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: true },
+            { id: 'market-1', status: MarketStatus.OPEN },
         ]);
-        marketsRepository.setActive.mockResolvedValue({
+        marketsRepository.setStatus.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
-            is_active: false,
+            status: MarketStatus.CLOSED,
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
-        await service.deactivate('market-1');
+        await service.close('market-1');
 
-        expect(marketsRepository.setActive).toHaveBeenCalledWith(
+        expect(marketsRepository.setStatus).toHaveBeenCalledWith(
             'market-1',
-            false,
+            MarketStatus.CLOSED,
         );
     });
 
-    it('rejects delete when market is still active', async () => {
+    it('rejects delete when market is not closed', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: true },
+            { id: 'market-1', status: MarketStatus.OPEN },
         ]);
 
         await expect(service.delete('market-1')).rejects.toBeInstanceOf(
@@ -203,9 +204,9 @@ describe('MarketsService', () => {
         expect(marketsRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('deletes an inactive market', async () => {
+    it('deletes a closed market', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: false },
+            { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
         countriesService.countByMarketId.mockResolvedValue(0);
         marketsRepository.delete.mockResolvedValue({
@@ -221,7 +222,7 @@ describe('MarketsService', () => {
 
     it('rejects delete when market still has countries', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
-            { id: 'market-1', is_active: false },
+            { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
         countriesService.countByMarketId.mockResolvedValue(2);
 

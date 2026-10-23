@@ -1,6 +1,4 @@
 import {
-    IsBoolean,
-    IsOptional,
     IsString,
     IsUUID,
     Matches,
@@ -25,8 +23,4 @@ export class CreateMarketDto {
 
     @IsUUID()
     currency_id!: string;
-
-    @IsOptional()
-    @IsBoolean()
-    is_active?: boolean;
 }

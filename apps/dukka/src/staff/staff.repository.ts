@@ -616,7 +616,7 @@ export class StaffRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
-                select: { id: true, name: true, is_active: true },
+                select: { id: true, name: true, status: true },
             });
             if (markets.length !== market_ids.length) {
                 throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);

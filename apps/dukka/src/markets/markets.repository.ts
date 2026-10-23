@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { Market } from '../../generated/prisma/client.js';
+import {
+    MarketStatus,
+    type Market,
+} from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -33,9 +36,6 @@ export class MarketsRepository {
             data: {
                 name: data.name,
                 code: data.code,
-                ...(data.is_active !== undefined && {
-                    is_active: data.is_active,
-                }),
                 currency: { connect: { id: data.currency_id } },
             },
             include: marketWithCurrency,
@@ -56,14 +56,14 @@ export class MarketsRepository {
 
     async findExistingByIds(
         marketIds: string[],
-    ): Promise<{ id: string; is_active: boolean }[]> {
+    ): Promise<{ id: string; status: MarketStatus }[]> {
         if (marketIds.length === 0) {
             return [];
         }
 
         return await this.prisma.market.findMany({
             where: { id: { in: marketIds } },
-            select: { id: true, is_active: true },
+            select: { id: true, status: true },
         });
     }
 
@@ -98,13 +98,13 @@ export class MarketsRepository {
         });
     }
 
-    async setActive(
+    async setStatus(
         id: string,
-        is_active: boolean,
+        status: MarketStatus,
     ): Promise<MarketWithCurrency> {
         return await this.prisma.market.update({
             where: { id },
-            data: { is_active },
+            data: { status },
             include: marketWithCurrency,
         });
     }

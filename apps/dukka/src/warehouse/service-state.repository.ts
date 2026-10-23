@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    ServiceStateStatus,
     WarehouseStatus,
     type ServiceState,
     type WarehouseServiceState,
@@ -45,7 +46,10 @@ export class ServiceStateRepository {
     async findAll(query: FindServiceStatesDto) {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.serviceState.findMany({
-            where: { country_id: query.country_id },
+            where: {
+                country_id: query.country_id,
+                ...(query.status !== undefined && { status: query.status }),
+            },
             include: {
                 country: {
                     select: { market_id: true },
@@ -114,6 +118,25 @@ export class ServiceStateRepository {
         return this.toItem(row);
     }
 
+    async setStatus(
+        id: string,
+        status: ServiceStateStatus,
+    ): Promise<ServiceStateItem> {
+        const row = await this.prisma.serviceState.update({
+            where: { id },
+            data: { status },
+            include: {
+                country: {
+                    select: { market_id: true },
+                },
+                warehouse_service_states: {
+                    select: { warehouse_id: true },
+                },
+            },
+        });
+        return this.toItem(row);
+    }
+
     async delete(id: string, countryId: string): Promise<ServiceStateItem> {
         const row = await this.prisma.serviceState.delete({
             where: { id, country_id: countryId },
@@ -135,6 +158,9 @@ export class ServiceStateRepository {
         const link = await this.prisma.warehouseServiceState.findFirst({
             where: {
                 service_state_id: serviceStateId,
+                service_state: {
+                    status: ServiceStateStatus.OPEN,
+                },
                 warehouse: {
                     status: WarehouseStatus.OPEN,
                 },
@@ -191,6 +217,7 @@ export class ServiceStateRepository {
             country_id: row.country_id,
             market_id: row.country.market_id,
             state_name: row.state_name,
+            status: row.status,
             warehouse_ids: row.warehouse_service_states.map(
                 (link) => link.warehouse_id,
             ),

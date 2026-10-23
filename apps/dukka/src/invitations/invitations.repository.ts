@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    MarketStatus,
     StaffAuditAction,
     StaffInvitationStatus,
     type Market,
@@ -124,7 +125,7 @@ export class InvitationsRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: data.market_ids } },
-                select: { id: true, is_active: true },
+                select: { id: true, status: true },
             });
             if (markets.length !== data.market_ids.length) {
                 throw new Error(INVITATION_REPO_ERROR.MARKETS_NOT_FOUND);
@@ -400,11 +401,11 @@ export class InvitationsRepository {
 
             const markets = await tx.market.findMany({
                 where: { id: { in: market_ids } },
-                select: { id: true, name: true, is_active: true },
+                select: { id: true, name: true, status: true },
             });
             if (
                 markets.length !== market_ids.length ||
-                markets.some((market) => !market.is_active)
+                markets.some((market) => market.status !== MarketStatus.OPEN)
             ) {
                 await this.cancelInvitation(tx, invitation.id);
                 throw new Error(

@@ -76,7 +76,7 @@ export class ProductRepository {
                 market_category: {
                     market: {
                         id: query.market_id,
-                        is_active: true,
+                        status: 'OPEN',
                     },
                 },
                 status: ProductStatus.ACTIVE,
@@ -86,7 +86,7 @@ export class ProductRepository {
                             some: {
                                 market: {
                                     id: query.market_id,
-                                    is_active: true,
+                                    status: 'OPEN',
                                 },
                                 ...(hasPriceFilter && {
                                     price: {
@@ -241,7 +241,7 @@ export class ProductRepository {
                     some: {
                         market_variants: {
                             some: {
-                                market: { id: marketId, is_active: true },
+                                market: { id: marketId, status: 'OPEN' },
                             },
                         },
                     },
@@ -606,7 +606,7 @@ export class ProductRepository {
     ) {
         return await this.prisma.marketVariant.findFirst({
             where: {
-                market: { id: marketId, is_active: true },
+                market: { id: marketId, status: 'OPEN' },
                 variant_id: variantId,
                 variant: {
                     product_id: productId,

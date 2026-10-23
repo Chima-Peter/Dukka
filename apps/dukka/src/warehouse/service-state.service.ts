@@ -10,6 +10,8 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     CountryStatus,
+    MarketStatus,
+    ServiceStateStatus,
     WarehouseStatus,
 } from '../../generated/prisma/client.js';
 import { CountriesService } from '../countries/countries.service.js';
@@ -110,12 +112,75 @@ export class ServiceStateService {
         try {
             this.logger.log(`Updating service state ${id}`);
             await this.requireCountryMarket(data.country_id, staffMarketIds);
+            const existing =
+                await this.serviceStateRepository.findByIdOrThrow(id);
+            if (existing.status === ServiceStateStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Cannot update a closed service state',
+                );
+            }
             const serviceState = await this.serviceStateRepository.update(
                 id,
                 data.country_id,
                 data.state_name,
             );
             this.logger.log(`Service state updated ${id}`);
+            return serviceState;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async open(
+        id: string,
+        staffMarketIds: string[],
+    ): Promise<ServiceStateItem> {
+        try {
+            this.logger.log(`Opening service state ${id}`);
+            const existing =
+                await this.serviceStateRepository.findByIdOrThrow(id);
+            await this.requireCountryMarket(
+                existing.country_id,
+                staffMarketIds,
+            );
+            if (existing.status === ServiceStateStatus.OPEN) {
+                throw new BadRequestException(
+                    'Service state is already open',
+                );
+            }
+            const serviceState = await this.serviceStateRepository.setStatus(
+                id,
+                ServiceStateStatus.OPEN,
+            );
+            this.logger.log(`Service state opened ${id}`);
+            return serviceState;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async close(
+        id: string,
+        staffMarketIds: string[],
+    ): Promise<ServiceStateItem> {
+        try {
+            this.logger.log(`Closing service state ${id}`);
+            const existing =
+                await this.serviceStateRepository.findByIdOrThrow(id);
+            await this.requireCountryMarket(
+                existing.country_id,
+                staffMarketIds,
+            );
+            if (existing.status === ServiceStateStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Service state is already closed',
+                );
+            }
+            const serviceState = await this.serviceStateRepository.setStatus(
+                id,
+                ServiceStateStatus.CLOSED,
+            );
+            this.logger.log(`Service state closed ${id}`);
             return serviceState;
         } catch (error) {
             this.handleError(error);
@@ -130,6 +195,13 @@ export class ServiceStateService {
         try {
             this.logger.log(`Deleting service state ${id}`);
             await this.requireCountryMarket(countryId, staffMarketIds);
+            const existing =
+                await this.serviceStateRepository.findByIdOrThrow(id);
+            if (existing.status !== ServiceStateStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Close the service state before deleting it',
+                );
+            }
             const serviceState = await this.serviceStateRepository.delete(
                 id,
                 countryId,
@@ -152,6 +224,11 @@ export class ServiceStateService {
             );
             const serviceState =
                 await this.serviceStateRepository.findByIdOrThrow(id);
+            if (serviceState.status === ServiceStateStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Cannot assign a warehouse to a closed service state',
+                );
+            }
             const marketId = serviceState.country.market_id;
             if (!marketId) {
                 throw new BadRequestException(
@@ -227,9 +304,9 @@ export class ServiceStateService {
         if (!country) {
             throw new NotFoundException('Country not found');
         }
-        if (country.status !== CountryStatus.APPROVED) {
+        if (country.status !== CountryStatus.OPEN) {
             throw new BadRequestException(
-                'Only approved countries can have service states',
+                'Only open countries can have service states',
             );
         }
         if (!country.market_id || !country.market) {
@@ -237,8 +314,8 @@ export class ServiceStateService {
                 'Country must be assigned to a market before managing service states',
             );
         }
-        if (!country.market.is_active) {
-            throw new BadRequestException('Market is inactive');
+        if (country.market.status !== MarketStatus.OPEN) {
+            throw new BadRequestException('Market is not open');
         }
         assertStaffHasMarkets(staffMarketIds, [country.market_id]);
         return country.market_id;

@@ -228,16 +228,16 @@ model Currency {
 }
 
 enum CountryStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
+  PENDING
+  OPEN
+  CLOSED
 }
 
 model Country {
   id         String        @id @default(uuid())
   code       String        @unique
   name       String
-  status     CountryStatus @default(PENDING_REVIEW)
+  status     CountryStatus @default(PENDING)
   market_id  String?
   created_at DateTime      @default(now())
   updated_at DateTime      @updatedAt
@@ -248,16 +248,23 @@ model Country {
 
   @@index([market_id])
   @@index([status])
+  @@index([id, status])
+}
+
+enum MarketStatus {
+  PENDING
+  OPEN
+  CLOSED
 }
 
 model Market {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   name        String
-  code        String   @unique
-  currency_id String   @unique
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  code        String       @unique
+  currency_id String       @unique
+  status      MarketStatus @default(PENDING)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
 
   currency            Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
   countries           Country[]
@@ -270,6 +277,9 @@ model Market {
   market_payment_methods MarketPaymentMethod[]
   orders              Order[]
   customers           Customer[]
+
+  @@index([status])
+  @@index([id, status])
 }
 
 enum StaffInvitationStatus {
@@ -525,6 +535,7 @@ model MarketVariant {
 }
 
 enum WarehouseStatus {
+  PENDING
   OPEN
   CLOSED
 }
@@ -537,7 +548,7 @@ model Warehouse {
   manager_id String
   manager    Staff           @relation(fields: [manager_id], references: [id], onDelete: Restrict)
   address    String
-  status     WarehouseStatus @default(OPEN)
+  status     WarehouseStatus @default(PENDING)
 
   inventory                Inventory[]
   order_inventories        OrderInventory[]
@@ -548,21 +559,30 @@ model Warehouse {
   updated_at DateTime @updatedAt
 
   @@index([country_id])
+  @@index([status])
+}
+
+enum ServiceStateStatus {
+  PENDING
+  OPEN
+  CLOSED
 }
 
 model ServiceState {
-  id         String  @id @default(uuid())
+  id         String             @id @default(uuid())
   country_id String
-  country    Country @relation(fields: [country_id], references: [id], onDelete: Restrict)
+  country    Country            @relation(fields: [country_id], references: [id], onDelete: Restrict)
   state_name String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  status     ServiceStateStatus @default(PENDING)
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
 
   warehouse_service_states WarehouseServiceState[]
   shipping_addresses       ShippingAddress[]
 
   @@unique([country_id, state_name])
   @@index([country_id])
+  @@index([status])
 }
 
 model WarehouseServiceState {

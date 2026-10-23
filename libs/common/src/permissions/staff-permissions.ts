@@ -81,6 +81,14 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Update markets',
     },
     {
+        name: 'markets:open',
+        description: 'Open markets',
+    },
+    {
+        name: 'markets:close',
+        description: 'Close markets',
+    },
+    {
         name: 'markets:delete',
         description: 'Delete markets',
     },
@@ -109,8 +117,12 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete countries',
     },
     {
-        name: 'countries:approve',
-        description: 'Approve or reject countries',
+        name: 'countries:open',
+        description: 'Open countries',
+    },
+    {
+        name: 'countries:close',
+        description: 'Close countries',
     },
     {
         name: 'countries:assign_market',
@@ -178,6 +190,14 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
             'Update warehouse service states and assign them to warehouses',
     },
     {
+        name: 'service_states:open',
+        description: 'Open warehouse service states',
+    },
+    {
+        name: 'service_states:close',
+        description: 'Close warehouse service states',
+    },
+    {
         name: 'service_states:delete',
         description: 'Delete warehouse service states',
     },
@@ -215,6 +235,8 @@ export const StaffPermission = {
     MarketsCreate: 'markets:create',
     MarketsRead: 'markets:read',
     MarketsUpdate: 'markets:update',
+    MarketsOpen: 'markets:open',
+    MarketsClose: 'markets:close',
     MarketsDelete: 'markets:delete',
     CurrenciesCreate: 'currencies:create',
     CurrenciesUpdate: 'currencies:update',
@@ -222,7 +244,8 @@ export const StaffPermission = {
     CountriesCreate: 'countries:create',
     CountriesUpdate: 'countries:update',
     CountriesDelete: 'countries:delete',
-    CountriesApprove: 'countries:approve',
+    CountriesOpen: 'countries:open',
+    CountriesClose: 'countries:close',
     CountriesAssignMarket: 'countries:assign_market',
     CountriesRemoveMarket: 'countries:remove_market',
     CategoriesCreate: 'categories:create',
@@ -239,6 +262,8 @@ export const StaffPermission = {
     WarehousesOpen: 'warehouses:open',
     ServiceStatesCreate: 'service_states:create',
     ServiceStatesUpdate: 'service_states:update',
+    ServiceStatesOpen: 'service_states:open',
+    ServiceStatesClose: 'service_states:close',
     ServiceStatesDelete: 'service_states:delete',
     InventoryCreate: 'inventory:create',
     PermissionsRead: 'permissions:read',

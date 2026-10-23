@@ -30,7 +30,7 @@ export function productListSummarySelect(marketId?: string) {
                 where: {
                     market_variants: {
                         some: {
-                            market: { id: marketId, is_active: true },
+                            market: { id: marketId, status: 'OPEN' },
                         },
                     },
                 },
@@ -41,7 +41,7 @@ export function productListSummarySelect(marketId?: string) {
                 market_variants: {
                     ...(marketId !== undefined && {
                         where: {
-                            market: { id: marketId, is_active: true },
+                            market: { id: marketId, status: 'OPEN' },
                         },
                     }),
                     take: 1,
@@ -147,7 +147,7 @@ export function productDetailWithMarketSelect(marketId?: string) {
                 market_variants: {
                     ...(marketId !== undefined && {
                         where: {
-                            market: { id: marketId, is_active: true },
+                            market: { id: marketId, status: 'OPEN' },
                         },
                     }),
                     select: {

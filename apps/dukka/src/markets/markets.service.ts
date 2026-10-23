@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import { MarketStatus } from '../../generated/prisma/client.js';
 import { CountriesService } from '../countries/countries.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
@@ -90,7 +91,7 @@ export class MarketsService {
                 (id) => !existingById.has(id),
             );
             const inactiveIds = data.market_ids.filter(
-                (id) => existingById.get(id)?.is_active === false,
+                (id) => existingById.get(id)?.status !== MarketStatus.OPEN,
             );
             return {
                 valid: invalidIds.length === 0 && inactiveIds.length === 0,
@@ -109,8 +110,8 @@ export class MarketsService {
         try {
             this.logger.log(`Updating market ${id}`);
             const existing = await this.requireMarket(id);
-            if (!existing.is_active) {
-                throw new BadRequestException('Market is inactive');
+            if (existing.status === MarketStatus.CLOSED) {
+                throw new BadRequestException('Cannot update a closed market');
             }
             const { notify_staff = false, ...updateData } = data;
             const market = await this.marketsRepository.update(id, updateData);
@@ -128,21 +129,57 @@ export class MarketsService {
         }
     }
 
-    async activate(id: string): Promise<MarketWithCurrency> {
-        return this.setActive(id, true);
+    async open(id: string): Promise<MarketWithCurrency> {
+        try {
+            this.logger.log(`Opening market ${id}`);
+            const existing = await this.requireMarket(id);
+            if (existing.status === MarketStatus.OPEN) {
+                throw new BadRequestException('Market is already open');
+            }
+            const market = await this.marketsRepository.setStatus(
+                id,
+                MarketStatus.OPEN,
+            );
+            this.logger.log(`Market opened ${id}`);
+            await this.notifyMarketStaff(
+                market,
+                'A market you access was opened',
+            );
+            return market;
+        } catch (error) {
+            this.handleError(error);
+        }
     }
 
-    async deactivate(id: string): Promise<MarketWithCurrency> {
-        return this.setActive(id, false);
+    async close(id: string): Promise<MarketWithCurrency> {
+        try {
+            this.logger.log(`Closing market ${id}`);
+            const existing = await this.requireMarket(id);
+            if (existing.status === MarketStatus.CLOSED) {
+                throw new BadRequestException('Market is already closed');
+            }
+            const market = await this.marketsRepository.setStatus(
+                id,
+                MarketStatus.CLOSED,
+            );
+            this.logger.log(`Market closed ${id}`);
+            await this.notifyMarketStaff(
+                market,
+                'A market you access was closed',
+            );
+            return market;
+        } catch (error) {
+            this.handleError(error);
+        }
     }
 
     async delete(id: string): Promise<object> {
         try {
             this.logger.log(`Deleting market ${id}`);
             const existing = await this.requireMarket(id);
-            if (existing.is_active) {
+            if (existing.status !== MarketStatus.CLOSED) {
                 throw new BadRequestException(
-                    'Deactivate the market before deleting it',
+                    'Close the market before deleting it',
                 );
             }
             const countryCount =
@@ -178,43 +215,9 @@ export class MarketsService {
         }
     }
 
-    private async setActive(
-        id: string,
-        is_active: boolean,
-    ): Promise<MarketWithCurrency> {
-        try {
-            const action = is_active ? 'Activating' : 'Deactivating';
-            this.logger.log(`${action} market ${id}`);
-            const existing = await this.requireMarket(id);
-            if (existing.is_active === is_active) {
-                throw new BadRequestException(
-                    is_active
-                        ? 'Market is already active'
-                        : 'Market is already inactive',
-                );
-            }
-            const market = await this.marketsRepository.setActive(
-                id,
-                is_active,
-            );
-            this.logger.log(
-                `Market ${is_active ? 'activated' : 'deactivated'} ${id}`,
-            );
-            await this.notifyMarketStaff(
-                market,
-                is_active
-                    ? 'A market you access was activated'
-                    : 'A market you access was deactivated',
-            );
-            return market;
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
     private async requireMarket(
         id: string,
-    ): Promise<{ id: string; is_active: boolean }> {
+    ): Promise<{ id: string; status: MarketStatus }> {
         const [market] = await this.marketsRepository.findExistingByIds([id]);
         if (!market) {
             throw new NotFoundException('Market not found');
@@ -242,7 +245,8 @@ export class MarketsService {
                     marketId: market.id,
                     marketName: market.name,
                     marketCode: market.code,
-                    isActive: market.is_active,
+                    status: market.status,
+                    isOpen: market.status === MarketStatus.OPEN,
                 },
             })),
         );

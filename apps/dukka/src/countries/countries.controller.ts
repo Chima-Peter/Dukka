@@ -53,20 +53,20 @@ export class CountriesController {
         return this.countriesService.update(id, data);
     }
 
-    @Post(':id/approve')
-    @RequirePermission(StaffPermission.CountriesApprove)
+    @Post(':id/open')
+    @RequirePermission(StaffPermission.CountriesOpen)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Country approved successfully')
-    approve(@Param('id', ParseUUIDPipe) id: string) {
-        return this.countriesService.approve(id);
+    @ResponseMessage('Country opened successfully')
+    open(@Param('id', ParseUUIDPipe) id: string) {
+        return this.countriesService.open(id);
     }
 
-    @Post(':id/reject')
-    @RequirePermission(StaffPermission.CountriesApprove)
+    @Post(':id/close')
+    @RequirePermission(StaffPermission.CountriesClose)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Country rejected successfully')
-    reject(@Param('id', ParseUUIDPipe) id: string) {
-        return this.countriesService.reject(id);
+    @ResponseMessage('Country closed successfully')
+    close(@Param('id', ParseUUIDPipe) id: string) {
+        return this.countriesService.close(id);
     }
 
     @Post(':id/markets')

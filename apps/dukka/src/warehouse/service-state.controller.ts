@@ -60,6 +60,28 @@ export class ServiceStateController {
         return this.serviceStateService.update(id, data, staff.market_ids);
     }
 
+    @Post(':id/open')
+    @RequirePermission(StaffPermission.ServiceStatesOpen)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Service state opened successfully')
+    open(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.serviceStateService.open(id, staff.market_ids);
+    }
+
+    @Post(':id/close')
+    @RequirePermission(StaffPermission.ServiceStatesClose)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Service state closed successfully')
+    close(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.serviceStateService.close(id, staff.market_ids);
+    }
+
     @Delete(':id')
     @RequirePermission(StaffPermission.ServiceStatesDelete)
     @HttpCode(HttpStatus.OK)

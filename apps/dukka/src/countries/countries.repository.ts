@@ -50,7 +50,7 @@ export class CountriesRepository {
                 status: true,
                 market_id: true,
                 market: {
-                    select: { id: true, is_active: true },
+                    select: { id: true, status: true },
                 },
             },
         });
