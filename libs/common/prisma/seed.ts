@@ -1353,6 +1353,7 @@ async function seedWarehousesAndInventory(
 
 async function seedOrdersReviewsAndFulfillment(
     customers: { id: string; email: string }[],
+    markets: { id: string; code: string }[],
     warehouses: { id: string; name: string }[],
     marketVariants: { id: string; variant_code: string; market_code: string }[],
 ) {
@@ -1362,6 +1363,8 @@ async function seedOrdersReviewsAndFulfillment(
     const kofi = customers.find(
         (customer) => customer.email === 'kofi.customer@dukka.local',
     );
+    const ngMarket = markets.find((market) => market.code === 'NG');
+    const ghMarket = markets.find((market) => market.code === 'GH');
     const lagosWarehouse = warehouses.find(
         (warehouse) => warehouse.name === 'Lagos Central Warehouse',
     );
@@ -1381,6 +1384,8 @@ async function seedOrdersReviewsAndFulfillment(
     if (
         !adaeze ||
         !kofi ||
+        !ngMarket ||
+        !ghMarket ||
         !lagosWarehouse ||
         !accraWarehouse ||
         !ngPulse ||
@@ -1390,14 +1395,86 @@ async function seedOrdersReviewsAndFulfillment(
         throw new Error('Missing dependencies for order/review seed');
     }
 
+    const adaezeAddress = {
+        first_name: 'Adaeze',
+        last_name: 'Nnamdi',
+        email: 'ship.adaeze@dukka.local',
+        phone_number: '+2348033333333',
+        whatsapp_number: '+2348033333333',
+        country: 'Nigeria',
+        state: 'Lagos',
+        market_id: ngMarket.id,
+        street_address: '12 Admiralty Way, Lekki',
+    };
+    const kofiAddress = {
+        first_name: 'Kofi',
+        last_name: 'Asante',
+        email: 'ship.kofi@dukka.local',
+        phone_number: '+233202222222',
+        whatsapp_number: '+233202222222',
+        country: 'Ghana',
+        state: 'Greater Accra',
+        market_id: ghMarket.id,
+        street_address: '45 Independence Ave, Accra',
+    };
+
     const existingAdaezeOrders = await prisma.order.count({
         where: { customer_id: adaeze.id },
     });
 
     if (existingAdaezeOrders === 0) {
+        const pulseQty = 1;
+        const teeQty = 2;
+        const pulsePrice = 85000;
+        const teePrice = 15000;
+        const subtotal = pulsePrice * pulseQty + teePrice * teeQty;
+        const shippingFee = 2500;
+
         await prisma.order.create({
             data: {
+                order_number: 'DK-SEED-NG-001',
                 customer_id: adaeze.id,
+                market_id: ngMarket.id,
+                warehouse_id: lagosWarehouse.id,
+                currency: 'NGN',
+                subtotal,
+                shipping_fee: shippingFee,
+                discount_amount: 0,
+                points_discount: 0,
+                coupon_discount: 0,
+                total_amount: subtotal + shippingFee,
+                shipping_address: adaezeAddress,
+                billing_address: adaezeAddress,
+                order_items: {
+                    create: [
+                        {
+                            market_variant_id: ngPulse.id,
+                            quantity: pulseQty,
+                            price: pulsePrice,
+                            total: pulsePrice * pulseQty,
+                            product_name: 'Dukka Pulse Headphones',
+                            product_image:
+                                'https://cdn.dukka.local/variants/pulse-blk.jpg',
+                            product_specs: {
+                                color: 'Black',
+                                size: 'Standard',
+                            },
+                        },
+                        {
+                            market_variant_id: ngTee.id,
+                            quantity: teeQty,
+                            price: teePrice,
+                            total: teePrice * teeQty,
+                            product_name: 'Ankara Everyday Tee',
+                            product_image:
+                                'https://cdn.dukka.local/variants/ank-tee-m.jpg',
+                            product_specs: {
+                                color: 'Multicolor',
+                                size: 'M',
+                            },
+                        },
+                    ],
+                },
                 order_inventories: {
                     create: [
                         {
@@ -1408,11 +1485,11 @@ async function seedOrdersReviewsAndFulfillment(
                                 create: [
                                     {
                                         market_variant_id: ngPulse.id,
-                                        quantity: 1,
+                                        quantity: pulseQty,
                                     },
                                     {
                                         market_variant_id: ngTee.id,
-                                        quantity: 2,
+                                        quantity: teeQty,
                                     },
                                 ],
                             },
@@ -1422,9 +1499,42 @@ async function seedOrdersReviewsAndFulfillment(
             },
         });
 
+        const pendingTeeQty = 1;
+        const pendingSubtotal = teePrice * pendingTeeQty;
+        const pendingShippingFee = 1500;
+
         await prisma.order.create({
             data: {
+                order_number: 'DK-SEED-NG-002',
                 customer_id: adaeze.id,
+                market_id: ngMarket.id,
+                warehouse_id: lagosWarehouse.id,
+                currency: 'NGN',
+                subtotal: pendingSubtotal,
+                shipping_fee: pendingShippingFee,
+                discount_amount: 0,
+                points_discount: 0,
+                coupon_discount: 0,
+                total_amount: pendingSubtotal + pendingShippingFee,
+                shipping_address: adaezeAddress,
+                billing_address: adaezeAddress,
+                order_items: {
+                    create: [
+                        {
+                            market_variant_id: ngTee.id,
+                            quantity: pendingTeeQty,
+                            price: teePrice,
+                            total: teePrice * pendingTeeQty,
+                            product_name: 'Ankara Everyday Tee',
+                            product_image:
+                                'https://cdn.dukka.local/variants/ank-tee-m.jpg',
+                            product_specs: {
+                                color: 'Multicolor',
+                                size: 'M',
+                            },
+                        },
+                    ],
+                },
                 order_inventories: {
                     create: [
                         {
@@ -1435,7 +1545,7 @@ async function seedOrdersReviewsAndFulfillment(
                                 create: [
                                     {
                                         market_variant_id: ngTee.id,
-                                        quantity: 1,
+                                        quantity: pendingTeeQty,
                                     },
                                 ],
                             },
@@ -1451,9 +1561,43 @@ async function seedOrdersReviewsAndFulfillment(
     });
 
     if (existingKofiOrders === 0) {
+        const ghPulseQty = 1;
+        const ghPulsePrice = 950;
+        const ghSubtotal = ghPulsePrice * ghPulseQty;
+        const ghShippingFee = 40;
+
         await prisma.order.create({
             data: {
+                order_number: 'DK-SEED-GH-001',
                 customer_id: kofi.id,
+                market_id: ghMarket.id,
+                warehouse_id: accraWarehouse.id,
+                currency: 'GHS',
+                subtotal: ghSubtotal,
+                shipping_fee: ghShippingFee,
+                discount_amount: 0,
+                points_discount: 0,
+                coupon_discount: 0,
+                total_amount: ghSubtotal + ghShippingFee,
+                shipping_address: kofiAddress,
+                billing_address: kofiAddress,
+                order_items: {
+                    create: [
+                        {
+                            market_variant_id: ghPulse.id,
+                            quantity: ghPulseQty,
+                            price: ghPulsePrice,
+                            total: ghPulsePrice * ghPulseQty,
+                            product_name: 'Dukka Pulse Headphones',
+                            product_image:
+                                'https://cdn.dukka.local/variants/pulse-blk.jpg',
+                            product_specs: {
+                                color: 'Black',
+                                size: 'Standard',
+                            },
+                        },
+                    ],
+                },
                 order_inventories: {
                     create: [
                         {
@@ -1464,7 +1608,7 @@ async function seedOrdersReviewsAndFulfillment(
                                 create: [
                                     {
                                         market_variant_id: ghPulse.id,
-                                        quantity: 1,
+                                        quantity: ghPulseQty,
                                     },
                                 ],
                             },
@@ -1556,6 +1700,7 @@ async function main() {
     await seedShippingAddresses(customers, markets);
     await seedOrdersReviewsAndFulfillment(
         customers,
+        markets,
         warehouses,
         marketVariants,
     );
