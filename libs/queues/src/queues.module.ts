@@ -1,7 +1,13 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { MailQueueService } from './index.js';
-import { MAIL_JOB_OPTIONS, MAIL_QUEUE } from './queue.constants.js';
+import { GeneralQueueService } from './general/index.js';
+import { MailQueueService } from './mail/index.js';
+import {
+    GENERAL_JOB_OPTIONS,
+    GENERAL_QUEUE,
+    MAIL_JOB_OPTIONS,
+    MAIL_QUEUE,
+} from './queue.constants.js';
 import {
     ConfigurableModuleClass,
     type QueuesModuleAsyncOptions,
@@ -22,9 +28,11 @@ function toBullRootOptions(options: QueuesModuleOptions) {
     };
 }
 
+const queueProviders = [MailQueueService, GeneralQueueService];
+
 @Module({
-    providers: [MailQueueService],
-    exports: [MailQueueService, BullModule],
+    providers: queueProviders,
+    exports: [...queueProviders, BullModule],
 })
 export class QueuesModule extends ConfigurableModuleClass {
     static register(
@@ -37,15 +45,24 @@ export class QueuesModule extends ConfigurableModuleClass {
             imports: [
                 ...(dynamicModule.imports ?? []),
                 BullModule.forRoot(toBullRootOptions(options)),
-                BullModule.registerQueue({
-                    name: MAIL_QUEUE,
-                    defaultJobOptions: MAIL_JOB_OPTIONS,
-                }),
+                BullModule.registerQueue(
+                    {
+                        name: MAIL_QUEUE,
+                        defaultJobOptions: MAIL_JOB_OPTIONS,
+                    },
+                    {
+                        name: GENERAL_QUEUE,
+                        defaultJobOptions: GENERAL_JOB_OPTIONS,
+                    },
+                ),
             ],
-            providers: [...(dynamicModule.providers ?? []), MailQueueService],
+            providers: [
+                ...(dynamicModule.providers ?? []),
+                ...queueProviders,
+            ],
             exports: [
                 ...(dynamicModule.exports ?? []),
-                MailQueueService,
+                ...queueProviders,
                 BullModule,
             ],
         };
@@ -74,15 +91,24 @@ export class QueuesModule extends ConfigurableModuleClass {
                         return toBullRootOptions(moduleOptions);
                     },
                 }),
-                BullModule.registerQueue({
-                    name: MAIL_QUEUE,
-                    defaultJobOptions: MAIL_JOB_OPTIONS,
-                }),
+                BullModule.registerQueue(
+                    {
+                        name: MAIL_QUEUE,
+                        defaultJobOptions: MAIL_JOB_OPTIONS,
+                    },
+                    {
+                        name: GENERAL_QUEUE,
+                        defaultJobOptions: GENERAL_JOB_OPTIONS,
+                    },
+                ),
             ],
-            providers: [...(dynamicModule.providers ?? []), MailQueueService],
+            providers: [
+                ...(dynamicModule.providers ?? []),
+                ...queueProviders,
+            ],
             exports: [
                 ...(dynamicModule.exports ?? []),
-                MailQueueService,
+                ...queueProviders,
                 BullModule,
             ],
         };

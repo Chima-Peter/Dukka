@@ -1,13 +1,18 @@
 export {
+    GENERAL_JOB_OPTIONS,
+    GENERAL_JOBS,
+    GENERAL_QUEUE,
     MAIL_JOB_OPTIONS,
     MAIL_JOBS,
     MAIL_QUEUE,
     MAIL_TEMPLATES,
+    type GeneralJobName,
     type MailJobName,
     type MailTemplate,
 } from './queue.constants.js';
 export type { SendMailJobPayload } from './mail/index.js';
 export { MailQueueService } from './mail/index.js';
+export { GeneralQueueService } from './general/index.js';
 export {
     QUEUES_MODULE_OPTIONS,
     type QueuesModuleAsyncOptions,
