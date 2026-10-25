@@ -18,7 +18,40 @@ import {
     toProductDetail,
     toProductListItem,
 } from './mappers/product.mapper.js';
-import type { CreateProductRecord } from './types/product.type.js';
+import type {
+    CreateProductPendingUpdateData,
+    CreateProductRecord,
+    ProductImageRecord,
+} from './types/product.type.js';
+
+function parsePendingImages(
+    images: Prisma.JsonValue | null,
+): ProductImageRecord[] | null {
+    if (images === null) {
+        return null;
+    }
+    if (!Array.isArray(images)) {
+        return [];
+    }
+    return images.flatMap((image) => {
+        if (
+            typeof image !== 'object' ||
+            image === null ||
+            !('image_url' in image) ||
+            !('sort_order' in image) ||
+            typeof image.image_url !== 'string' ||
+            typeof image.sort_order !== 'number'
+        ) {
+            return [];
+        }
+        return [
+            {
+                image_url: image.image_url,
+                sort_order: image.sort_order,
+            },
+        ];
+    });
+}
 
 @Injectable()
 export class ProductRepository {
@@ -319,7 +352,10 @@ export class ProductRepository {
         });
     }
 
-    async createPendingUpdate(productId: string, data: UpdateProductDto) {
+    async createPendingUpdate(
+        productId: string,
+        data: CreateProductPendingUpdateData,
+    ) {
         return await this.prisma.productPendingUpdate.create({
             data: {
                 product: { connect: { id: productId } },
@@ -333,6 +369,9 @@ export class ProductRepository {
                 ...(data.market_category_id !== undefined && {
                     market_category_id: data.market_category_id,
                 }),
+                ...(data.images !== undefined && {
+                    images: data.images as unknown as Prisma.InputJsonValue,
+                }),
             },
             select: {
                 id: true,
@@ -345,7 +384,7 @@ export class ProductRepository {
     }
 
     async findPendingUpdatesByIds(pendingUpdateIds: string[]) {
-        return await this.prisma.productPendingUpdate.findMany({
+        const records = await this.prisma.productPendingUpdate.findMany({
             where: {
                 id: { in: pendingUpdateIds },
             },
@@ -356,9 +395,25 @@ export class ProductRepository {
                 description: true,
                 specs: true,
                 market_category_id: true,
+                images: true,
                 product_id: true,
+                product: {
+                    select: {
+                        images: {
+                            select: {
+                                image_url: true,
+                            },
+                        },
+                    },
+                },
             },
         });
+
+        return records.map(({ images, product, ...rest }) => ({
+            ...rest,
+            images: parsePendingImages(images),
+            current_image_urls: product.images.map((image) => image.image_url),
+        }));
     }
 
     async approvePendingUpdates(
@@ -369,9 +424,12 @@ export class ProductRepository {
             description: string | null;
             specs: Prisma.JsonValue | null;
             market_category_id: string | null;
+            images: ProductImageRecord[] | null;
         }>,
-    ): Promise<void> {
-        await this.prisma.$transaction(async (tx) => {
+    ): Promise<{ image_url: string }[]> {
+        return await this.prisma.$transaction(async (tx) => {
+            const removedImages: { image_url: string }[] = [];
+
             for (const update of pendingUpdates) {
                 const updateData: Prisma.ProductUpdateInput = {
                     ...(update.name !== null && { name: update.name }),
@@ -393,11 +451,22 @@ export class ProductRepository {
                     data: updateData,
                 });
 
+                if (update.images !== null) {
+                    const removed = await this.syncProductImagesInTx(
+                        tx,
+                        update.product_id,
+                        update.images,
+                    );
+                    removedImages.push(...removed);
+                }
+
                 await tx.productPendingUpdate.update({
                     where: { id: update.id },
                     data: { status: ProductPendingUpdateStatus.APPROVED },
                 });
             }
+
+            return removedImages;
         });
     }
 
@@ -411,7 +480,10 @@ export class ProductRepository {
         });
     }
 
-    async updatePendingUpdate(id: string, data: UpdateProductDto) {
+    async updatePendingUpdate(
+        id: string,
+        data: CreateProductPendingUpdateData,
+    ) {
         return await this.prisma.$transaction(async (tx) => {
             const existing = await tx.productPendingUpdate.findUnique({
                 where: { id },
@@ -419,6 +491,7 @@ export class ProductRepository {
                     id: true,
                     status: true,
                     product_id: true,
+                    images: true,
                 },
             });
             if (!existing) {
@@ -445,6 +518,11 @@ export class ProductRepository {
                 }
             }
 
+            const previousImages = parsePendingImages(existing.images);
+            const liveImages = await tx.productImage.findMany({
+                where: { product_id: existing.product_id },
+                select: { image_url: true },
+            });
             const pendingUpdate = await tx.productPendingUpdate.update({
                 where: { id },
                 data: {
@@ -458,6 +536,9 @@ export class ProductRepository {
                     ...(data.market_category_id !== undefined && {
                         market_category_id: data.market_category_id,
                     }),
+                    ...(data.images !== undefined && {
+                        images: data.images as unknown as Prisma.InputJsonValue,
+                    }),
                     status: ProductPendingUpdateStatus.PENDING,
                 },
                 select: {
@@ -467,13 +548,21 @@ export class ProductRepository {
                     description: true,
                     specs: true,
                     market_category_id: true,
+                    images: true,
                     product_id: true,
                     created_at: true,
                     updated_at: true,
                 },
             });
 
-            return { pendingUpdate };
+            return {
+                previousImages,
+                currentImageUrls: liveImages.map((image) => image.image_url),
+                pendingUpdate: {
+                    ...pendingUpdate,
+                    images: parsePendingImages(pendingUpdate.images),
+                },
+            };
         });
     }
 
@@ -487,6 +576,7 @@ export class ProductRepository {
                 description: true,
                 specs: true,
                 market_category_id: true,
+                images: true,
                 product_id: true,
                 created_at: true,
                 updated_at: true,
@@ -498,6 +588,13 @@ export class ProductRepository {
                         specs: true,
                         status: true,
                         market_category_id: true,
+                        images: {
+                            select: {
+                                image_url: true,
+                                sort_order: true,
+                            },
+                            orderBy: { sort_order: 'asc' },
+                        },
                     },
                 },
             },
@@ -507,10 +604,11 @@ export class ProductRepository {
             return null;
         }
 
-        const { product, ...pending } = record;
+        const { product, images, ...pending } = record;
 
         return {
             ...pending,
+            images: parsePendingImages(images),
             current_product: product,
         };
     }
@@ -567,70 +665,78 @@ export class ProductRepository {
 
     async syncProductImages(
         productId: string,
-        desired: { image_url: string; sort_order: number }[],
+        desired: ProductImageRecord[],
     ) {
         return await this.prisma.$transaction(async (tx) => {
-            const product = await tx.product.findUnique({
-                where: { id: productId },
-                select: { id: true },
-            });
-            if (!product) {
-                throw new NotFoundException('Product not found');
-            }
+            return await this.syncProductImagesInTx(tx, productId, desired);
+        });
+    }
 
-            const existing = await tx.productImage.findMany({
-                where: { product_id: productId },
-                select: {
-                    id: true,
-                    image_url: true,
-                    sort_order: true,
+    private async syncProductImagesInTx(
+        tx: Prisma.TransactionClient,
+        productId: string,
+        desired: ProductImageRecord[],
+    ) {
+        const product = await tx.product.findUnique({
+            where: { id: productId },
+            select: { id: true },
+        });
+        if (!product) {
+            throw new NotFoundException('Product not found');
+        }
+
+        const existing = await tx.productImage.findMany({
+            where: { product_id: productId },
+            select: {
+                id: true,
+                image_url: true,
+                sort_order: true,
+            },
+        });
+
+        const desiredByUrl = new Map(
+            desired.map((image) => [image.image_url, image]),
+        );
+        const existingByUrl = new Map(
+            existing.map((image) => [image.image_url, image]),
+        );
+
+        const toDelete = existing.filter(
+            (image) => !desiredByUrl.has(image.image_url),
+        );
+        if (toDelete.length > 0) {
+            await tx.productImage.deleteMany({
+                where: {
+                    id: { in: toDelete.map((image) => image.id) },
                 },
             });
+        }
 
-            const desiredByUrl = new Map(
-                desired.map((image) => [image.image_url, image]),
-            );
-            const existingByUrl = new Map(
-                existing.map((image) => [image.image_url, image]),
-            );
+        await Promise.all(
+            desired.map((image) => {
+                const current = existingByUrl.get(image.image_url);
+                if (!current) {
+                    return tx.productImage.create({
+                        data: {
+                            product: { connect: { id: productId } },
+                            image_url: image.image_url,
+                            sort_order: image.sort_order,
+                        },
+                    });
+                }
 
-            const toDelete = existing.filter(
-                (image) => !desiredByUrl.has(image.image_url),
-            );
-            if (toDelete.length > 0) {
-                await tx.productImage.deleteMany({
-                    where: {
-                        id: { in: toDelete.map((image) => image.id) },
-                    },
-                });
-            }
+                if (current.sort_order !== image.sort_order) {
+                    return tx.productImage.update({
+                        where: { id: current.id },
+                        data: { sort_order: image.sort_order },
+                    });
+                }
 
-            await Promise.all(
-                desired.map((image) => {
-                    const current = existingByUrl.get(image.image_url);
-                    if (!current) {
-                        return tx.productImage.create({
-                            data: {
-                                product: { connect: { id: productId } },
-                                image_url: image.image_url,
-                                sort_order: image.sort_order,
-                            },
-                        });
-                    }
+                return undefined;
+            }),
+        );
 
-                    if (current.sort_order !== image.sort_order) {
-                        return tx.productImage.update({
-                            where: { id: current.id },
-                            data: { sort_order: image.sort_order },
-                        });
-                    }
-
-                    return undefined;
-                }),
-            );
-
-            return toDelete;
-        });
+        return toDelete;
     }
 
     async updateStatus(id: string, status: ProductStatus): Promise<Product> {

@@ -1,12 +1,14 @@
+export type ProductImageRecord = {
+    image_url: string;
+    sort_order: number;
+};
+
 export type CreateProductRecord = {
     name: string;
     description: string;
     specs: Record<string, unknown>;
     market_category_id: string;
-    images: {
-        image_url: string;
-        sort_order: number;
-    }[];
+    images: ProductImageRecord[];
     variants: {
         variant_code: string;
         color?: string;
@@ -14,4 +16,12 @@ export type CreateProductRecord = {
         variant_info: Record<string, unknown>;
         image_url?: string;
     }[];
+};
+
+export type CreateProductPendingUpdateData = {
+    name?: string;
+    description?: string;
+    specs?: Record<string, unknown>;
+    market_category_id?: string;
+    images?: ProductImageRecord[];
 };

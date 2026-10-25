@@ -9,6 +9,7 @@ CREATE TABLE "ProductPendingUpdate" (
     "description" TEXT,
     "specs" JSONB,
     "market_category_id" TEXT,
+    "images" JSONB,
     "product_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,

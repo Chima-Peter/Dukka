@@ -114,6 +114,16 @@ export class ProductController {
         return this.productService.updatePendingUpdate(id, data);
     }
 
+    @Patch('product-pending-updates/:id/images')
+    @RequirePermission(StaffPermission.ProductsUpdate)
+    @ResponseMessage('Product pending update images updated successfully')
+    updatePendingUpdateImages(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: UpdateProductImagesDto,
+    ) {
+        return this.productService.updatePendingUpdateImages(id, data);
+    }
+
     @Get(':id')
     @Public()
     @OptionalCustomerAuth()
@@ -140,7 +150,7 @@ export class ProductController {
 
     @Patch(':id/images')
     @RequirePermission(StaffPermission.ProductsUpdate)
-    @ResponseMessage('Product images updated successfully')
+    @ResponseMessage('Product image update proposed successfully')
     updateImages(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateProductImagesDto,

@@ -493,6 +493,7 @@ model ProductPendingUpdate {
   description        String?
   specs              Json?
   market_category_id String?
+  images             Json?
 
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)

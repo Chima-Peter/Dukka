@@ -305,6 +305,59 @@ export class ProductService {
         }
     }
 
+    async updatePendingUpdateImages(
+        id: string,
+        data: UpdateProductImagesDto,
+    ) {
+        try {
+            this.logger.log(`Updating images on product pending update ${id}`);
+
+            const desired = await this.resolveProductImages(data.images);
+            const desiredUrls = new Set(desired.map((image) => image.image_url));
+            if (desiredUrls.size !== desired.length) {
+                throw new BadRequestException(
+                    'Duplicate image URLs are not allowed',
+                );
+            }
+
+            const result = await this.productRepository.updatePendingUpdate(
+                id,
+                { images: desired },
+            );
+
+            if ('error' in result) {
+                if (result.error === 'NOT_FOUND') {
+                    throw new NotFoundException('Pending update not found');
+                }
+                if (result.error === 'INVALID_STATUS') {
+                    throw new BadRequestException(
+                        'Only pending or rejected updates can be edited',
+                    );
+                }
+                throw new ConflictException(
+                    'Product already has a pending update',
+                );
+            }
+
+            const { previousImages, currentImageUrls, pendingUpdate } = result;
+            const nextUrls = new Set(desired.map((image) => image.image_url));
+            const liveUrls = new Set(currentImageUrls);
+            const orphaned = (previousImages ?? [])
+                .map((image) => image.image_url)
+                .filter(
+                    (url) => !nextUrls.has(url) && !liveUrls.has(url),
+                );
+            await this.safeDeleteProductImages(orphaned);
+
+            this.logger.log(
+                `Product pending update ${id} images updated`,
+            );
+            return pendingUpdate;
+        } catch (error) {
+            this.handleError(error, 'Pending update not found');
+        }
+    }
+
     async approvePendingUpdates(pendingUpdateIds: string[]): Promise<void> {
         try {
             this.logger.log(
@@ -330,7 +383,13 @@ export class ProductService {
                 );
             }
 
-            await this.productRepository.approvePendingUpdates(pendingUpdates);
+            const removedImages =
+                await this.productRepository.approvePendingUpdates(
+                    pendingUpdates,
+                );
+            await this.safeDeleteProductImages(
+                removedImages.map((image) => image.image_url),
+            );
             this.logger.log(
                 `Approved ${pendingUpdateIds.length} product pending update(s)`,
             );
@@ -365,6 +424,15 @@ export class ProductService {
             }
 
             await this.productRepository.rejectPendingUpdates(pendingUpdateIds);
+
+            const proposedOnlyUrls = pendingUpdates.flatMap((update) => {
+                const liveUrls = new Set(update.current_image_urls);
+                return (update.images ?? [])
+                    .map((image) => image.image_url)
+                    .filter((url) => !liveUrls.has(url));
+            });
+            await this.safeDeleteProductImages(proposedOnlyUrls);
+
             this.logger.log(
                 `Rejected ${pendingUpdateIds.length} product pending update(s)`,
             );
@@ -375,26 +443,36 @@ export class ProductService {
 
     async updateImages(productId: string, data: UpdateProductImagesDto) {
         try {
-            this.logger.log(`Updating images for product ${productId}`);
+            this.logger.log(
+                `Proposing image update for product ${productId}`,
+            );
 
             const desired = await this.resolveProductImages(data.images);
             const desiredUrls = new Set(desired.map((image) => image.image_url));
             if (desiredUrls.size !== desired.length) {
-                throw new BadRequestException('Duplicate image URLs are not allowed');
-            }
-
-            const removed = await this.productRepository.syncProductImages(
-                productId,
-                desired,
-            );
-
-            if (removed.length > 0) {
-                await this.safeDeleteProductImages(
-                    removed.map((image) => image.image_url),
+                throw new BadRequestException(
+                    'Duplicate image URLs are not allowed',
                 );
             }
 
-            this.logger.log(`Product images updated for ${productId}`);
+            const pending =
+                await this.productRepository.findPendingUpdateForProduct(
+                    productId,
+                );
+            if (pending) {
+                throw new ConflictException(
+                    'Product already has a pending update',
+                );
+            }
+
+            const proposal = await this.productRepository.createPendingUpdate(
+                productId,
+                { images: desired },
+            );
+            this.logger.log(
+                `Pending update ${proposal.id} created for product ${productId} images`,
+            );
+            return proposal;
         } catch (error) {
             this.handleError(error);
         }
@@ -431,9 +509,6 @@ export class ProductService {
         );
     }
 
-    private async safeDeleteProductImage(publicUrl: string): Promise<void> {
-        await this.safeDeleteProductImages([publicUrl]);
-    }
 
     private async safeDeleteProductImages(publicUrls: string[]): Promise<void> {
         const storagePaths = publicUrls

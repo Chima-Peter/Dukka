@@ -61,6 +61,7 @@ describe('ProductController', () => {
                         findPendingUpdatesForStaff: vi.fn(),
                         findPendingUpdateById: vi.fn(),
                         updatePendingUpdate: vi.fn(),
+                        updatePendingUpdateImages: vi.fn(),
                         approvePendingUpdates: vi.fn(),
                         rejectPendingUpdates: vi.fn(),
                     },
