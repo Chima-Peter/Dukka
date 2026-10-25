@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RedisModule, SupabaseModule } from '@app/common';
+import { PrismaModule, RedisModule, SupabaseModule } from '@app/common';
 import { QueuesModule } from '@app/queues';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
@@ -9,6 +9,15 @@ import { GeneralModule } from './general/general.module.js';
 @Module({
     imports: [
         ConfigModule,
+        PrismaModule.registerAsync({
+            isGlobal: true,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                databaseUrl: configService.getOrThrow('DATABASE_URL', {
+                    infer: true,
+                }),
+            }),
+        }),
         RedisModule.registerAsync({
             isGlobal: true,
             inject: [ConfigService],
