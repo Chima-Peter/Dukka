@@ -8,7 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { ShippingAddress } from '../../generated/prisma/client.js';
+import type { ShippingAddress } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';

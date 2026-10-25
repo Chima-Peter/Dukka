@@ -9,7 +9,7 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { OrderStatus } from '../../../generated/prisma/client.js';
+import { OrderStatus } from '@app/common';
 
 export class FindStaffOrdersDto {
     @IsUUID()

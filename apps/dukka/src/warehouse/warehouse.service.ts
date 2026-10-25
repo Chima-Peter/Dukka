@@ -12,7 +12,7 @@ import {
     ServiceCountryStatus,
     MarketStatus,
     WarehouseStatus,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { ServiceCountryService } from '../service/service-country.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {

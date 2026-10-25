@@ -1,4 +1,4 @@
-import type { Warehouse } from '../../../generated/prisma/client.js';
+import type { Warehouse } from '@app/common';
 
 export type WarehouseCountrySummary = {
     id: string;

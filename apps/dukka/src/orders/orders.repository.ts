@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Order } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { Prisma, type Order, PrismaService } from '@app/common';
 import type { FindOrdersDto } from './dto/find-orders.dto.js';
 import type { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
 import {

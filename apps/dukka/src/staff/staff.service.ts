@@ -18,13 +18,11 @@ import {
     MAX_QUALIFICATION_BYTES,
     QUALIFICATIONS_BUCKET,
     SupabaseService,
+    type Qualification,
+    type Staff,
+    type StaffProfile,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import type {
-    Qualification,
-    Staff,
-    StaffProfile,
-} from '../../generated/prisma/client.js';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';

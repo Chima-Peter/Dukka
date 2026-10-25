@@ -23,6 +23,7 @@ import {
     RedisService,
     type CustomerJwtPayload,
     type JwtPayload,
+    TokenType,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
@@ -33,7 +34,6 @@ import {
     ACCESS_TOKEN_TTL_SECONDS,
     REFRESH_TOKEN_TTL_SECONDS,
 } from '../shared/redis.constants.js';
-import { TokenType } from '../../generated/prisma/client.js';
 import { CartRepository } from '../cart/cart.repository.js';
 import { TokenRepository } from './token.repository.js';
 

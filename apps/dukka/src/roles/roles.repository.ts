@@ -6,8 +6,8 @@ import {
     type Role,
     type RoleMarket,
     type RolePermission,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import {
     assertActorBelongsToMarkets,
     assertActorHasPermissions,

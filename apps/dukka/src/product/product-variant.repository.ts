@@ -4,8 +4,8 @@ import {
     ProductStatus,
     VariantPendingUpdateStatus,
     VariantStatus,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
 

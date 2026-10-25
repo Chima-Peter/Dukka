@@ -7,7 +7,7 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { POINT_STATUS } from '../../../generated/prisma/client.js';
+import { POINT_STATUS } from '@app/common';
 
 export class FindPointsHistoryDto {
     @IsOptional()

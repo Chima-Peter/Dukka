@@ -17,6 +17,10 @@
     "start:mail_worker": "nest start mail_worker",
     "start:mail_worker:dev": "nest start mail_worker --watch",
     "start:mail_worker:prod": "node dist/apps/mail_worker/main",
+    "start:general_worker": "nest start general_worker",
+    "start:general_worker:dev": "nest start general_worker --watch",
+    "start:general_worker:prod": "node dist/apps/general_worker/main",
+
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
     "test:watch": "vitest",

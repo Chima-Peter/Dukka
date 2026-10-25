@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ShippingAddress } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { type ShippingAddress, PrismaService } from '@app/common';
 import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
 import type { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
 

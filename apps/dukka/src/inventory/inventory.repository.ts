@@ -7,8 +7,8 @@ import {
     OrderInventoryStatus,
     Prisma,
     WarehouseStatus,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import {
     inventoryRowSelect,

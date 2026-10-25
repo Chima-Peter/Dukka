@@ -7,7 +7,7 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { StaffInvitationStatus } from '../../../generated/prisma/client.js';
+import { StaffInvitationStatus } from '@app/common';
 
 export class FindStaffInvitationsDto {
     @IsOptional()

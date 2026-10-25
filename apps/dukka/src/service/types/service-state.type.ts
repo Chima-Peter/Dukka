@@ -1,4 +1,4 @@
-import type { ServiceStateStatus } from '../../../generated/prisma/client.js';
+import type { ServiceStateStatus } from '@app/common';
 
 export type ServiceStateItem = {
     id: string;

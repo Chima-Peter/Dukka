@@ -7,7 +7,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { Currency } from '../../generated/prisma/client.js';
+import type { Currency } from '@app/common';
 import { CurrenciesRepository } from './currencies.repository.js';
 import type { CreateCurrencyDto } from './dto/create-currency.dto.js';
 import type { UpdateCurrencyDto } from './dto/update-currency.dto.js';

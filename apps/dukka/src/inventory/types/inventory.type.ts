@@ -1,7 +1,7 @@
 import type {
     OrderInventoryStatus,
     Prisma,
-} from '../../../generated/prisma/client.js';
+} from '@app/common';
 
 export type CreateInventoryRecord = {
     market_variant_id: string;

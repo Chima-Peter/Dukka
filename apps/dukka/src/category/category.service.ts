@@ -7,7 +7,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { Category } from '../../generated/prisma/client.js';
+import type { Category } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {

@@ -1,7 +1,7 @@
 import {
     VariantStatus,
     type Prisma,
-} from '../../../generated/prisma/client.js';
+} from '@app/common';
 
 export function productListSummarySelect(
     marketId?: string,

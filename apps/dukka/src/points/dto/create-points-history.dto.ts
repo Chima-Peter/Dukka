@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, Min } from 'class-validator';
-import { POINT_REASON } from '../../../generated/prisma/client.js';
+import { POINT_REASON } from '@app/common';
 
 export class CreatePointsHistoryDto {
     @IsEnum(POINT_REASON)

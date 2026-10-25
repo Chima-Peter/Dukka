@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Category } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { type Category, PrismaService } from '@app/common';
 import type { FindCategoriesDto } from './dto/find-categories.dto.js';
 import type { MarketCategoryItem } from './types/market-category.type.js';
 

@@ -14,7 +14,7 @@ import {
     TokenType,
     WarehouseStatus,
 } from '../generated/prisma/client.js';
-import { STAFF_ACCOUNT_PERMISSIONS } from '../../../libs/common/src/permissions/staff-permissions.js';
+import { STAFF_ACCOUNT_PERMISSIONS } from '../src/permissions/staff-permissions.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {

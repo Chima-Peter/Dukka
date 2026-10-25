@@ -8,7 +8,7 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { ProductPendingUpdateStatus } from '../../../generated/prisma/client.js';
+import { ProductPendingUpdateStatus } from '@app/common';
 
 export class FindProductPendingUpdatesDto {
     @IsOptional()

@@ -6,6 +6,7 @@ import { HttpClientModule } from '@nestjs/http-client';
 import {
     AllExceptionsFilter,
     CustomerJwtAuthGuard,
+    PrismaModule,
     RedisModule,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
@@ -16,7 +17,6 @@ import { QueuesModule } from '@app/queues';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { CustomerModule } from './customer/customer.module.js';
-import { PrismaModule } from './prisma/prisma.module.js';
 import { ShippingAddressModule } from './shipping_address/shipping_address.module.js';
 import { AppController } from './app.controller.js';
 import { PointsModule } from './points/points.module.js';
@@ -34,7 +34,7 @@ import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { OrdersModule } from './orders/orders.module.js';
-import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationsModule } from './notifications/notifications.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -42,7 +42,15 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     controllers: [AppController],
     imports: [
         ConfigModule,
-        PrismaModule,
+        PrismaModule.registerAsync({
+            isGlobal: true,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<ConfigType, true>) => ({
+                databaseUrl: configService.getOrThrow('DATABASE_URL', {
+                    infer: true,
+                }),
+            }),
+        }),
         CustomerModule,
         ShippingAddressModule,
         CartModule,

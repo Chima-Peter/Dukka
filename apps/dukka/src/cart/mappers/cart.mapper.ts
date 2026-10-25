@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@app/common';
 import type { CartItemView, CartView } from '../types/cart.type.js';
 
 export const cartItemSelect = {

@@ -6,7 +6,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@app/common';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,

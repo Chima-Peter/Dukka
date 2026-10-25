@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@app/common';
 import type {
     InventoryItem,
     OrderInventoryItem,

@@ -7,7 +7,7 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { ServiceStateStatus } from '../../../generated/prisma/client.js';
+import { ServiceStateStatus } from '@app/common';
 
 export class FindStaffServiceStatesDto {
     @IsUUID()

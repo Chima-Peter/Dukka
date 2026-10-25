@@ -16,7 +16,13 @@ import {
     MarketStatus,
     TokenType,
     type Customer,
-} from '../../generated/prisma/client.js';
+    ALLOWED_AVATAR_CONTENT_TYPES,
+    AVATAR_BUCKET,
+    MAX_AVATAR_BYTES,
+    RedisService,
+    SupabaseService,
+    type JwtPayload,
+} from '@app/common';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
@@ -27,14 +33,6 @@ import {
 } from '../shared/index.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
-import {
-    ALLOWED_AVATAR_CONTENT_TYPES,
-    AVATAR_BUCKET,
-    MAX_AVATAR_BYTES,
-    RedisService,
-    SupabaseService,
-    type JwtPayload,
-} from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import { TokenRepository } from './token.repository.js';
 import { ServiceCountryService } from '../service/service-country.service.js';

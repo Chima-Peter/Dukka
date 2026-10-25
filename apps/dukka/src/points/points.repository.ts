@@ -3,8 +3,8 @@ import {
     POINT_STATUS,
     type Points,
     type PointsHistory,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import type { CreatePointsHistoryDto } from './dto/create-points-history.dto.js';
 import type { FindPointsHistoryDto } from './dto/find-points-history.dto.js';
 

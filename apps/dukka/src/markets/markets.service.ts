@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import { MarketStatus } from '../../generated/prisma/client.js';
+import { MarketStatus } from '@app/common';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';

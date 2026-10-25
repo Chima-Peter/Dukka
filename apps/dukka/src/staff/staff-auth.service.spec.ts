@@ -1,7 +1,7 @@
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TokenType } from '../../generated/prisma/client.js';
+import { TokenType } from '@app/common';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffAuthService } from './staff-auth.service.js';

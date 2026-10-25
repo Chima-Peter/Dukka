@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-    MarketStatus,
-    type Market,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { MarketStatus, type Market, PrismaService } from '@app/common';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 

@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { MarketStatus } from '../../generated/prisma/client.js';
+import { MarketStatus } from '@app/common';
 
 export function assertMarketsActive(
     markets: { id: string; status: MarketStatus }[],

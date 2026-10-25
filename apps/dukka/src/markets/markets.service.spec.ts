@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketStatus } from '../../generated/prisma/client.js';
+import { MarketStatus } from '@app/common';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
 

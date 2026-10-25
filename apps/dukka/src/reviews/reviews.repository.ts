@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { PrismaService } from '@app/common';
 import type { FindReviewsDto } from './dto/find-reviews.dto.js';
 import type { ReviewItem } from './types/review.type.js';
 

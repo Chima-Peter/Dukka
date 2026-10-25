@@ -4,8 +4,8 @@ import {
     WarehouseStatus,
     type ServiceState,
     type WarehouseServiceState,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import type { FindServiceStatesDto } from './dto/find-service-states.dto.js';
 import type {
     ServiceStateItem,

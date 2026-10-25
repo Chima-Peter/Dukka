@@ -1,5 +1,5 @@
 import { IsEnum, IsIn } from 'class-validator';
-import { OrderInventoryStatus } from '../../../generated/prisma/client.js';
+import { OrderInventoryStatus } from '@app/common';
 
 const TERMINAL_STATUSES = [
     OrderInventoryStatus.SUCCESS,

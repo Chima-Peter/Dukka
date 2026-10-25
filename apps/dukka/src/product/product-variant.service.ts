@@ -8,14 +8,15 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
 import {
+    PRODUCT_BUCKET,
+    SupabaseService,
     MarketStatus,
     Prisma,
     ProductStatus,
     VariantPendingUpdateStatus,
     VariantStatus,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';

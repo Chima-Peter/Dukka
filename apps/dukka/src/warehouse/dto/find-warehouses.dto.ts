@@ -10,7 +10,7 @@ import {
     Min,
     MinLength,
 } from 'class-validator';
-import { WarehouseStatus } from '../../../generated/prisma/client.js';
+import { WarehouseStatus } from '@app/common';
 
 export class FindWarehousesDto {
     @IsOptional()

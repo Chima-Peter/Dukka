@@ -41,6 +41,16 @@
         "watchAssets": true
       }
     },
+    "general_worker": {
+      "type": "application",
+      "root": "apps/general_worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/general_worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/general_worker/tsconfig.app.json"
+      }
+    },
+
     "queues": {
       "type": "library",
       "root": "libs/queues",

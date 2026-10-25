@@ -15,9 +15,9 @@ import {
     STAFF_JWT_SERVICE,
     type JwtPayload,
     type StaffJwtPayload,
+    TokenType,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import { TokenType } from '../../generated/prisma/client.js';
 import {
     PasswordHasher,
     PASSWORD_RESET_TOKEN_TTL_SECONDS,

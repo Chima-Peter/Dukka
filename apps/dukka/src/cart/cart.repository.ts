@@ -4,8 +4,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { Prisma, PrismaService } from '@app/common';
 import { ProductVariantService } from '../product/product-variant.service.js';
 import { cartSelect, toCartView } from './mappers/cart.mapper.js';
 import type { CartView } from './types/cart.type.js';

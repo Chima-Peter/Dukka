@@ -6,7 +6,7 @@ import {
     MaxLength,
     MinLength,
 } from 'class-validator';
-import { Gender } from '../../../generated/prisma/client.js';
+import { Gender } from '@app/common';
 
 export class UpdateStaffProfileDto {
     @IsOptional()

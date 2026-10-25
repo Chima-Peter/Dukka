@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Currency } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { type Currency, PrismaService } from '@app/common';
 import type { CreateCurrencyDto } from './dto/create-currency.dto.js';
 import type { UpdateCurrencyDto } from './dto/update-currency.dto.js';
 

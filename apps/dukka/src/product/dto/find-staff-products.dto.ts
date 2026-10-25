@@ -15,7 +15,7 @@ import {
 import {
     ProductStatus,
     VariantStatus,
-} from '../../../generated/prisma/client.js';
+} from '@app/common';
 
 export class FindStaffProductsDto {
     @IsOptional()

@@ -9,12 +9,13 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { PRODUCT_BUCKET, SupabaseService } from '@app/common';
 import {
+    PRODUCT_BUCKET,
+    SupabaseService,
     ProductPendingUpdateStatus,
     ProductStatus,
     type Product,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
 import {

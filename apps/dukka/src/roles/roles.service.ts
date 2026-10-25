@@ -14,7 +14,7 @@ import type {
     Role,
     RoleMarket,
     RolePermission,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type { AssignMarketDto } from './dto/assign-market.dto.js';
 import type { AssignPermissionDto } from './dto/assign-permission.dto.js';

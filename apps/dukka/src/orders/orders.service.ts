@@ -10,7 +10,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     OrderStatus,
     type Order,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,

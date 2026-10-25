@@ -12,8 +12,8 @@ import {
     type StaffAudit,
     type StaffMarket,
     type StaffProfile,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+    PrismaService,
+} from '@app/common';
 import {
     assertActorBelongsToMarkets,
     assertCanManageHierarchies,

@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional } from 'class-validator';
-import { ServiceCountryStatus } from '../../../generated/prisma/client.js';
+import { ServiceCountryStatus } from '@app/common';
 
 export class FindStaffServiceCountriesDto {
     @IsOptional()

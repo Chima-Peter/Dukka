@@ -4,8 +4,7 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import { RedisService } from '@app/common';
-import type { Permission } from '../../generated/prisma/client.js';
+import { RedisService, type Permission } from '@app/common';
 import { RedisKeys, STAFF_PERMISSIONS_TTL_SECONDS } from '../shared/index.js';
 import { PermissionsRepository } from './permissions.repository.js';
 

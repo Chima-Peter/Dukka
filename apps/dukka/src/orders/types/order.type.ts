@@ -1,4 +1,4 @@
-import type { OrderStatus, Prisma } from '../../../generated/prisma/client.js';
+import type { OrderStatus, Prisma } from '@app/common';
 import type {
     customerOrderDetailSelect,
     staffOrderDetailSelect,

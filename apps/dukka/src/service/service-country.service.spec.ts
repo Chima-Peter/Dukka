@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     ServiceCountryStatus,
     MarketStatus,
-} from '../../generated/prisma/client.js';
+} from '@app/common';
 import { ServiceCountryRepository } from './service-country.repository.js';
 import { ServiceCountryService } from './service-country.service.js';
 

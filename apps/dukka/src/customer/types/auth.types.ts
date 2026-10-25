@@ -1,4 +1,4 @@
-import type { Customer } from '../../../generated/prisma/client.js';
+import type { Customer } from '@app/common';
 
 export type PublicCustomer = Omit<
     Customer,

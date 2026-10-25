@@ -2,7 +2,7 @@ import type {
     ServiceCountry,
     ServiceCountryStatus,
     MarketStatus,
-} from '../../../generated/prisma/client.js';
+} from '@app/common';
 
 export type ServiceCountryMarketSummary = {
     id: string;

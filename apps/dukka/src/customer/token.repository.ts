@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Token, TokenType } from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { type Token, type TokenType, PrismaService } from '@app/common';
 
 export type CreateTokenInput = {
     token: string;

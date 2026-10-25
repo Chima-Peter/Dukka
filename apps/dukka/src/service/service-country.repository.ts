@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-    ServiceCountryStatus,
-    type ServiceCountry,
-} from '../../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { ServiceCountryStatus, type ServiceCountry, PrismaService } from '@app/common';
 import type { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
 import type { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 import {
