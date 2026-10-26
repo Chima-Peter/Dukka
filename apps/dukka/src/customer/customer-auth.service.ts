@@ -122,6 +122,7 @@ export class CustomerAuthService {
 
             return { ...tokens, customer: publicCustomer };
         } catch (error) {
+            this.logger.error(`Internal server error: ${error}`);
             if (error instanceof HttpException) {
                 this.logger.warn(`HTTP exception: ${error.message}`);
                 throw error;
@@ -134,7 +135,6 @@ export class CustomerAuthService {
                 throw new NotFoundException('Customer not found');
             }
 
-            this.logger.error(`Internal server error: ${error}`);
             throw new InternalServerErrorException(
                 'An unexpected error occurred. Try again later.',
             );

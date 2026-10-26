@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -29,6 +30,32 @@ export class CartService {
     private readonly logger = new Logger(CartService.name);
 
     constructor(private readonly cartRepository: CartRepository) {}
+
+    async getForCustomer(cartId: string): Promise<CartView> {
+        try {
+            this.logger.log(`Fetching cart ${cartId}`);
+            return await this.cartRepository.findByCartId(cartId);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async getForGuest(cartId: string): Promise<CartView> {
+        try {
+            this.logger.log(`Fetching guest cart ${cartId}`);
+            const cart = await this.cartRepository.findByCartId(cartId);
+
+            if (cart.customer_id !== null) {
+                throw new BadRequestException(
+                    'Cannot access a customer cart as a guest',
+                );
+            }
+
+            return cart;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
 
     async getTotalForCustomer(cartId: string): Promise<CartTotalView> {
         try {

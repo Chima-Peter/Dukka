@@ -28,6 +28,20 @@ import { UpdateGuestCartItemQuantityDto } from './dto/update-guest-cart-item-qua
 export class CartController {
     constructor(private readonly cartService: CartService) {}
 
+    @Get()
+    @Auth('customer')
+    @ResponseMessage('Cart retrieved successfully')
+    get(@CurrentCustomer('cart_id') cartId: string) {
+        return this.cartService.getForCustomer(cartId);
+    }
+
+    @Get('guest/:id')
+    @Public()
+    @ResponseMessage('Cart retrieved successfully')
+    getGuest(@Param('id', ParseUUIDPipe) id: string) {
+        return this.cartService.getForGuest(id);
+    }
+
     @Get('total')
     @Auth('customer')
     @ResponseMessage('Cart total calculated successfully')
