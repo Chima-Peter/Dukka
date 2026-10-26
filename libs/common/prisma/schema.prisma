@@ -935,6 +935,7 @@ model Notification {
   type  NotificationType
   text  String
   has_read Boolean @default(false)
+  stream_id String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -951,5 +952,7 @@ model Notification {
   @@index([type])
   @@index([has_read])
   @@index([created_at])
+  @@index([customer_id, stream_id])
+  @@index([staff_id, stream_id])
 }
 

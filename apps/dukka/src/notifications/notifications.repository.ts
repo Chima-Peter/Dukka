@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
     PrismaService,
     type Notification,
+    type NotificationType,
     type Prisma,
 } from '@app/common';
 import type { FindNotificationsDto } from './dto/find-notifications.dto.js';
@@ -14,6 +15,23 @@ export type NotificationsPage = {
 @Injectable()
 export class NotificationsRepository {
     constructor(private readonly prisma: PrismaService) {}
+
+    async create(data: {
+        title: string;
+        type: NotificationType;
+        text: string;
+        customer_id?: string;
+        staff_id?: string;
+    }): Promise<Notification> {
+        return this.prisma.notification.create({ data });
+    }
+
+    async setStreamId(id: string, stream_id: string): Promise<Notification> {
+        return this.prisma.notification.update({
+            where: { id },
+            data: { stream_id },
+        });
+    }
 
     async findForCustomer(
         customer_id: string,
@@ -41,6 +59,47 @@ export class NotificationsRepository {
         ids: string[],
     ): Promise<{ count: number }> {
         return this.markRead({ staff_id }, ids);
+    }
+
+    async findByStreamIdRangeForCustomer(
+        customer_id: string,
+        fromExclusive: string,
+        toInclusive: string,
+    ): Promise<Notification[]> {
+        return this.findByStreamIdRange(
+            { customer_id },
+            fromExclusive,
+            toInclusive,
+        );
+    }
+
+    async findByStreamIdRangeForStaff(
+        staff_id: string,
+        fromExclusive: string,
+        toInclusive: string,
+    ): Promise<Notification[]> {
+        return this.findByStreamIdRange(
+            { staff_id },
+            fromExclusive,
+            toInclusive,
+        );
+    }
+
+    private async findByStreamIdRange(
+        recipient: Prisma.NotificationWhereInput,
+        fromExclusive: string,
+        toInclusive: string,
+    ): Promise<Notification[]> {
+        return this.prisma.notification.findMany({
+            where: {
+                ...recipient,
+                stream_id: {
+                    gt: fromExclusive,
+                    lte: toInclusive,
+                },
+            },
+            orderBy: { stream_id: 'asc' },
+        });
     }
 
     private async findPage(

@@ -22,16 +22,25 @@ describe('NotificationsService', () => {
                 {
                     provide: NotificationsRepository,
                     useValue: {
+                        create: vi.fn(),
+                        setStreamId: vi.fn(),
                         findForCustomer: vi.fn(),
                         findForStaff: vi.fn(),
                         markReadForCustomer: vi.fn(),
                         markReadForStaff: vi.fn(),
+                        findByStreamIdRangeForCustomer: vi.fn(),
+                        findByStreamIdRangeForStaff: vi.fn(),
                     },
                 },
                 {
                     provide: RedisService,
                     useValue: {
                         startStream: vi.fn(),
+                        assertSseConnectionAllowed: vi.fn(),
+                        connectionStreamKey: vi.fn(
+                            (userId: string) => `connection:${userId}`,
+                        ),
+                        getStreamCursor: vi.fn(),
                         acquireStreamConnection: vi.fn(async () => ({
                             readerId: 'reader-1',
                             connectionId: 'conn-1',

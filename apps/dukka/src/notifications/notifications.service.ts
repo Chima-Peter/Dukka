@@ -6,14 +6,21 @@ import {
     Logger,
     type MessageEvent,
 } from '@nestjs/common';
-import { RedisService, type RedisStreamEntry } from '@app/common';
-import { Observable } from 'rxjs';
+import {
+    RedisService,
+    type Notification,
+    type NotificationType,
+    type RedisStreamEntry,
+    type StreamConnectionHandle,
+} from '@app/common';
+import { Observable, type Subscriber } from 'rxjs';
 import type { FindNotificationsDto } from './dto/find-notifications.dto.js';
 import type { MarkNotificationsReadDto } from './dto/mark-notifications-read.dto.js';
 import {
     NotificationsRepository,
     type NotificationsPage,
 } from './notifications.repository.js';
+import type { CreateNotificationInput } from './types/create-notification.type.js';
 
 @Injectable()
 export class NotificationsService {
@@ -24,34 +31,94 @@ export class NotificationsService {
         private readonly redisService: RedisService,
     ) {}
 
+    async notifyCustomer(
+        customerId: string,
+        input: CreateNotificationInput,
+    ): Promise<Notification> {
+        return this.createAndPublish({
+            ...input,
+            customer_id: customerId,
+        });
+    }
+
+    async notifyStaff(
+        staffId: string,
+        input: CreateNotificationInput,
+    ): Promise<Notification> {
+        return this.createAndPublish({
+            ...input,
+            staff_id: staffId,
+        });
+    }
+
+    private async createAndPublish(data: {
+        title: string;
+        type: NotificationType;
+        text: string;
+        customer_id?: string;
+        staff_id?: string;
+    }): Promise<Notification> {
+        try {
+            const recipientId = data.customer_id ?? data.staff_id;
+            if (!recipientId) {
+                throw new BadRequestException(
+                    'Notification requires a customer_id or staff_id',
+                );
+            }
+
+            const created = await this.notificationsRepository.create(data);
+            const payload = this.toNotificationData(created);
+            const streamId = await this.redisService.addToStream(
+                recipientId,
+                created.type,
+                payload,
+            );
+
+            return await this.notificationsRepository.setStreamId(
+                created.id,
+                streamId,
+            );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
 
     streamForCustomer(
         customerId: string,
         signal: AbortSignal,
+        lastEventId?: string,
     ): Observable<MessageEvent> {
-        return this.streamNotifications('customer', customerId, signal);
+        return this.streamNotifications(
+            'customer',
+            customerId,
+            signal,
+            lastEventId,
+        );
     }
 
     streamForStaff(
         staffId: string,
         signal: AbortSignal,
+        lastEventId?: string,
     ): Observable<MessageEvent> {
-        return this.streamNotifications('staff', staffId, signal);
+        return this.streamNotifications('staff', staffId, signal, lastEventId);
     }
 
     private streamNotifications(
         audience: 'customer' | 'staff',
         userId: string,
         signal: AbortSignal,
+        lastEventId?: string,
     ): Observable<MessageEvent> {
+        this.redisService.assertSseConnectionAllowed(userId);
+
         return new Observable<MessageEvent>((subscriber) => {
             this.logger.log(
                 `SSE notifications stream started for ${audience} ${userId}`,
             );
             let stopped = false;
-            let connection: Awaited<
-                ReturnType<RedisService['acquireStreamConnection']>
-            > | null = null;
+            let connection: StreamConnectionHandle | null = null;
+            const historicalStreamIds = new Set<string>();
 
             const onAbort = () => {
                 stopped = true;
@@ -61,61 +128,77 @@ export class NotificationsService {
             };
             signal.addEventListener('abort', onAbort, { once: true });
 
+            const isStopped = () =>
+                stopped || signal.aborted || subscriber.closed;
+
             const pump = async () => {
                 try {
-                    connection = await this.redisService.acquireStreamConnection(
-                        userId,
-                        signal,
+                    const recentId = await this.redisService.getStreamCursor(
+                        this.redisService.connectionStreamKey(userId),
                     );
+
+                    connection =
+                        await this.redisService.acquireStreamConnection(
+                            userId,
+                            signal,
+                        );
+
+                    this.logger.log(
+                        `SSE notifications stream attached to reader ${connection.readerId} for ${audience} ${userId}`,
+                    );
+                    await this.redisService.startStream(userId);
+
+                    const liveBuffer: RedisStreamEntry[] = [];
+                    let historicalDone = false;
+
+                    const livePump = this.bufferLiveEvents(
+                        connection,
+                        userId,
+                        liveBuffer,
+                        () => historicalDone,
+                        historicalStreamIds,
+                        subscriber,
+                        isStopped,
+                    );
+
+                    const cursor = lastEventId?.trim();
+                    if (cursor && recentId && !isStopped()) {
+                        await this.streamHistorical(
+                            audience,
+                            userId,
+                            cursor,
+                            recentId,
+                            historicalStreamIds,
+                            subscriber,
+                            isStopped,
+                        );
+                    }
+
+                    historicalDone = true;
+                    await this.emitLiveEntries(
+                        liveBuffer.splice(0),
+                        historicalStreamIds,
+                        subscriber,
+                        isStopped,
+                    );
+
+                    await livePump;
+
+                    if (!subscriber.closed) {
+                        subscriber.complete();
+                    }
                 } catch (error) {
-                    if (!stopped && !subscriber.closed) {
-                        subscriber.error(error);
+                    if (!isStopped()) {
+                        this.logger.error(
+                            `SSE notifications stream error for ${audience} ${userId}: ${error}`,
+                        );
+                        subscriber.error({
+                            type: 'error',
+                            message:
+                                'An unexpected error occurred. Try again later.',
+                            data: null,
+                        });
                     }
-                    return;
-                }
-
-                this.logger.log(
-                    `SSE notifications stream attached to reader ${connection.readerId} for ${audience} ${userId}`,
-                );
-                await this.redisService.startStream(userId);
-
-                while (!stopped && !signal.aborted && !subscriber.closed) {
-                    try {
-                        const entries = await connection.read(userId);
-                        if (stopped || subscriber.closed) {
-                            break;
-                        }
-
-                        if (entries.length === 0) {
-                            subscriber.next({
-                                type: 'ping',
-                                data: { ts: Date.now() },
-                            });
-                            continue;
-                        }
-
-                        for (const entry of entries) {
-                            subscriber.next(this.toMessageEvent(entry));
-                            setTimeout(() => {}, 200);
-                        }
-                    } catch (error) {
-                        if (!stopped && !signal.aborted && !subscriber.closed) {
-                            this.logger.error(
-                                `SSE notifications stream error for ${audience} ${userId}: ${error}`,
-                            );
-                            subscriber.error({
-                                type: 'error',
-                                message:
-                                    'An unexpected error occurred. Try again later.',
-                                data: null,
-                            });
-                        }
-                        return;
-                    }
-                }
-
-                if (!subscriber.closed) {
-                    subscriber.complete();
                 }
             };
 
@@ -132,11 +215,137 @@ export class NotificationsService {
         });
     }
 
+    private async bufferLiveEvents(
+        connection: StreamConnectionHandle,
+        userId: string,
+        liveBuffer: RedisStreamEntry[],
+        isHistoricalPending: () => boolean,
+        historicalStreamIds: Set<string>,
+        subscriber: Subscriber<MessageEvent>,
+        isStopped: () => boolean,
+    ): Promise<void> {
+        while (!isStopped()) {
+            try {
+                const entries = await connection.read(userId);
+                if (isStopped()) {
+                    return;
+                }
+
+                if (entries.length === 0) {
+                    if (!isHistoricalPending() && !subscriber.closed) {
+                        subscriber.next({
+                            type: 'ping',
+                            data: { ts: Date.now() },
+                        });
+                    }
+                    continue;
+                }
+
+                if (isHistoricalPending()) {
+                    for (const entry of entries) {
+                        if (!historicalStreamIds.has(entry.id)) {
+                            liveBuffer.push(entry);
+                        }
+                    }
+                } else {
+                    await this.emitLiveEntries(
+                        entries,
+                        historicalStreamIds,
+                        subscriber,
+                        isStopped,
+                    );
+                }
+            } catch (error) {
+                if (isStopped()) {
+                    return;
+                }
+                throw error;
+            }
+        }
+    }
+
+    private async emitLiveEntries(
+        entries: RedisStreamEntry[],
+        historicalStreamIds: Set<string>,
+        subscriber: Subscriber<MessageEvent>,
+        isStopped: () => boolean,
+    ): Promise<void> {
+        for (const entry of entries) {
+            if (isStopped() || historicalStreamIds.has(entry.id)) {
+                continue;
+            }
+            subscriber.next(this.toMessageEvent(entry));
+            await sleep(EVENT_DELAY_MS);
+        }
+    }
+
+    private async streamHistorical(
+        audience: 'customer' | 'staff',
+        userId: string,
+        fromExclusive: string,
+        toInclusive: string,
+        historicalStreamIds: Set<string>,
+        subscriber: Subscriber<MessageEvent>,
+        isStopped: () => boolean,
+    ): Promise<void> {
+        const notifications =
+            audience === 'customer'
+                ? await this.notificationsRepository.findByStreamIdRangeForCustomer(
+                      userId,
+                      fromExclusive,
+                      toInclusive,
+                  )
+                : await this.notificationsRepository.findByStreamIdRangeForStaff(
+                      userId,
+                      fromExclusive,
+                      toInclusive,
+                  );
+
+        this.logger.log(
+            `SSE historical catch-up for ${audience} ${userId}: ${notifications.length} events (${fromExclusive} → ${toInclusive})`,
+        );
+
+        for (const notification of notifications) {
+            if (isStopped()) {
+                return;
+            }
+
+            const streamId = notification.stream_id;
+            if (!streamId) {
+                continue;
+            }
+
+            subscriber.next(this.toHistoricalMessageEvent(notification));
+            historicalStreamIds.add(streamId);
+            await sleep(EVENT_DELAY_MS);
+        }
+    }
+
+    private toNotificationData(notification: Notification): object {
+        return {
+            id: notification.id,
+            title: notification.title,
+            type: notification.type,
+            text: notification.text,
+            has_read: notification.has_read,
+            created_at: notification.created_at,
+            read_at: notification.read_at,
+        };
+    }
+
     private toMessageEvent(entry: RedisStreamEntry): MessageEvent {
         return {
             id: entry.id,
             type: entry.fields.type ?? 'notification',
             data: JSON.parse(entry.fields.data) as object,
+        };
+    }
+
+    private toHistoricalMessageEvent(notification: Notification): MessageEvent {
+        return {
+            id: notification.stream_id!,
+            type: notification.type,
+            data: this.toNotificationData(notification),
         };
     }
 
@@ -180,12 +389,15 @@ export class NotificationsService {
             this.logger.log(
                 `Marking ${data.ids.length} notifications as read for customer ${customer_id}`,
             );
-            const result = await this.notificationsRepository.markReadForCustomer(
-                customer_id,
-                data.ids,
-            );
+            const result =
+                await this.notificationsRepository.markReadForCustomer(
+                    customer_id,
+                    data.ids,
+                );
             if (result.count === 0) {
-                throw new BadRequestException('No notifications found to update!');
+                throw new BadRequestException(
+                    'No notifications found to update!',
+                );
             }
             return result;
         } catch (error) {
@@ -206,7 +418,9 @@ export class NotificationsService {
                 data.ids,
             );
             if (result.count === 0) {
-                throw new BadRequestException('No notifications found to update!');
+                throw new BadRequestException(
+                    'No notifications found to update!',
+                );
             }
             return result;
         } catch (error) {
@@ -225,4 +439,10 @@ export class NotificationsService {
             'An unexpected error occurred. Try again later.',
         );
     }
+}
+
+const EVENT_DELAY_MS = 100;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
