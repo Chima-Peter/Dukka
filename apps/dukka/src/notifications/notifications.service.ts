@@ -6,11 +6,7 @@ import {
     Logger,
     type MessageEvent,
 } from '@nestjs/common';
-import {
-    RedisService,
-    STREAM_START_ID,
-    type RedisStreamEntry,
-} from '@app/common';
+import { RedisService, type RedisStreamEntry } from '@app/common';
 import { Observable } from 'rxjs';
 import type { FindNotificationsDto } from './dto/find-notifications.dto.js';
 import type { MarkNotificationsReadDto } from './dto/mark-notifications-read.dto.js';
@@ -31,33 +27,31 @@ export class NotificationsService {
 
     streamForCustomer(
         customerId: string,
-        lastEventId: string | undefined,
         signal: AbortSignal,
     ): Observable<MessageEvent> {
-        return this.streamNotifications('customer', customerId, lastEventId, signal);
+        return this.streamNotifications('customer', customerId, signal);
     }
 
     streamForStaff(
         staffId: string,
-        lastEventId: string | undefined,
         signal: AbortSignal,
     ): Observable<MessageEvent> {
-        return this.streamNotifications('staff', staffId, lastEventId, signal);
+        return this.streamNotifications('staff', staffId, signal);
     }
 
     private streamNotifications(
         audience: 'customer' | 'staff',
         userId: string,
-        lastEventId: string | undefined,
         signal: AbortSignal,
     ): Observable<MessageEvent> {
         return new Observable<MessageEvent>((subscriber) => {
-            this.logger.log(`SSE notifications stream started for ${audience} ${userId} (from ${lastEventId})`);
-            let lastId =
-                lastEventId?.trim() && lastEventId.trim().length > 0
-                    ? lastEventId.trim()
-                    : STREAM_START_ID;
+            this.logger.log(
+                `SSE notifications stream started for ${audience} ${userId}`,
+            );
             let stopped = false;
+            let connection: Awaited<
+                ReturnType<RedisService['acquireStreamConnection']>
+            > | null = null;
 
             const onAbort = () => {
                 stopped = true;
@@ -67,20 +61,27 @@ export class NotificationsService {
             };
             signal.addEventListener('abort', onAbort, { once: true });
 
-            const streamReader = this.redisService.openStreamReader(signal);
-
             const pump = async () => {
+                try {
+                    connection = await this.redisService.acquireStreamConnection(
+                        userId,
+                        signal,
+                    );
+                } catch (error) {
+                    if (!stopped && !subscriber.closed) {
+                        subscriber.error(error);
+                    }
+                    return;
+                }
+
                 this.logger.log(
-                    `SSE notifications stream started for ${audience} ${userId} (from ${lastId})`,
+                    `SSE notifications stream attached to reader ${connection.readerId} for ${audience} ${userId}`,
                 );
                 await this.redisService.startStream(userId);
 
                 while (!stopped && !signal.aborted && !subscriber.closed) {
                     try {
-                        const entries = await streamReader.read(
-                            userId,
-                            lastId,
-                        );
+                        const entries = await connection.read(userId);
                         if (stopped || subscriber.closed) {
                             break;
                         }
@@ -94,8 +95,8 @@ export class NotificationsService {
                         }
 
                         for (const entry of entries) {
-                            lastId = entry.id;
                             subscriber.next(this.toMessageEvent(entry));
+                            setTimeout(() => {}, 200);
                         }
                     } catch (error) {
                         if (!stopped && !signal.aborted && !subscriber.closed) {
@@ -122,7 +123,7 @@ export class NotificationsService {
 
             return () => {
                 stopped = true;
-                streamReader.close();
+                void connection?.release();
                 signal.removeEventListener('abort', onAbort);
                 this.logger.log(
                     `SSE notifications stream closed for ${audience} ${userId}`,

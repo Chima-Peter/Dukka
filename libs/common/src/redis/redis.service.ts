@@ -2,11 +2,13 @@ import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from './redis.module-definition.js';
+import { StreamReaderPool } from './stream-reader-pool.js';
 import {
     STREAM_MAX_LEN,
     STREAM_READ_BLOCK_MS,
     STREAM_START_ID,
     type RedisStreamEntry,
+    type StreamConnectionHandle,
 } from './types/index.js';
 
 const LOCK_SCRIPT = `
@@ -23,12 +25,17 @@ const UNLOCK_SCRIPT = `
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
+    private readonly streamReaderPool: StreamReaderPool;
+
     constructor(
         @Inject(REDIS_CLIENT)
         private readonly client: Redis,
-    ) {}
+    ) {
+        this.streamReaderPool = new StreamReaderPool(client);
+    }
 
     async onModuleDestroy(): Promise<void> {
+        await this.streamReaderPool.destroy();
         await this.client.quit();
     }
 
@@ -73,11 +80,47 @@ export class RedisService implements OnModuleDestroy {
     }
 
     /**
+     * Returns the id of the most recent entry in `streamKey`, or `null` if the
+     * stream is empty / missing.
+     */
+    async getStreamCursor(streamKey: string): Promise<string | null> {
+        const entries = await this.client.xrevrange(streamKey, '+', '-', 'COUNT', 1);
+        if (!entries || entries.length === 0) {
+            return null;
+        }
+        return entries[0][0];
+    }
+
+    /**
+     * In-memory check before opening SSE (max 3 connections per user).
+     */
+    assertSseConnectionAllowed(userId: string): void {
+        this.streamReaderPool.assertConnectionAllowed(userId);
+    }
+
+    /**
+     * Acquires a pooled stream reader slot for an SSE connection.
+     * Enforces max 3 connections per user (in-memory) and max 100 per reader
+     * (Redis Lua). Call `release()` when the SSE ends.
+     */
+    acquireStreamConnection(
+        userId: string,
+        signal?: AbortSignal,
+    ): Promise<StreamConnectionHandle> {
+        return this.streamReaderPool.acquire(
+            userId,
+            signal,
+            (id) => this.connectionStreamKey(id),
+        );
+    }
+
+    /**
      * Opens a dedicated Redis connection for blocking stream reads so XREAD
-     * does not stall the shared client. Call `close()` when the SSE ends.
+     * does not stall the shared client. Prefer `acquireStreamConnection` for
+     * long-lived SSE. Call `close()` when done.
      */
     openStreamReader(signal?: AbortSignal): {
-        read(userId: string, lastId?: string): Promise<RedisStreamEntry[]>;
+        read(userId: string): Promise<RedisStreamEntry[]>;
         close(): void;
     } {
         const reader = this.client.duplicate();
@@ -93,10 +136,7 @@ export class RedisService implements OnModuleDestroy {
 
         return {
             close,
-            read: async (
-                userId: string,
-                lastId = STREAM_START_ID,
-            ): Promise<RedisStreamEntry[]> => {
+            read: async (userId: string): Promise<RedisStreamEntry[]> => {
                 if (signal?.aborted) {
                     return [];
                 }
@@ -107,7 +147,7 @@ export class RedisService implements OnModuleDestroy {
                         STREAM_READ_BLOCK_MS,
                         'STREAMS',
                         this.connectionStreamKey(userId),
-                        lastId,
+                        STREAM_START_ID,
                     );
 
                     if (!result) {
@@ -135,15 +175,13 @@ export class RedisService implements OnModuleDestroy {
         };
     }
 
-
     async readStream(
         userId: string,
-        lastId = STREAM_START_ID,
         signal?: AbortSignal,
     ): Promise<RedisStreamEntry[]> {
         const streamReader = this.openStreamReader(signal);
         try {
-            return await streamReader.read(userId, lastId);
+            return await streamReader.read(userId);
         } finally {
             streamReader.close();
         }

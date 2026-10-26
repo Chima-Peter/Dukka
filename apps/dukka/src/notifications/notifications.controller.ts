@@ -2,7 +2,6 @@ import {
     Body,
     Controller,
     Get,
-    Headers,
     HttpCode,
     HttpStatus,
     Patch,
@@ -39,7 +38,6 @@ export class NotificationsController {
     ): Observable<MessageEvent> {
         return this.notificationsService.streamForCustomer(
             customer.sub,
-            lastEventId,
             signal,
         );
     }
@@ -51,11 +49,7 @@ export class NotificationsController {
         @SseSignal() signal: AbortSignal,
         @Headers('last-event-id') lastEventId?: string,
     ): Observable<MessageEvent> {
-        return this.notificationsService.streamForStaff(
-            staff.sub,
-            lastEventId,
-            signal,
-        );
+        return this.notificationsService.streamForStaff(staff.sub, signal);
     }
 
     @Get()

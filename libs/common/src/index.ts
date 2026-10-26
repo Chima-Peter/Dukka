@@ -43,12 +43,18 @@ export {
     REDIS_MODULE_OPTIONS,
     RedisModule,
     RedisService,
+    MAX_CONNECTIONS_PER_READER,
+    MAX_SSE_CONNECTIONS_PER_USER,
+    SSE_READER_COUNTS_KEY,
+    SSE_READERS_KEY,
     STREAM_MAX_LEN,
     STREAM_READ_BLOCK_MS,
     STREAM_START_ID,
+    sseUserReaderKey,
     type RedisModuleAsyncOptions,
     type RedisModuleOptions,
     type RedisStreamEntry,
+    type StreamConnectionHandle,
 } from './redis/index.js';
 export {
     type ApiResponse,

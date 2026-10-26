@@ -6,7 +6,6 @@ import { NotificationsService } from './notifications.service.js';
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     RedisService: class RedisService {},
     PrismaService: class PrismaService {},
-    STREAM_START_ID: '$',
 }));
 
 describe('NotificationsService', () => {
@@ -33,6 +32,12 @@ describe('NotificationsService', () => {
                     provide: RedisService,
                     useValue: {
                         startStream: vi.fn(),
+                        acquireStreamConnection: vi.fn(async () => ({
+                            readerId: 'reader-1',
+                            connectionId: 'conn-1',
+                            read: vi.fn(),
+                            release: vi.fn(),
+                        })),
                         openStreamReader: vi.fn(() => ({
                             read: vi.fn(),
                             close: vi.fn(),
