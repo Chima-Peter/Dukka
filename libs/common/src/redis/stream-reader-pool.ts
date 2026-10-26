@@ -12,6 +12,7 @@ import {
     SSE_READER_COUNTS_KEY,
     SSE_READERS_KEY,
     STREAM_READ_BLOCK_MS,
+    STREAM_READ_COUNT,
     STREAM_START_ID,
     sseUserReaderKey,
     type RedisStreamEntry,
@@ -289,6 +290,8 @@ export class StreamReaderPool {
                 let result: [string, [string, string[]][]][] | null;
                 try {
                     result = (await local.redis.xread(
+                        'COUNT',
+                        STREAM_READ_COUNT,
                         'BLOCK',
                         STREAM_READ_BLOCK_MS,
                         'STREAMS',

@@ -13,6 +13,7 @@ export {
     SSE_READERS_KEY,
     STREAM_MAX_LEN,
     STREAM_READ_BLOCK_MS,
+    STREAM_READ_COUNT,
     STREAM_START_ID,
     sseUserReaderKey,
     type RedisStreamEntry,
