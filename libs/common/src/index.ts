@@ -41,8 +41,12 @@ export {
     REDIS_MODULE_OPTIONS,
     RedisModule,
     RedisService,
+    STREAM_MAX_LEN,
+    STREAM_READ_BLOCK_MS,
+    STREAM_START_ID,
     type RedisModuleAsyncOptions,
     type RedisModuleOptions,
+    type RedisStreamEntry,
 } from './redis/index.js';
 export {
     type ApiResponse,

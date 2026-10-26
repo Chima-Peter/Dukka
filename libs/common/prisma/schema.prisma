@@ -45,6 +45,7 @@ model Customer {
   shipping_address    ShippingAddress[]
   reviews Reviews[]
   orders  Order[]
+  notifications Notification[]
 
   @@index([active_market_id])
 }
@@ -149,6 +150,7 @@ model Staff {
   invitations_sent StaffInvitation[] @relation("StaffInvitationsSent")
   invitation       StaffInvitation?  @relation("StaffInvitationAccepted")
   warehouses       Warehouse[]
+  notifications    Notification[]
 }
 
 model StaffToken {
@@ -916,5 +918,38 @@ model CartItems {
   @@unique([cart_id, market_variant_id])
   @@index([cart_id])
   @@index([market_variant_id])
+}
+
+enum NotificationType {
+  ORDER
+  PROMO
+  SYSTEM
+  POINTS
+  MARKET
+  LOGISTICS
+}
+
+model Notification {
+  id    String           @id @default(uuid())
+  title String
+  type  NotificationType
+  text  String
+  has_read Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  read_at    DateTime?
+
+  customer_id String?
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  staff_id String?
+  staff    Staff? @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@index([staff_id])
+  @@index([type])
+  @@index([has_read])
+  @@index([created_at])
 }
 
