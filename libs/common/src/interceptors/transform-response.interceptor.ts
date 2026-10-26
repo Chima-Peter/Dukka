@@ -2,20 +2,20 @@ import {
     CallHandler,
     ExecutionContext,
     Injectable,
+    Logger,
     NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
-import { RESPONSE_MESSAGE_KEY } from '../decorators/index.js';
+import { RESPONSE_MESSAGE_KEY, SSE_METADATA_KEY } from '../decorators/index.js';
 import { successResponse, type ApiResponse } from '../response/index.js';
-
-const SSE_METADATA_KEY = '__sse__';
 
 @Injectable()
 export class TransformResponseInterceptor<T> implements NestInterceptor<
     T,
     ApiResponse<T> | T
 > {
+    private readonly logger = new Logger(TransformResponseInterceptor.name);
     constructor(private readonly reflector: Reflector) {}
 
     intercept(
@@ -27,6 +27,7 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<
             [context.getHandler(), context.getClass()],
         );
         if (isSse) {
+            this.logger.log('SSE response detected');
             return next.handle();
         }
 

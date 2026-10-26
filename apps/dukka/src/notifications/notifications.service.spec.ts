@@ -33,6 +33,10 @@ describe('NotificationsService', () => {
                     provide: RedisService,
                     useValue: {
                         startStream: vi.fn(),
+                        openStreamReader: vi.fn(() => ({
+                            read: vi.fn(),
+                            close: vi.fn(),
+                        })),
                         readStream: vi.fn(),
                         closeStream: vi.fn(),
                         addToStream: vi.fn(),

@@ -34,7 +34,6 @@ export class NotificationsService {
         lastEventId: string | undefined,
         signal: AbortSignal,
     ): Observable<MessageEvent> {
-        this.logger.log(`SSE notifications stream started for customer ${customerId} (from ${lastEventId})`);
         return this.streamNotifications('customer', customerId, lastEventId, signal);
     }
 
@@ -43,7 +42,6 @@ export class NotificationsService {
         lastEventId: string | undefined,
         signal: AbortSignal,
     ): Observable<MessageEvent> {
-        this.logger.log(`SSE notifications stream started for staff ${staffId} (from ${lastEventId})`);
         return this.streamNotifications('staff', staffId, lastEventId, signal);
     }
 
@@ -55,13 +53,6 @@ export class NotificationsService {
     ): Observable<MessageEvent> {
         return new Observable<MessageEvent>((subscriber) => {
             this.logger.log(`SSE notifications stream started for ${audience} ${userId} (from ${lastEventId})`);
-            const timer = setInterval(() => subscriber.next({
-                id: STREAM_START_ID,
-                type: 'notification',
-                data: {
-                    message: 'Welcome to the notifications stream!',
-                },
-            }), 1000);
             let lastId =
                 lastEventId?.trim() && lastEventId.trim().length > 0
                     ? lastEventId.trim()
@@ -76,6 +67,8 @@ export class NotificationsService {
             };
             signal.addEventListener('abort', onAbort, { once: true });
 
+            const streamReader = this.redisService.openStreamReader(signal);
+
             const pump = async () => {
                 this.logger.log(
                     `SSE notifications stream started for ${audience} ${userId} (from ${lastId})`,
@@ -84,12 +77,20 @@ export class NotificationsService {
 
                 while (!stopped && !signal.aborted && !subscriber.closed) {
                     try {
-                        const entries = await this.redisService.readStream(
+                        const entries = await streamReader.read(
                             userId,
                             lastId,
                         );
                         if (stopped || subscriber.closed) {
                             break;
+                        }
+
+                        if (entries.length === 0) {
+                            subscriber.next({
+                                type: 'ping',
+                                data: { ts: Date.now() },
+                            });
+                            continue;
                         }
 
                         for (const entry of entries) {
@@ -120,8 +121,8 @@ export class NotificationsService {
             void pump();
 
             return () => {
-                clearTimeout(timer);
                 stopped = true;
+                streamReader.close();
                 signal.removeEventListener('abort', onAbort);
                 this.logger.log(
                     `SSE notifications stream closed for ${audience} ${userId}`,

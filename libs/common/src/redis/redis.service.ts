@@ -73,32 +73,80 @@ export class RedisService implements OnModuleDestroy {
     }
 
     /**
-     * Blocking `XREAD` (BLOCK 0) on the user's connection stream.
-     * Defaults to `$` (only new messages). Pass the last seen id to continue.
+     * Opens a dedicated Redis connection for blocking stream reads so XREAD
+     * does not stall the shared client. Call `close()` when the SSE ends.
      */
+    openStreamReader(signal?: AbortSignal): {
+        read(userId: string, lastId?: string): Promise<RedisStreamEntry[]>;
+        close(): void;
+    } {
+        const reader = this.client.duplicate();
+        const onAbort = () => {
+            reader.disconnect();
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+
+        const close = () => {
+            signal?.removeEventListener('abort', onAbort);
+            reader.disconnect();
+        };
+
+        return {
+            close,
+            read: async (
+                userId: string,
+                lastId = STREAM_START_ID,
+            ): Promise<RedisStreamEntry[]> => {
+                if (signal?.aborted) {
+                    return [];
+                }
+
+                try {
+                    const result = await reader.xread(
+                        'BLOCK',
+                        STREAM_READ_BLOCK_MS,
+                        'STREAMS',
+                        this.connectionStreamKey(userId),
+                        lastId,
+                    );
+
+                    if (!result) {
+                        await reader.ping();
+                        return [];
+                    }
+
+                    const entries: RedisStreamEntry[] = [];
+                    for (const [, messages] of result) {
+                        for (const [id, fields] of messages) {
+                            entries.push({
+                                id,
+                                fields: this.fieldsToRecord(fields),
+                            });
+                        }
+                    }
+                    return entries;
+                } catch (error) {
+                    if (signal?.aborted) {
+                        return [];
+                    }
+                    throw error;
+                }
+            },
+        };
+    }
+
+
     async readStream(
         userId: string,
         lastId = STREAM_START_ID,
+        signal?: AbortSignal,
     ): Promise<RedisStreamEntry[]> {
-        const result = await this.client.xread(
-            'BLOCK',
-            STREAM_READ_BLOCK_MS,
-            'STREAMS',
-            this.connectionStreamKey(userId),
-            lastId,
-        );
-
-        if (!result) {
-            return [];
+        const streamReader = this.openStreamReader(signal);
+        try {
+            return await streamReader.read(userId, lastId);
+        } finally {
+            streamReader.close();
         }
-
-        const entries: RedisStreamEntry[] = [];
-        for (const [, messages] of result) {
-            for (const [id, fields] of messages) {
-                entries.push({ id, fields: this.fieldsToRecord(fields) });
-            }
-        }
-        return entries;
     }
 
     /**

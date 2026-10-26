@@ -15,3 +15,5 @@ export {
     RESPONSE_MESSAGE_KEY,
     ResponseMessage,
 } from './response-message.decorator.js';
+
+export { SSE_METADATA_KEY, SseDecorator } from './sse.decorator.js';

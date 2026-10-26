@@ -5,7 +5,6 @@ import {
     Headers,
     HttpCode,
     HttpStatus,
-    Logger,
     Patch,
     Query,
     Sse,
@@ -27,7 +26,6 @@ import { NotificationsService } from './notifications.service.js';
 
 @Controller('notifications')
 export class NotificationsController {
-    private readonly logger = new Logger(NotificationsController.name);
     constructor(
         private readonly notificationsService: NotificationsService,
     ) {}
@@ -39,7 +37,6 @@ export class NotificationsController {
         @SseSignal() signal: AbortSignal,
         @Headers('last-event-id') lastEventId?: string,
     ): Observable<MessageEvent> {
-        this.logger.log(`SSE notifications stream started for customer ${customer.sub} (from ${lastEventId})`);
         return this.notificationsService.streamForCustomer(
             customer.sub,
             lastEventId,

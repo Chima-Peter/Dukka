@@ -10,6 +10,8 @@ export {
     REQUIRE_PERMISSION_KEY,
     RequirePermission,
     ResponseMessage,
+    SSE_METADATA_KEY,
+    SseDecorator,
 } from './decorators/index.js';
 export { AllExceptionsFilter } from './filters/index.js';
 export {
