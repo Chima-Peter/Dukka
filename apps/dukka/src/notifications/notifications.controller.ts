@@ -2,10 +2,15 @@ import {
     Body,
     Controller,
     Get,
+    Headers,
     HttpCode,
     HttpStatus,
+    Logger,
     Patch,
     Query,
+    Sse,
+    SseSignal,
+    type MessageEvent,
 } from '@nestjs/common';
 import {
     Auth,
@@ -15,15 +20,46 @@ import {
     type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
+import type { Observable } from 'rxjs';
 import { FindNotificationsDto } from './dto/find-notifications.dto.js';
 import { MarkNotificationsReadDto } from './dto/mark-notifications-read.dto.js';
 import { NotificationsService } from './notifications.service.js';
 
 @Controller('notifications')
 export class NotificationsController {
+    private readonly logger = new Logger(NotificationsController.name);
     constructor(
         private readonly notificationsService: NotificationsService,
     ) {}
+
+    @Sse('stream')
+    @Auth('customer')
+    streamForCustomer(
+        @CurrentCustomer() customer: CustomerJwtPayload,
+        @SseSignal() signal: AbortSignal,
+        @Headers('last-event-id') lastEventId?: string,
+    ): Observable<MessageEvent> {
+        this.logger.log(`SSE notifications stream started for customer ${customer.sub} (from ${lastEventId})`);
+        return this.notificationsService.streamForCustomer(
+            customer.sub,
+            lastEventId,
+            signal,
+        );
+    }
+
+    @Sse('staff/stream')
+    @Auth('staff')
+    streamForStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @SseSignal() signal: AbortSignal,
+        @Headers('last-event-id') lastEventId?: string,
+    ): Observable<MessageEvent> {
+        return this.notificationsService.streamForStaff(
+            staff.sub,
+            lastEventId,
+            signal,
+        );
+    }
 
     @Get()
     @Auth('customer')

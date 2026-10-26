@@ -44,21 +44,25 @@ export class RedisService implements OnModuleDestroy {
     }
 
     /**
-     * Appends fields to the user's connection stream with approximate
+     * Appends a typed payload to the user's connection stream with approximate
      * `MAXLEN ~ 1000` trimming. Returns the new entry id.
      */
     async addToStream(
         userId: string,
-        fields: Record<string, string>,
+        type: string,
+        data: object,
     ): Promise<string> {
-        const flatFields = Object.entries(fields).flat();
+        const payload = JSON.stringify(data);
         const id = await this.client.xadd(
             this.connectionStreamKey(userId),
             'MAXLEN',
             '~',
             STREAM_MAX_LEN,
             '*',
-            ...flatFields,
+            'type',
+            type,
+            'data',
+            payload,
         );
 
         if (id === null) {

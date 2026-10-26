@@ -4,7 +4,14 @@ import {
     Injectable,
     InternalServerErrorException,
     Logger,
+    type MessageEvent,
 } from '@nestjs/common';
+import {
+    RedisService,
+    STREAM_START_ID,
+    type RedisStreamEntry,
+} from '@app/common';
+import { Observable } from 'rxjs';
 import type { FindNotificationsDto } from './dto/find-notifications.dto.js';
 import type { MarkNotificationsReadDto } from './dto/mark-notifications-read.dto.js';
 import {
@@ -18,7 +25,118 @@ export class NotificationsService {
 
     constructor(
         private readonly notificationsRepository: NotificationsRepository,
+        private readonly redisService: RedisService,
     ) {}
+
+
+    streamForCustomer(
+        customerId: string,
+        lastEventId: string | undefined,
+        signal: AbortSignal,
+    ): Observable<MessageEvent> {
+        this.logger.log(`SSE notifications stream started for customer ${customerId} (from ${lastEventId})`);
+        return this.streamNotifications('customer', customerId, lastEventId, signal);
+    }
+
+    streamForStaff(
+        staffId: string,
+        lastEventId: string | undefined,
+        signal: AbortSignal,
+    ): Observable<MessageEvent> {
+        this.logger.log(`SSE notifications stream started for staff ${staffId} (from ${lastEventId})`);
+        return this.streamNotifications('staff', staffId, lastEventId, signal);
+    }
+
+    private streamNotifications(
+        audience: 'customer' | 'staff',
+        userId: string,
+        lastEventId: string | undefined,
+        signal: AbortSignal,
+    ): Observable<MessageEvent> {
+        return new Observable<MessageEvent>((subscriber) => {
+            this.logger.log(`SSE notifications stream started for ${audience} ${userId} (from ${lastEventId})`);
+            const timer = setInterval(() => subscriber.next({
+                id: STREAM_START_ID,
+                type: 'notification',
+                data: {
+                    message: 'Welcome to the notifications stream!',
+                },
+            }), 1000);
+            let lastId =
+                lastEventId?.trim() && lastEventId.trim().length > 0
+                    ? lastEventId.trim()
+                    : STREAM_START_ID;
+            let stopped = false;
+
+            const onAbort = () => {
+                stopped = true;
+                if (!subscriber.closed) {
+                    subscriber.complete();
+                }
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+
+            const pump = async () => {
+                this.logger.log(
+                    `SSE notifications stream started for ${audience} ${userId} (from ${lastId})`,
+                );
+                await this.redisService.startStream(userId);
+
+                while (!stopped && !signal.aborted && !subscriber.closed) {
+                    try {
+                        const entries = await this.redisService.readStream(
+                            userId,
+                            lastId,
+                        );
+                        if (stopped || subscriber.closed) {
+                            break;
+                        }
+
+                        for (const entry of entries) {
+                            lastId = entry.id;
+                            subscriber.next(this.toMessageEvent(entry));
+                        }
+                    } catch (error) {
+                        if (!stopped && !signal.aborted && !subscriber.closed) {
+                            this.logger.error(
+                                `SSE notifications stream error for ${audience} ${userId}: ${error}`,
+                            );
+                            subscriber.error({
+                                type: 'error',
+                                message:
+                                    'An unexpected error occurred. Try again later.',
+                                data: null,
+                            });
+                        }
+                        return;
+                    }
+                }
+
+                if (!subscriber.closed) {
+                    subscriber.complete();
+                }
+            };
+
+            void pump();
+
+            return () => {
+                clearTimeout(timer);
+                stopped = true;
+                signal.removeEventListener('abort', onAbort);
+                this.logger.log(
+                    `SSE notifications stream closed for ${audience} ${userId}`,
+                );
+            };
+        });
+    }
+
+    private toMessageEvent(entry: RedisStreamEntry): MessageEvent {
+        return {
+            id: entry.id,
+            type: entry.fields.type ?? 'notification',
+            data: JSON.parse(entry.fields.data) as object,
+        };
+    }
 
     async findForCustomer(
         customer_id: string,

@@ -13,6 +13,8 @@ describe('NotificationsController', () => {
                 {
                     provide: NotificationsService,
                     useValue: {
+                        streamForCustomer: vi.fn(),
+                        streamForStaff: vi.fn(),
                         findForCustomer: vi.fn(),
                         findForStaff: vi.fn(),
                         markReadForCustomer: vi.fn(),
