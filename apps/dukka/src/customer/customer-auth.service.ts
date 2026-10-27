@@ -25,7 +25,12 @@ import {
     type JwtPayload,
     TokenType,
 } from '@app/common';
-import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+    MAIL_TEMPLATES,
+    MailQueueService,
+} from '@app/queues';
 import { InitiatePasswordResetDto } from './dto/initiate_password_reset.dto.js';
 import { VerifyPasswordResetTokenDto } from './dto/verify_password_reset_token.dto.js';
 import { ResetPasswordDTO } from './dto/reset_password.dto.js';
@@ -47,6 +52,7 @@ export class CustomerAuthService {
         private readonly redisService: RedisService,
         private readonly tokenRepository: TokenRepository,
         private readonly mailQueueService: MailQueueService,
+        private readonly generalQueueService: GeneralQueueService,
         private readonly cartRepository: CartRepository,
     ) {}
 
@@ -66,15 +72,21 @@ export class CustomerAuthService {
             ...publicCustomer
         } = customer;
 
-        await this.mailQueueService.enqueueSend({
-            to: customer.email,
-            subject: 'Welcome to Dukka',
-            template: MAIL_TEMPLATES.CUSTOMER_WELCOME,
-            context: {
-                name: customer.name,
+        await Promise.all([
+            this.mailQueueService.enqueueSend({
+                to: customer.email,
+                subject: 'Welcome to Dukka',
+                template: MAIL_TEMPLATES.CUSTOMER_WELCOME,
+                context: {
+                    name: customer.name,
+                    email: customer.email,
+                },
+            }),
+            this.generalQueueService.enqueue(GENERAL_JOBS.ORDER_MATCHING, {
+                customer_id: customer.id,
                 email: customer.email,
-            },
-        });
+            }),
+        ]);
 
         return publicCustomer;
     }

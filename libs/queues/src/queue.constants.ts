@@ -13,6 +13,7 @@ export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
  */
 export const GENERAL_JOBS = {
     EXPIRED_RESERVATIONS: 'expired-reservations',
+    ORDER_MATCHING: 'order-matching',
 } as const;
 
 export type GeneralJobName =

@@ -16,8 +16,14 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
 }));
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
+    GeneralQueueService: class GeneralQueueService {},
     MAIL_QUEUE: 'mail',
+    GENERAL_QUEUE: 'general',
     MAIL_JOBS: { SEND: 'send' },
+    GENERAL_JOBS: {
+        EXPIRED_RESERVATIONS: 'expired-reservations',
+        ORDER_MATCHING: 'order-matching',
+    },
     MAIL_TEMPLATES: {
         CUSTOMER_WELCOME: 'customer.welcome',
         CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
@@ -48,7 +54,7 @@ describe('CustomerAuthService', () => {
         const { RedisService } = await import(
             '../../../../libs/common/src/index.ts'
         );
-        const { MailQueueService } = await import(
+        const { MailQueueService, GeneralQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
         );
 
@@ -103,6 +109,13 @@ describe('CustomerAuthService', () => {
                     useValue: {
                         enqueueSend: vi.fn(),
                         enqueueSendMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: GeneralQueueService,
+                    useValue: {
+                        enqueue: vi.fn(),
+                        enqueueMany: vi.fn(),
                     },
                 },
                 {

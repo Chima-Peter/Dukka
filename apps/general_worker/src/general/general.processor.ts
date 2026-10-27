@@ -6,8 +6,10 @@ import {
     GENERAL_JOBS,
     GENERAL_QUEUE,
     type ExpiredReservationsJobPayload,
+    type OrderMatchingJobPayload,
 } from '@app/queues';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
+import { OrderMatchingService } from './handlers/order-matching.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
 export class GeneralProcessor extends WorkerHost {
@@ -15,6 +17,7 @@ export class GeneralProcessor extends WorkerHost {
 
     constructor(
         private readonly expiredReservationsService: ExpiredReservationsService,
+        private readonly orderMatchingService: OrderMatchingService,
     ) {
         super();
     }
@@ -28,6 +31,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.EXPIRED_RESERVATIONS:
                 await this.expiredReservationsService.process(
                     job.data as ExpiredReservationsJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.ORDER_MATCHING:
+                await this.orderMatchingService.process(
+                    job.data as OrderMatchingJobPayload,
                 );
                 return;
             default:

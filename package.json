@@ -20,7 +20,6 @@
     "start:general_worker": "nest start general_worker",
     "start:general_worker:dev": "nest start general_worker --watch",
     "start:general_worker:prod": "node dist/apps/general_worker/main",
-
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
     "test:watch": "vitest",

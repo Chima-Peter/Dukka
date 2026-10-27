@@ -15,6 +15,7 @@ export { MailQueueService } from './mail/index.js';
 export {
     GeneralQueueService,
     type ExpiredReservationsJobPayload,
+    type OrderMatchingJobPayload,
 } from './general/index.js';
 export {
     QUEUES_MODULE_OPTIONS,
