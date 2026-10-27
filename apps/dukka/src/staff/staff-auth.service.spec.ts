@@ -313,6 +313,7 @@ describe('StaffAuthService', () => {
                 type: TokenType.REFRESH,
             });
             tokenRepository.deleteRefreshToken.mockResolvedValue(1);
+            staffService.findByEmail.mockResolvedValue(staffRecord);
             staffJwtService.signAsync
                 .mockResolvedValueOnce('new.access')
                 .mockResolvedValueOnce('new.refresh');
@@ -331,7 +332,9 @@ describe('StaffAuthService', () => {
                 'staff-1',
                 'old.refresh',
             );
-            expect(staffService.findByEmail).not.toHaveBeenCalled();
+            expect(staffService.findByEmail).toHaveBeenCalledWith(
+                'staff@example.com',
+            );
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
                 {
                     sub: 'staff-1',
@@ -346,6 +349,29 @@ describe('StaffAuthService', () => {
                 },
                 { expiresIn: expect.any(Number) },
             );
+        });
+
+        it('rejects inactive staff', async () => {
+            staffJwtService.verifyAsync.mockResolvedValue({
+                sub: 'staff-1',
+                email: 'staff@example.com',
+                type: 'staff',
+                tokenUse: 'refresh',
+            });
+            tokenRepository.findRefreshToken.mockResolvedValue({
+                staffId: 'staff-1',
+                token: 'old.refresh',
+                type: TokenType.REFRESH,
+            });
+            staffService.findByEmail.mockResolvedValue({
+                ...staffRecord,
+                is_active: false,
+            });
+
+            await expect(
+                service.refresh('old.refresh'),
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+            expect(tokenRepository.deleteRefreshToken).not.toHaveBeenCalled();
         });
 
         it('rejects unknown refresh tokens', async () => {
@@ -444,6 +470,18 @@ describe('StaffAuthService', () => {
             await expect(
                 service.initiatePasswordReset({ email: 'missing@example.com' }),
             ).rejects.toBeInstanceOf(NotFoundException);
+        });
+
+        it('rejects inactive staff', async () => {
+            staffService.findByEmail.mockResolvedValue({
+                ...staffRecord,
+                is_active: false,
+            });
+
+            await expect(
+                service.initiatePasswordReset({ email: 'staff@example.com' }),
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+            expect(redisService.set).not.toHaveBeenCalled();
         });
     });
 });

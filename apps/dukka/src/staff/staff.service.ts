@@ -269,6 +269,9 @@ export class StaffService {
             if (!existing) {
                 throw new NotFoundException('Staff not found');
             }
+            if (!existing.is_active) {
+                throw new ForbiddenException('Account is inactive');
+            }
 
             if (data.avatar_path) {
                 await this.assertValidAvatar(id, data.avatar_path);
@@ -458,20 +461,10 @@ export class StaffService {
     ): Promise<object> {
         try {
             this.logger.log(`Deactivating staff ${id}`);
-            const deleted = await this.staffRepository.delete(
+            const deleted = await this.staffRepository.deactivate(
                 id,
                 performed_by_staff_id,
             );
-
-            if (deleted.avatar) {
-                await this.safeDeleteFiles([deleted.avatar], AVATAR_BUCKET);
-            }
-            if (deleted.qualification_document_paths.length > 0) {
-                await this.safeDeleteFiles(
-                    deleted.qualification_document_paths,
-                    QUALIFICATIONS_BUCKET,
-                );
-            }
 
             this.logger.log(`Staff deactivated ${id}`);
 

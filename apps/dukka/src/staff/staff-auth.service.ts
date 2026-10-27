@@ -144,6 +144,15 @@ export class StaffAuthService {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 
+            const staff = await this.staffService.findByEmail(payload.email);
+            if (!staff) {
+                throw new UnauthorizedException('Invalid or expired token');
+            }
+            if (!staff.is_active) {
+                this.logger.warn(`Staff ${payload.email} is inactive`);
+                throw new UnauthorizedException('Account is inactive');
+            }
+
             const deletedCount = await this.tokenRepository.deleteRefreshToken(
                 payload.sub,
                 refreshToken,
@@ -232,6 +241,10 @@ export class StaffAuthService {
             if (!staff) {
                 this.logger.warn(`Staff ${data.email} not found`);
                 throw new NotFoundException('Staff not found');
+            }
+            if (!staff.is_active) {
+                this.logger.warn(`Staff ${data.email} is inactive`);
+                throw new UnauthorizedException('Account is inactive');
             }
 
             const token = String(randomInt(100000, 1000000));
@@ -343,6 +356,16 @@ export class StaffAuthService {
                 throw new UnauthorizedException(
                     'Invalid or expired reset token',
                 );
+            }
+
+            const existing = await this.staffService.findByEmail(email);
+            if (!existing) {
+                this.logger.warn(`Staff ${email} not found`);
+                throw new NotFoundException('Staff not found');
+            }
+            if (!existing.is_active) {
+                this.logger.warn(`Staff ${email} is inactive`);
+                throw new UnauthorizedException('Account is inactive');
             }
 
             const password = await this.passwordHasher.hash(data.password);

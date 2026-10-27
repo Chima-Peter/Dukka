@@ -194,6 +194,9 @@ export class StaffRepository {
     ): Prisma.StaffWhereInput {
         return {
             ...(query.role_id !== undefined && { role_id: query.role_id }),
+            ...(query.is_active !== undefined && {
+                is_active: query.is_active,
+            }),
             staff_markets: {
                 some: { market_id: { in: market_ids } },
             },
@@ -753,14 +756,12 @@ export class StaffRepository {
         });
     }
 
-    async delete(
+    async deactivate(
         id: string,
         performed_by_staff_id: string,
     ): Promise<{
         email: string;
         name: string;
-        avatar: string | null;
-        qualification_document_paths: string[];
     }> {
         return await this.prisma.$transaction(async (tx) => {
             const existing = await tx.staff.findUnique({
@@ -803,14 +804,6 @@ export class StaffRepository {
                 existing.staff_markets.map((sm) => sm.market_id),
             );
 
-            const qualification_document_paths = existing.qualifications
-                .map((qualification) => qualification.document_url)
-                .filter((path): path is string => path !== null);
-
-            await tx.qualification.deleteMany({
-                where: { staff_id: id },
-            });
-
             await tx.staffMarket.deleteMany({
                 where: { staff_id: id },
             });
@@ -839,8 +832,6 @@ export class StaffRepository {
             return {
                 email: existing.email,
                 name: existing.name,
-                avatar: existing.avatar,
-                qualification_document_paths,
             };
         });
     }
