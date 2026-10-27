@@ -7,7 +7,7 @@ import {
     GENERAL_QUEUE,
     type ExpiredReservationsJobPayload,
 } from '@app/queues';
-import { ExpiredReservationsService } from './expired-reservations.service.js';
+import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
 export class GeneralProcessor extends WorkerHost {

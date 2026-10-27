@@ -7,6 +7,7 @@ import type {
 export const inventoryRowSelect = {
     id: true,
     available_quantity: true,
+    reserved_quantity: true,
     market_variant_id: true,
     warehouse_id: true,
     created_at: true,
@@ -68,6 +69,7 @@ export function toInventoryItem(row: InventoryRow): InventoryItem {
     return {
         id: row.id,
         available_quantity: row.available_quantity,
+        reserved_quantity: row.reserved_quantity,
         market_variant_id: row.market_variant_id,
         warehouse_id: row.warehouse_id,
         warehouse_name: row.warehouse.name,

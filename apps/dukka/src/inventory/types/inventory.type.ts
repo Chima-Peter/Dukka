@@ -38,6 +38,7 @@ export type OrderInventoryItem = {
 export type InventoryItem = {
     id: string;
     available_quantity: number;
+    reserved_quantity: number;
     market_variant_id: string;
     warehouse_id: string;
     warehouse_name: string;

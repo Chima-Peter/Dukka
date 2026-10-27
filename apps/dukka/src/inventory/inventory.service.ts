@@ -23,7 +23,6 @@ import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
-import type { UpdateOrderInventoryStatusDto } from './dto/update-order-inventory-status.dto.js';
 import type { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryRepository } from './inventory.repository.js';
 import type {
@@ -333,34 +332,28 @@ export class InventoryService {
         }
     }
 
-    async updateOrderInventoryStatus(
+    async completeOrderInventory(
         id: string,
-        data: UpdateOrderInventoryStatusDto,
         staffMarketIds: string[],
     ): Promise<OrderInventoryItem> {
         try {
-            this.logger.log(
-                `Setting order inventory ${id} status to ${data.status}`,
-            );
+            this.logger.log(`Completing order inventory ${id}`);
 
             const existing =
                 await this.inventoryRepository.findOrderInventoryById(id);
             if (!existing) {
                 throw new NotFoundException('Order inventory not found');
             }
-            if (existing.status != 'PENDING') {
-                throw new BadRequestException(`Cannot change status from ${existing.status}`)
+            if (existing.status !== 'PENDING') {
+                throw new BadRequestException(
+                    `Cannot complete order inventory from ${existing.status}`,
+                );
             }
             assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
 
             const updated =
-                await this.inventoryRepository.updateOrderInventoryStatus(
-                    id,
-                    data.status,
-                );
-            this.logger.log(
-                `Order inventory ${id} status set to ${updated.status}`,
-            );
+                await this.inventoryRepository.completeOrderInventory(id);
+            this.logger.log(`Order inventory ${id} marked SUCCESS`);
             return updated;
         } catch (error) {
             this.handleError(error);

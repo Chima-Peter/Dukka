@@ -669,6 +669,7 @@ model WarehouseServiceState {
 model Inventory {
   id                 String @id @default(uuid())
   available_quantity Int    @default(0)
+  reserved_quantity  Int    @default(0)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

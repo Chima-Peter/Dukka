@@ -56,11 +56,16 @@ export class ExpiredReservationsService {
                     where: {
                         warehouse_id: reservation.warehouse_id,
                         market_variant_id: line.market_variant_id,
+                        reserved_quantity: { gte: line.quantity },
                     },
                     data: {
                         available_quantity: { increment: line.quantity },
+                        reserved_quantity: { decrement: line.quantity },
                     },
-                    select: { available_quantity: true },
+                    select: {
+                        available_quantity: true,
+                        reserved_quantity: true,
+                    },
                 });
 
                 if (updated.length === 0) {
