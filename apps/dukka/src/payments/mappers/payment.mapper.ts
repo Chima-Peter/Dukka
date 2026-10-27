@@ -47,6 +47,7 @@ export const paymentAttemptSummarySelect = {
     id: true,
     status: true,
     payment_method_name: true,
+    expires_at: true,
     created_at: true,
     order_id: true,
 } satisfies Prisma.OrderPaymentAttemptSelect;
@@ -57,6 +58,7 @@ export const paymentAttemptDetailSelect = {
     payment_method_name: true,
     payment_intent_id: true,
     payment_intent_url: true,
+    expires_at: true,
     created_at: true,
     updated_at: true,
     order_id: true,

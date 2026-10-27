@@ -832,6 +832,7 @@ model OrderPaymentAttempt {
   payment_intent_url String?
   status OrderPaymentAttemptStatus @default(PENDING)
   payment_method_name String
+  expires_at DateTime
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -845,6 +846,7 @@ model OrderPaymentAttempt {
   @@index([market_payment_method_id])
   @@index([payment_method_name])
   @@index([status])
+  @@index([expires_at])
 }
 
 model Reviews {

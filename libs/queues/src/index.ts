@@ -12,7 +12,10 @@ export {
 } from './queue.constants.js';
 export type { SendMailJobPayload } from './mail/index.js';
 export { MailQueueService } from './mail/index.js';
-export { GeneralQueueService } from './general/index.js';
+export {
+    GeneralQueueService,
+    type ExpiredReservationsJobPayload,
+} from './general/index.js';
 export {
     QUEUES_MODULE_OPTIONS,
     type QueuesModuleAsyncOptions,

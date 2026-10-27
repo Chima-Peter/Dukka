@@ -38,6 +38,7 @@ const orderPaymentAttemptSelect = {
     id: true,
     status: true,
     payment_method_name: true,
+    expires_at: true,
     market_payment_method: {
         select: {
             id: true,

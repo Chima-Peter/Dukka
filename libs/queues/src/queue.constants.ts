@@ -11,7 +11,9 @@ export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
  * Domain / background jobs processed by the general worker.
  * Add named jobs here as work is queued from the API.
  */
-export const GENERAL_JOBS = {} as const;
+export const GENERAL_JOBS = {
+    EXPIRED_RESERVATIONS: 'expired-reservations',
+} as const;
 
 export type GeneralJobName =
     (typeof GENERAL_JOBS)[keyof typeof GENERAL_JOBS];

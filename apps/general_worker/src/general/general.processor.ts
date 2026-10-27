@@ -3,12 +3,21 @@ import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import {
     GENERAL_JOB_OPTIONS,
+    GENERAL_JOBS,
     GENERAL_QUEUE,
+    type ExpiredReservationsJobPayload,
 } from '@app/queues';
+import { ExpiredReservationsService } from './expired-reservations.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
 export class GeneralProcessor extends WorkerHost {
     private readonly logger = new Logger(GeneralProcessor.name);
+
+    constructor(
+        private readonly expiredReservationsService: ExpiredReservationsService,
+    ) {
+        super();
+    }
 
     async process(job: Job): Promise<void> {
         this.logger.log(
@@ -16,6 +25,11 @@ export class GeneralProcessor extends WorkerHost {
         );
 
         switch (job.name) {
+            case GENERAL_JOBS.EXPIRED_RESERVATIONS:
+                await this.expiredReservationsService.process(
+                    job.data as ExpiredReservationsJobPayload,
+                );
+                return;
             default:
                 throw new Error(`Unknown general job name: ${job.name}`);
         }
