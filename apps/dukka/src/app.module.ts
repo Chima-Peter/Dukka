@@ -34,6 +34,7 @@ import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -155,6 +156,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         CategoryModule,
         ReviewsModule,
         OrdersModule,
+        PaymentsModule,
         NotificationsModule,
     ],
     providers: [

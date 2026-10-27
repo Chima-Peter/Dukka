@@ -206,6 +206,22 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Create variant inventory',
     },
     {
+        name: 'payments:create',
+        description: 'Create payment methods',
+    },
+    {
+        name: 'payments:approve',
+        description: 'Approve payment methods for markets',
+    },
+    {
+        name: 'payments:remove',
+        description: 'Remove payment methods from markets',
+    },
+    {
+        name: 'payments:read',
+        description: 'View payment methods and payment attempts',
+    },
+    {
         name: 'permissions:read',
         description: 'View permissions',
     },
@@ -266,5 +282,9 @@ export const StaffPermission = {
     ServiceStatesClose: 'service_states:close',
     ServiceStatesDelete: 'service_states:delete',
     InventoryCreate: 'inventory:create',
+    PaymentsCreate: 'payments:create',
+    PaymentsApprove: 'payments:approve',
+    PaymentsRemove: 'payments:remove',
+    PaymentsRead: 'payments:read',
     PermissionsRead: 'permissions:read',
 } as const satisfies Record<string, StaffAccountPermissionName>;

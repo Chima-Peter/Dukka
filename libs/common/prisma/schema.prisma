@@ -720,7 +720,7 @@ model Order {
 
   order_inventories OrderInventory[]
   order_items OrderItems[]
-  order_payment_attempts OrderPaymentAttempt[]
+  order_payment_attempt OrderPaymentAttempt?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -801,7 +801,6 @@ model PaymentMethod {
   @@unique([name])
 
   market_payment_methods MarketPaymentMethod[]
-  order_payment_attempts OrderPaymentAttempt[]
 }
 
 model MarketPaymentMethod {
@@ -814,6 +813,8 @@ model MarketPaymentMethod {
 
   payment_method_id String
   payment_method    PaymentMethod @relation(fields: [payment_method_id], references: [id], onDelete: Restrict)
+
+  order_payment_attempts OrderPaymentAttempt[]
 
   @@unique([market_id, payment_method_id])
   @@index([market_id])
@@ -831,19 +832,20 @@ model OrderPaymentAttempt {
   payment_intent_id String?
   payment_intent_url String?
   status OrderPaymentAttemptStatus @default(PENDING)
+  payment_method_name String
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  order_id String
+  order_id String @unique
   order    Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
-  payment_method_id String
-  payment_method    PaymentMethod @relation(fields: [payment_method_id], references: [id], onDelete: Restrict)
+  market_payment_method_id String?
+  market_payment_method    MarketPaymentMethod? @relation(fields: [market_payment_method_id], references: [id], onDelete: SetNull)
 
-  @@unique([order_id, payment_method_id])
-  @@index([order_id])
-  @@index([payment_method_id])
+  @@index([market_payment_method_id])
+  @@index([payment_method_name])
+  @@index([status])
 }
 
 model Reviews {

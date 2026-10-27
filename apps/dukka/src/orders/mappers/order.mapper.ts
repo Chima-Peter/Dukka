@@ -37,10 +37,16 @@ const orderItemDetailSelect = {
 const orderPaymentAttemptSelect = {
     id: true,
     status: true,
-    payment_method: {
+    payment_method_name: true,
+    market_payment_method: {
         select: {
             id: true,
-            name: true,
+            payment_method: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
         },
     },
     created_at: true,
@@ -76,9 +82,8 @@ export const customerOrderDetailSelect = {
         select: orderItemDetailSelect,
         orderBy: { created_at: 'asc' as const },
     },
-    order_payment_attempts: {
+    order_payment_attempt: {
         select: orderPaymentAttemptSelect,
-        orderBy: { created_at: 'desc' as const },
     },
 } satisfies Prisma.OrderSelect;
 
@@ -116,7 +121,12 @@ export const staffOrderDetailSelect = {
             name: true,
             address: true,
             status: true,
-            market_id: true,
+            country: {
+                select: {
+                    id: true,
+                    market_id: true,
+                },
+            },
         },
     },
     customer: {
@@ -131,9 +141,8 @@ export const staffOrderDetailSelect = {
         select: orderItemDetailSelect,
         orderBy: { created_at: 'asc' as const },
     },
-    order_payment_attempts: {
+    order_payment_attempt: {
         select: orderPaymentAttemptSelect,
-        orderBy: { created_at: 'desc' as const },
     },
 } satisfies Prisma.OrderSelect;
 
