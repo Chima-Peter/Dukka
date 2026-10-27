@@ -10,6 +10,7 @@ import {
     MailQueueService,
     type CustomerAccountDeletedJobPayload,
 } from '@app/queues';
+import { CancelOrderService } from './cancel-order.service.js';
 
 type BlockingOrder = {
     id: string;
@@ -33,6 +34,33 @@ type BlockingOrder = {
     }>;
 };
 
+const blockingOrderSelect = {
+    id: true,
+    status: true,
+    order_number: true,
+    currency: true,
+    subtotal: true,
+    shipping_fee: true,
+    discount_amount: true,
+    points_discount: true,
+    coupon_discount: true,
+    total_amount: true,
+    shipping_address: true,
+    created_at: true,
+    market: {
+        select: { name: true },
+    },
+    order_items: {
+        select: {
+            product_name: true,
+            quantity: true,
+            price: true,
+            total: true,
+        },
+        orderBy: { created_at: 'asc' as const },
+    },
+};
+
 @Injectable()
 export class CustomerAccountDeletedService {
     private readonly logger = new Logger(CustomerAccountDeletedService.name);
@@ -41,6 +69,7 @@ export class CustomerAccountDeletedService {
         private readonly prisma: PrismaService,
         private readonly supabaseService: SupabaseService,
         private readonly mailQueueService: MailQueueService,
+        private readonly cancelOrderService: CancelOrderService,
     ) {}
 
     async process(payload: CustomerAccountDeletedJobPayload): Promise<void> {
@@ -48,79 +77,55 @@ export class CustomerAccountDeletedService {
 
         this.logger.log(`Deleting account for customer ${customer_id}`);
 
-        const pending = await this.prisma.order.findFirst({
+        const blocking = await this.prisma.order.findFirst({
             where: {
-                status: {
-                    in: [
-                        OrderStatus.PENDING,
-                        OrderStatus.PROCESSING,
-                        OrderStatus.SHIPPED,
-                    ],
-                },
                 customer_id,
-            },
-            select: {
-                id: true,
-                status: true,
-                order_number: true,
-                currency: true,
-                subtotal: true,
-                shipping_fee: true,
-                discount_amount: true,
-                points_discount: true,
-                coupon_discount: true,
-                total_amount: true,
-                shipping_address: true,
-                created_at: true,
-                market: {
-                    select: { name: true },
-                },
-                order_items: {
-                    select: {
-                        product_name: true,
-                        quantity: true,
-                        price: true,
-                        total: true,
-                    },
-                    orderBy: { created_at: 'asc' },
+                status: {
+                    in: [OrderStatus.PROCESSING, OrderStatus.SHIPPED],
                 },
             },
+            select: blockingOrderSelect,
         });
 
-        if (pending) {
-            if (pending.status === OrderStatus.PROCESSING) {
+        if (blocking) {
+            if (blocking.status === OrderStatus.PROCESSING) {
                 this.logger.log(
-                    `Skipped account deletion for ${customer_id}; order ${pending.id} status=${pending.status}`,
+                    `Skipped account deletion for ${customer_id}; order ${blocking.id} status=${blocking.status}`,
                 );
                 await this.mailQueueService.enqueueSend({
                     to: email,
                     subject: 'Your order is still being processed',
                     template: MAIL_TEMPLATES.CUSTOMER_ORDER_PROCESSING,
-                    context: this.toOrderMailContext(name, email, pending),
+                    context: this.toOrderMailContext(name, email, blocking),
                 });
-
                 return;
-            } else if (pending.status === OrderStatus.SHIPPED) {
-                this.logger.log(
-                    `Skipped account deletion for ${customer_id}; order ${pending.id} status=${pending.status}`,
-                );
-                await this.mailQueueService.enqueueSend({
-                    to: email,
-                    subject: 'Your order has been shipped',
-                    template: MAIL_TEMPLATES.CUSTOMER_ORDER_SHIPPED,
-                    context: this.toOrderMailContext(name, email, pending),
-                });
-                
-                return;
-            } else if (pending.status === OrderStatus.PENDING) {
-                this.logger.log(
-                    `Cancelling order with number ${pending.order_number} for ${customer_id} before proceeding with account deletion`,
-                );
-                await this.mailQueueService.enqueueSend({
-                    to: email,
-                    subject: 'Your order has been cancelled',
-                });
             }
+
+            this.logger.log(
+                `Skipped account deletion for ${customer_id}; order ${blocking.id} status=${blocking.status}`,
+            );
+            await this.mailQueueService.enqueueSend({
+                to: email,
+                subject: 'Your order has been shipped',
+                template: MAIL_TEMPLATES.CUSTOMER_ORDER_SHIPPED,
+                context: this.toOrderMailContext(name, email, blocking),
+            });
+            return;
+        }
+
+        const pendingOrders = await this.prisma.order.findMany({
+            where: {
+                customer_id,
+                status: OrderStatus.PENDING,
+            },
+            select: { id: true, order_number: true },
+        });
+
+        for (const order of pendingOrders) {
+            this.logger.log(
+                `Cancelling pending order ${order.order_number} for ${customer_id} before account deletion`,
+            );
+            await this.cancelOrderService.process({ order_id: order.id });
         }
 
         const customer = await this.prisma.customer.findUnique({

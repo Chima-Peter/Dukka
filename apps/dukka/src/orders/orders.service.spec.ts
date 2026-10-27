@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { GeneralQueueService } from '@app/queues';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
@@ -16,6 +17,13 @@ describe('OrdersService', () => {
                         createForGuest: vi.fn(),
                         findForCustomer: vi.fn(),
                         findForStaff: vi.fn(),
+                        findOneForCustomer: vi.fn(),
+                    },
+                },
+                {
+                    provide: GeneralQueueService,
+                    useValue: {
+                        enqueue: vi.fn(),
                     },
                 },
             ],

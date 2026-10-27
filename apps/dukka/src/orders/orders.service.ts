@@ -11,6 +11,7 @@ import {
     OrderStatus,
     type Order,
 } from '@app/common';
+import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -35,7 +36,10 @@ import type {
 export class OrdersService {
     private readonly logger = new Logger(OrdersService.name);
 
-    constructor(private readonly ordersRepository: OrdersRepository) {}
+    constructor(
+        private readonly ordersRepository: OrdersRepository,
+        private readonly generalQueueService: GeneralQueueService,
+    ) {}
 
     async createForCustomer(
         customerId: string,
@@ -185,12 +189,31 @@ export class OrdersService {
             this.logger.log(
                 `Cancelling order ${orderId} for customer ${customerId}`,
             );
-            return await this.transitionStatus({
+            const order = await this.ordersRepository.findOneForCustomer(
+                customerId,
+                orderId,
+            );
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
+
+            if (
+                order.status !== OrderStatus.PENDING &&
+                order.status !== OrderStatus.PROCESSING
+            ) {
+                throw new BadRequestException(
+                    `${order.status} orders are not eligible for cancellation`,
+                );
+            }
+
+            await this.generalQueueService.enqueue(GENERAL_JOBS.CANCEL_ORDER, {
                 order_id: orderId,
-                customer_id: customerId,
-                from_statuses: [OrderStatus.PENDING, OrderStatus.PROCESSING],
-                to_status: OrderStatus.CANCELLED,
             });
+
+            return {
+                id: orderId,
+                status: OrderStatus.CANCELLED,
+            };
         } catch (error) {
             this.handleError(error);
         }

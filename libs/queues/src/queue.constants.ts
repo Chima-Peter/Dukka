@@ -14,6 +14,7 @@ export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
  */
 export const GENERAL_JOBS = {
     EXPIRED_RESERVATIONS: 'expired-reservations',
+    CANCEL_ORDER: 'cancel-order',
     ORDER_MATCHING: 'order-matching',
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
@@ -63,6 +64,7 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
     CUSTOMER_ORDER_PROCESSING: 'customer.order-processing',
     CUSTOMER_ORDER_SHIPPED: 'customer.order-shipped',
+    CUSTOMER_ORDER_CANCEL_BLOCKED: 'customer.order-cancel-blocked',
     STAFF_WELCOME: 'staff.welcome',
     STAFF_INVITATION: 'staff.invitation',
     STAFF_PASSWORD_RESET: 'staff.password-reset',

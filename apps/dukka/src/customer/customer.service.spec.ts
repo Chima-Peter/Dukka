@@ -23,6 +23,7 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MAIL_JOBS: { SEND: 'send' },
     GENERAL_JOBS: {
         EXPIRED_RESERVATIONS: 'expired-reservations',
+        CANCEL_ORDER: 'cancel-order',
         ORDER_MATCHING: 'order-matching',
         INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
         CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',

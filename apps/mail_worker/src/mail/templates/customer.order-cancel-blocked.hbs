@@ -1,0 +1,27 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  We could not cancel your order
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Status update
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  We could not cancel order <strong>#{{order_number}}</strong> because it is currently
+  <strong>{{order_status}}</strong>. Orders in this status can no longer be cancelled.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Status" value=order_status}}
+{{/details}}
+
+{{#> tip title="What to do next"}}
+  If you still need help with this order, reply to this email and our support team will assist.
+{{/tip}}
+
+<p style="margin:0;">
+  Thank you for shopping with Dukka.
+</p>

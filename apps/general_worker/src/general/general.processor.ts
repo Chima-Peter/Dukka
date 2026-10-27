@@ -5,11 +5,13 @@ import {
     GENERAL_JOB_OPTIONS,
     GENERAL_JOBS,
     GENERAL_QUEUE,
+    type CancelOrderJobPayload,
     type CustomerAccountDeletedJobPayload,
     type ExpiredReservationsJobPayload,
     type InventoryStockReminderJobPayload,
     type OrderMatchingJobPayload,
 } from '@app/queues';
+import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
@@ -21,6 +23,7 @@ export class GeneralProcessor extends WorkerHost {
 
     constructor(
         private readonly expiredReservationsService: ExpiredReservationsService,
+        private readonly cancelOrderService: CancelOrderService,
         private readonly orderMatchingService: OrderMatchingService,
         private readonly inventoryStockReminderService: InventoryStockReminderService,
         private readonly customerAccountDeletedService: CustomerAccountDeletedService,
@@ -37,6 +40,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.EXPIRED_RESERVATIONS:
                 await this.expiredReservationsService.process(
                     job.data as ExpiredReservationsJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.CANCEL_ORDER:
+                await this.cancelOrderService.process(
+                    job.data as CancelOrderJobPayload,
                 );
                 return;
             case GENERAL_JOBS.ORDER_MATCHING:
