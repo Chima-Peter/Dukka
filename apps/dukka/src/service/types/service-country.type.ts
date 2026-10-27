@@ -22,6 +22,13 @@ export type ServiceCountryWithMarketStatus = {
     market: { id: string; status: MarketStatus } | null;
 };
 
+export type ServiceCountryMarketMatch = {
+    name: string;
+    iso2: string;
+    iso3: string;
+    market_id: string | null;
+};
+
 export const serviceCountryWithMarket = {
     market: {
         select: {

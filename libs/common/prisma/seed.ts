@@ -169,22 +169,39 @@ async function seedMarkets() {
     console.log(`Seeded ${DEFAULT_MARKETS.length} markets`);
 }
 
+const MARKET_COUNTRY_ISO: Record<
+    string,
+    { iso2: string; iso3: string }
+> = {
+    NG: { iso2: 'NG', iso3: 'NGA' },
+    GH: { iso2: 'GH', iso3: 'GHA' },
+};
+
 async function seedServiceCountries() {
     const markets = await prisma.market.findMany({
         select: { id: true, code: true, name: true },
     });
 
     for (const market of markets) {
+        const iso = MARKET_COUNTRY_ISO[market.code];
+        if (!iso) {
+            throw new Error(
+                `Missing ISO mapping for market code ${market.code}`,
+            );
+        }
+
         await prisma.serviceCountry.upsert({
-            where: { code: market.code },
+            where: { iso2: iso.iso2 },
             create: {
-                code: market.code,
                 name: market.name,
+                iso2: iso.iso2,
+                iso3: iso.iso3,
                 status: 'OPEN',
                 market_id: market.id,
             },
             update: {
                 name: market.name,
+                iso3: iso.iso3,
                 status: 'OPEN',
                 market_id: market.id,
             },
@@ -778,7 +795,7 @@ async function seedShippingAddresses(
         }
 
         const country = await prisma.serviceCountry.findUnique({
-            where: { code: shipping.market_code },
+            where: { iso2: shipping.market_code },
             select: { id: true },
         });
         if (!country) {
@@ -1145,7 +1162,7 @@ async function seedWarehousesAndInventory(
     ] as const;
 
     const countries = await prisma.serviceCountry.findMany({
-        select: { id: true, code: true, market_id: true },
+        select: { id: true, iso2: true, market_id: true },
     });
 
     const serviceStates: {
@@ -1157,7 +1174,7 @@ async function seedWarehousesAndInventory(
 
     for (const stateDef of serviceStatesDef) {
         const country = countries.find(
-            (row) => row.code === stateDef.country_code,
+            (row) => row.iso2 === stateDef.country_code,
         );
         if (!country?.market_id) {
             continue;

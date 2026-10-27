@@ -18,8 +18,9 @@ vi.mock('../markets/markets.service.js', () => ({
 
 const countryBase = {
     id: 'country-1',
-    code: 'NG',
     name: 'Nigeria',
+    iso2: 'NG',
+    iso3: 'NGA',
     status: ServiceCountryStatus.PENDING,
     market_id: null as string | null,
     created_at: new Date(),

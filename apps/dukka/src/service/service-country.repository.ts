@@ -4,6 +4,7 @@ import type { CreateServiceCountryDto } from './dto/create-service-country.dto.j
 import type { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 import {
     serviceCountryWithMarket,
+    type ServiceCountryMarketMatch,
     type ServiceCountryWithMarket,
     type ServiceCountryWithMarketStatus,
 } from './types/service-country.type.js';
@@ -15,8 +16,9 @@ export class ServiceCountryRepository {
     async create(data: CreateServiceCountryDto): Promise<ServiceCountryWithMarket> {
         return await this.prisma.serviceCountry.create({
             data: {
-                code: data.code,
                 name: data.name,
+                iso2: data.iso2,
+                iso3: data.iso3,
             },
             include: serviceCountryWithMarket,
         });
@@ -41,6 +43,25 @@ export class ServiceCountryRepository {
             },
             include: serviceCountryWithMarket,
             orderBy: { created_at: 'desc' },
+        });
+    }
+
+    async searchByIso2(iso2: string): Promise<ServiceCountryMarketMatch[]> {
+        return await this.prisma.serviceCountry.findMany({
+            where: {
+                status: ServiceCountryStatus.OPEN,
+                iso2: {
+                    equals: iso2,
+                    mode: 'insensitive',
+                },
+            },
+            select: {
+                name: true,
+                iso2: true,
+                iso3: true,
+                market_id: true,
+            },
+            orderBy: { name: 'asc' },
         });
     }
 
@@ -74,8 +95,9 @@ export class ServiceCountryRepository {
         return await this.prisma.serviceCountry.update({
             where: { id },
             data: {
-                ...(data.code !== undefined && { code: data.code }),
                 ...(data.name !== undefined && { name: data.name }),
+                ...(data.iso2 !== undefined && { iso2: data.iso2 }),
+                ...(data.iso3 !== undefined && { iso3: data.iso3 }),
             },
             include: serviceCountryWithMarket,
         });

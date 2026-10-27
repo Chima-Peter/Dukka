@@ -24,6 +24,7 @@ import { ServiceCountryService } from './service-country.service.js';
 import { AssignServiceCountryMarketDto } from './dto/assign-service-country-market.dto.js';
 import { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
 import { FindStaffServiceCountriesDto } from './dto/find-staff-service-countries.dto.js';
+import { SearchServiceCountriesDto } from './dto/search-service-countries.dto.js';
 import { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 
 @Auth('staff')
@@ -49,6 +50,13 @@ export class ServiceCountryController {
     @ResponseMessage('Service countries retrieved successfully')
     findAllForStaff(@Query() query: FindStaffServiceCountriesDto) {
         return this.serviceCountryService.findAllForStaff(query.status);
+    }
+
+    @Get('search')
+    @Public()
+    @ResponseMessage('Service countries retrieved successfully')
+    search(@Query() query: SearchServiceCountriesDto) {
+        return this.serviceCountryService.search(query.iso2);
     }
 
     @Patch(':id')

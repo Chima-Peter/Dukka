@@ -36,6 +36,7 @@ describe('ServiceCountryController', () => {
                         create: vi.fn(),
                         findAll: vi.fn(),
                         findAllForStaff: vi.fn(),
+                        search: vi.fn(),
                         update: vi.fn(),
                         open: vi.fn(),
                         close: vi.fn(),

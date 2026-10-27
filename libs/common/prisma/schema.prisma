@@ -237,8 +237,9 @@ enum ServiceCountryStatus {
 
 model ServiceCountry {
   id         String               @id @default(uuid())
-  code       String               @unique
   name       String
+  iso2       String               @unique @db.Char(2)
+  iso3       String               @unique @db.Char(3)
   status     ServiceCountryStatus @default(PENDING)
   market_id  String?
   created_at DateTime             @default(now())

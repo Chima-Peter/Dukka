@@ -20,6 +20,7 @@ import type { AssignServiceCountryMarketDto } from './dto/assign-service-country
 import type { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
 import type { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 import type {
+    ServiceCountryMarketMatch,
     ServiceCountryWithMarket,
     ServiceCountryWithMarketStatus,
 } from './types/service-country.type.js';
@@ -35,7 +36,7 @@ export class ServiceCountryService {
 
     async create(data: CreateServiceCountryDto): Promise<ServiceCountryWithMarket> {
         try {
-            this.logger.log(`Creating service country ${data.code}`);
+            this.logger.log(`Creating service country ${data.iso2}`);
             const country = await this.serviceCountryRepository.create(data);
             this.logger.log(`Service country created ${country.id}`);
             return country;
@@ -68,6 +69,15 @@ export class ServiceCountryService {
         try {
             this.logger.log('Fetching staff service countries');
             return await this.serviceCountryRepository.findAllForStaff(status);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async search(iso2: string): Promise<ServiceCountryMarketMatch[]> {
+        try {
+            this.logger.log(`Searching service countries by iso2: ${iso2}`);
+            return await this.serviceCountryRepository.searchByIso2(iso2);
         } catch (error) {
             this.handleError(error);
         }
@@ -276,7 +286,7 @@ export class ServiceCountryService {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
                 throw new ConflictException(
-                    'A service country with this code already exists',
+                    'A service country with this iso2 or iso3 already exists',
                 );
             }
             if (error.code === 'P2003') {
