@@ -96,7 +96,7 @@ export class ServiceCountryService {
 
         this.logger.log(`Searching service country by IP: ${clientIp}`);
 
-        const iso2 = await this.restCountriesIpService.resolveIso2("108.156.221.66");
+        const iso2 = await this.restCountriesIpService.resolveIso2(clientIp);
         if (!iso2) {
             return null;
         }
