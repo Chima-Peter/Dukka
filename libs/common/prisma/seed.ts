@@ -175,6 +175,7 @@ const MARKET_COUNTRY_ISO: Record<
 > = {
     NG: { iso2: 'NG', iso3: 'NGA' },
     GH: { iso2: 'GH', iso3: 'GHA' },
+    US: { iso2: 'US', iso3: 'USA' },
 };
 
 async function seedServiceCountries() {
@@ -1209,8 +1210,8 @@ async function seedWarehousesAndInventory(
         });
     }
 
-    const ngCountry = countries.find((row) => row.code === 'NG');
-    const ghCountry = countries.find((row) => row.code === 'GH');
+    const ngCountry = countries.find((row) => row.iso2 === 'NG');
+    const ghCountry = countries.find((row) => row.iso2 === 'GH');
     if (!ngCountry || !ghCountry) {
         throw new Error('Missing service countries for warehouse seed');
     }
