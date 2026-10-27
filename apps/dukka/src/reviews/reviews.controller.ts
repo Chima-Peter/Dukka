@@ -43,7 +43,7 @@ export class ReviewsController {
         @CurrentCustomer() customer: CustomerJwtPayload,
         @Body() data: CreateReviewDto,
     ) {
-        return this.reviewsService.create(customer.sub, data);
+        return this.reviewsService.create(customer.sub, customer.name, data);
     }
 
     @Get()

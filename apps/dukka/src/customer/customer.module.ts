@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { ConfigType } from '../config/env.interface.js';
 import { CartModule } from '../cart/cart.module.js';
 import { PasswordHasher } from '../shared/index.js';
+import { PaymentsModule } from '../payments/payments.module.js';
 import { CustomerAuthController } from './customer-auth.controller.js';
 import { CustomerAuthService } from './customer-auth.service.js';
 import { CustomerController } from './customer.controller.js';
@@ -17,6 +18,7 @@ import { ServiceModule } from '../service/service.module.js';
     imports: [
         forwardRef(() => CartModule),
         forwardRef(() => ServiceModule),
+        PaymentsModule,
         JwtModule.registerAsync({
             global: true,
             inject: [ConfigService],

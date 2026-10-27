@@ -79,7 +79,7 @@ export class CustomerController {
 
     @Post('delete/verify')
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Account deleted successfully')
+    @ResponseMessage('Your account deletion is in process. We will send you an email when it is complete. Sad to see you go!')
     verifyAccountDeletion(
         @CurrentCustomer() customer: CustomerJwtPayload,
         @Body() data: VerifyAccountDeletionDto,

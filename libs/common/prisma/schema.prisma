@@ -73,10 +73,10 @@ model ShippingAddress {
   street_address  String
 
   state         String
-  service_state ServiceState @relation(fields: [state], references: [id], onDelete: Restrict)
+  service_state ServiceState @relation(fields: [state], references: [id], onDelete: Cascade)
 
   market_id String
-  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  market    Market @relation(fields: [market_id], references: [id], onDelete: Cascade)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -99,7 +99,7 @@ model Points {
   points_history PointsHistory[]
 
   customer_id   String    @unique
-  customer    Customer    @relation(fields: [customer_id], references: [id])
+  customer    Customer    @relation(fields: [customer_id], references: [id], onDelete: Cascade)
 }
 
 enum POINT_STATUS {
@@ -862,8 +862,9 @@ model OrderPaymentAttempt {
 
 model Reviews {
   id          String   @id @default(uuid())
-  customer_id String
-  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  customer_id String?
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+  customer_name String
   title       String
   review      String
   rating      Int

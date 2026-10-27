@@ -7,7 +7,8 @@ export type ReviewImageItem = {
 
 export type ReviewItem = {
     id: string;
-    customer_id: string;
+    customer_id: string | null;
+    customer_name: string;
     title: string;
     review: string;
     rating: number;

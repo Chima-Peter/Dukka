@@ -236,6 +236,16 @@ export class PaymentsService {
         }
     }
 
+    async hasPendingAttemptsForCustomer(customerId: string): Promise<boolean> {
+        try {
+            return await this.paymentsRepository.hasPendingAttemptsForCustomer(
+                customerId,
+            );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     private async requireOpenMarket(marketId: string): Promise<void> {
         const validation = await this.marketsService.validateIds({
             market_ids: [marketId],

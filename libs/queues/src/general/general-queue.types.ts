@@ -10,3 +10,9 @@ export type OrderMatchingJobPayload = {
 export type InventoryStockReminderJobPayload = {
     warehouse_id: string;
 };
+
+export type CustomerAccountDeletedJobPayload = {
+    customer_id: string;
+    email: string;
+    name: string;
+};

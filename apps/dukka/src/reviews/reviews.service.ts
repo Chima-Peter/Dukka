@@ -59,6 +59,7 @@ export class ReviewsService {
 
     async create(
         customerId: string,
+        customerName: string,
         data: CreateReviewDto,
     ): Promise<ReviewItem> {
         try {
@@ -82,6 +83,7 @@ export class ReviewsService {
             );
 
             const review = await this.reviewsRepository.create(customerId, {
+                customer_name: customerName,
                 market_variant_id: data.market_variant_id,
                 title: data.title,
                 review: data.review,

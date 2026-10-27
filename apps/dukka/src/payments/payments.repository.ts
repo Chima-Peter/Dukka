@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+    OrderPaymentAttemptStatus,
     type PaymentMethod,
     type Prisma,
     PrismaService,
@@ -115,6 +116,19 @@ export class PaymentsRepository {
             },
             select: paymentAttemptDetailSelect,
         });
+    }
+
+    async hasPendingAttemptsForCustomer(
+        customerId: string,
+    ): Promise<boolean> {
+        const pending = await this.prisma.orderPaymentAttempt.findFirst({
+            where: {
+                status: OrderPaymentAttemptStatus.PENDING,
+                order: { customer_id: customerId },
+            },
+            select: { id: true },
+        });
+        return pending !== null;
     }
 
     async createAttempt(

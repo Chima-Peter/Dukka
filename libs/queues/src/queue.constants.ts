@@ -16,6 +16,7 @@ export const GENERAL_JOBS = {
     EXPIRED_RESERVATIONS: 'expired-reservations',
     ORDER_MATCHING: 'order-matching',
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
+    CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
 } as const;
 
 export type GeneralJobName =
@@ -60,6 +61,8 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_PASSWORD_CHANGED: 'customer.password-changed',
     CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
     CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
+    CUSTOMER_ORDER_PROCESSING: 'customer.order-processing',
+    CUSTOMER_ORDER_SHIPPED: 'customer.order-shipped',
     STAFF_WELCOME: 'staff.welcome',
     STAFF_INVITATION: 'staff.invitation',
     STAFF_PASSWORD_RESET: 'staff.password-reset',

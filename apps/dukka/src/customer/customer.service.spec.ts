@@ -2,6 +2,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsService } from '../markets/markets.service.js';
+import { PaymentsService } from '../payments/payments.service.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerService } from './customer.service.js';
@@ -16,8 +17,16 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
 }));
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
+    GeneralQueueService: class GeneralQueueService {},
     MAIL_QUEUE: 'mail',
+    GENERAL_QUEUE: 'general',
     MAIL_JOBS: { SEND: 'send' },
+    GENERAL_JOBS: {
+        EXPIRED_RESERVATIONS: 'expired-reservations',
+        ORDER_MATCHING: 'order-matching',
+        INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
+        CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
+    },
     MAIL_TEMPLATES: {
         CUSTOMER_WELCOME: 'customer.welcome',
         CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
@@ -48,7 +57,7 @@ describe('CustomerService', () => {
         const { RedisService, SupabaseService } = await import(
             '../../../../libs/common/src/index.ts'
         );
-        const { MailQueueService } = await import(
+        const { MailQueueService, GeneralQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
         );
 
@@ -111,6 +120,19 @@ describe('CustomerService', () => {
                     useValue: {
                         enqueueSend: vi.fn(),
                         enqueueSendMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: GeneralQueueService,
+                    useValue: {
+                        enqueue: vi.fn(),
+                        enqueueMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: PaymentsService,
+                    useValue: {
+                        hasPendingAttemptsForCustomer: vi.fn(),
                     },
                 },
             ],

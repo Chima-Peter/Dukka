@@ -33,9 +33,15 @@ import {
 } from '../shared/index.js';
 import { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 import { VerifyAccountDeletionDto } from './dto/verify_account_deletion.dto.js';
-import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+    MAIL_TEMPLATES,
+    MailQueueService,
+} from '@app/queues';
 import { TokenRepository } from './token.repository.js';
 import { ServiceCountryService } from '../service/service-country.service.js';
+import { PaymentsService } from '../payments/payments.service.js';
 
 @Injectable()
 export class CustomerService {
@@ -49,6 +55,8 @@ export class CustomerService {
         private readonly tokenRepository: TokenRepository,
         private readonly jwtService: JwtService,
         private readonly mailQueueService: MailQueueService,
+        private readonly generalQueueService: GeneralQueueService,
+        private readonly paymentsService: PaymentsService,
     ) {}
 
     async create(data: CreateCustomerDto): Promise<Customer> {
@@ -384,6 +392,8 @@ export class CustomerService {
                 throw new NotFoundException('Customer not found');
             }
 
+            await this.assertNoPendingPaymentAttempts(customer_id);
+
             const token = String(randomInt(100000, 1000000));
             await this.redisService.set(
                 RedisKeys.accountDeletionToken(customer.email),
@@ -434,6 +444,8 @@ export class CustomerService {
                 throw new NotFoundException('Customer not found');
             }
 
+            await this.assertNoPendingPaymentAttempts(customer_id);
+
             const key = RedisKeys.accountDeletionToken(customer.email);
             const storedToken = await this.redisService.get(key);
 
@@ -470,21 +482,20 @@ export class CustomerService {
             );
             await this.tokenRepository.deleteAllByCustomerId(customer_id);
             await this.clearActiveMarketFromRedis(customer_id);
-
-            await this.delete(customer_id);
             await this.redisService.delete(key);
 
-            this.logger.log(`Account deleted for customer ${customer.email}`);
-
-            await this.mailQueueService.enqueueSend({
-                to: customer.email,
-                subject: 'Your account has been deleted',
-                template: MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETED,
-                context: {
-                    name: customer.name,
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.CUSTOMER_ACCOUNT_DELETED,
+                {
+                    customer_id,
                     email: customer.email,
+                    name: customer.name,
                 },
-            });
+            );
+
+            this.logger.log(
+                `Account deletion queued for customer ${customer.email}`,
+            );
 
             return { data: null };
         } catch (error) {
@@ -499,44 +510,16 @@ export class CustomerService {
         }
     }
 
-    async delete(customer_id: string): Promise<void> {
-        try {
-            this.logger.log(`Deleting customer ${customer_id}`);
-
-            const customer = await this.findByID(customer_id);
-            if (!customer) {
-                throw new NotFoundException('Customer not found');
-            }
-
-            if (customer.avatar) {
-                try {
-                    await this.supabaseService.deleteFile(
-                        [customer.avatar],
-                        AVATAR_BUCKET,
-                    );
-                } catch (error) {
-                    this.logger.warn(
-                        `Failed to delete avatar for customer ${customer_id}: ${error}`,
-                    );
-                }
-            }
-
-            await this.customerRepository.delete(customer_id);
-            this.logger.log(`Customer deleted ${customer_id}`);
-        } catch (error) {
-            if (error instanceof HttpException) {
-                this.logger.warn(`HTTP exception: ${error.message}`);
-                throw error;
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2025'
-            ) {
-                throw new NotFoundException('Customer not found');
-            }
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
+    private async assertNoPendingPaymentAttempts(
+        customer_id: string,
+    ): Promise<void> {
+        const hasPending =
+            await this.paymentsService.hasPendingAttemptsForCustomer(
+                customer_id,
+            );
+        if (hasPending) {
+            throw new ConflictException(
+                'Cancel all open orders before deleting your account',
             );
         }
     }

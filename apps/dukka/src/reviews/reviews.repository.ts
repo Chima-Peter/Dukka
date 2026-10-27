@@ -22,6 +22,7 @@ export class ReviewsRepository {
     async create(
         customerId: string,
         data: {
+            customer_name: string;
             market_variant_id: string;
             title: string;
             review: string;
@@ -34,6 +35,7 @@ export class ReviewsRepository {
                 customer: {
                     connect: { id: customerId },
                 },
+                customer_name: data.customer_name,
                 title: data.title,
                 review: data.review,
                 rating: data.rating,

@@ -1626,6 +1626,7 @@ async function seedOrdersReviewsAndFulfillment(
         await prisma.reviews.create({
             data: {
                 customer_id: adaeze.id,
+                customer_name: adaeze.name,
                 market_variant_id: ngPulse.id,
                 title: 'Excellent sound',
                 review: 'Comfortable fit and clear audio for long calls.',
@@ -1655,6 +1656,7 @@ async function seedOrdersReviewsAndFulfillment(
         await prisma.reviews.create({
             data: {
                 customer_id: kofi.id,
+                customer_name: kofi.name,
                 market_variant_id: ghPulse.id,
                 title: 'Great value',
                 review: 'Battery lasts through a full workday.',

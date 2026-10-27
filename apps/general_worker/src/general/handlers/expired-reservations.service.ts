@@ -22,6 +22,7 @@ export class ExpiredReservationsService {
     async process(
         payload: ExpiredReservationsJobPayload,
     ): Promise<void> {
+        // first send request to provider to cancel payment attempt
         const expired = await this.prisma.$transaction(async (tx) => {
             const locked = await tx.$queryRaw<LockedReservation[]>`
                 SELECT oi.id, oi.order_id, oi.warehouse_id
