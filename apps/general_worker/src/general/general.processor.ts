@@ -7,16 +7,16 @@ import {
     GENERAL_QUEUE,
     type CancelOrderJobPayload,
     type CustomerAccountDeletedJobPayload,
+    type CustomerRegisteredJobPayload,
     type ExpiredReservationsJobPayload,
     type InventoryStockReminderJobPayload,
-    type OrderMatchingJobPayload,
     type StaffDeactivatedJobPayload,
 } from '@app/queues';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
+import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
-import { OrderMatchingService } from './handlers/order-matching.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
@@ -26,7 +26,7 @@ export class GeneralProcessor extends WorkerHost {
     constructor(
         private readonly expiredReservationsService: ExpiredReservationsService,
         private readonly cancelOrderService: CancelOrderService,
-        private readonly orderMatchingService: OrderMatchingService,
+        private readonly customerRegisteredService: CustomerRegisteredService,
         private readonly inventoryStockReminderService: InventoryStockReminderService,
         private readonly customerAccountDeletedService: CustomerAccountDeletedService,
         private readonly staffDeactivatedService: StaffDeactivatedService,
@@ -50,9 +50,9 @@ export class GeneralProcessor extends WorkerHost {
                     job.data as CancelOrderJobPayload,
                 );
                 return;
-            case GENERAL_JOBS.ORDER_MATCHING:
-                await this.orderMatchingService.process(
-                    job.data as OrderMatchingJobPayload,
+            case GENERAL_JOBS.CUSTOMER_REGISTERED:
+                await this.customerRegisteredService.process(
+                    job.data as CustomerRegisteredJobPayload,
                 );
                 return;
             case GENERAL_JOBS.INVENTORY_STOCK_REMINDER:

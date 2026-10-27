@@ -66,6 +66,7 @@ export {
     successResponse,
 } from './response/index.js';
 export * from './prisma/index.js';
+export { RestCountriesIpService } from './rest-countries/index.js';
 export {
     ALLOWED_AVATAR_CONTENT_TYPES,
     ALLOWED_PRODUCT_CONTENT_TYPES,

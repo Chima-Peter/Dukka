@@ -1,4 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { HttpClientModule } from '@nestjs/http-client';
+import { RestCountriesIpService } from '@app/common';
 import { CustomerModule } from '../customer/customer.module.js';
 import { MarketsModule } from '../markets/markets.module.js';
 import { WarehouseModule } from '../warehouse/warehouse.module.js';
@@ -12,6 +14,9 @@ import { ServiceStateService } from './service-state.service.js';
 @Module({
     imports: [
         MarketsModule,
+        HttpClientModule.register({
+            timeout: 5000,
+        }),
         forwardRef(() => CustomerModule),
         forwardRef(() => WarehouseModule),
     ],
@@ -21,6 +26,7 @@ import { ServiceStateService } from './service-state.service.js';
         ServiceCountryRepository,
         ServiceStateService,
         ServiceStateRepository,
+        RestCountriesIpService,
     ],
     exports: [ServiceCountryService, ServiceStateService],
 })

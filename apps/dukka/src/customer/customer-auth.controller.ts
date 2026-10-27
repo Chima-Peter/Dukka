@@ -4,6 +4,7 @@ import {
     Headers,
     HttpCode,
     HttpStatus,
+    Ip,
     Post,
     UnauthorizedException,
 } from '@nestjs/common';
@@ -33,8 +34,8 @@ export class CustomerAuthController {
     @Post('register')
     @Public()
     @ResponseMessage('Customer created successfully')
-    register(@Body() data: CreateCustomerDto) {
-        return this.customerAuthService.register(data);
+    register(@Body() data: CreateCustomerDto, @Ip() clientIp: string) {
+        return this.customerAuthService.register(data, clientIp);
     }
 
     @Post('login')

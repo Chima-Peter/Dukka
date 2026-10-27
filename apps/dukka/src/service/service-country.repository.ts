@@ -46,8 +46,8 @@ export class ServiceCountryRepository {
         });
     }
 
-    async searchByIso2(iso2: string): Promise<ServiceCountryMarketMatch[]> {
-        return await this.prisma.serviceCountry.findMany({
+    async searchByIso2(iso2: string): Promise<ServiceCountryMarketMatch | null> {
+        return await this.prisma.serviceCountry.findFirst({
             where: {
                 status: ServiceCountryStatus.OPEN,
                 iso2: {

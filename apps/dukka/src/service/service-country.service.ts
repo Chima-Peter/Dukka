@@ -8,7 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { ServiceCountryStatus } from '@app/common';
+import { RestCountriesIpService, ServiceCountryStatus } from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
@@ -32,6 +32,7 @@ export class ServiceCountryService {
     constructor(
         private readonly serviceCountryRepository: ServiceCountryRepository,
         private readonly marketsService: MarketsService,
+        private readonly restCountriesIpService: RestCountriesIpService,
     ) {}
 
     async create(data: CreateServiceCountryDto): Promise<ServiceCountryWithMarket> {
@@ -74,13 +75,42 @@ export class ServiceCountryService {
         }
     }
 
-    async search(iso2: string): Promise<ServiceCountryMarketMatch[]> {
+    async search(iso2: string): Promise<ServiceCountryMarketMatch | null> {
         try {
-            this.logger.log(`Searching service countries by iso2: ${iso2}`);
+            this.logger.log(`Searching service country by iso2: ${iso2}`);
             return await this.serviceCountryRepository.searchByIso2(iso2);
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    async searchByIp(
+        clientIp?: string,
+    ): Promise<ServiceCountryMarketMatch | null> {
+        if (!clientIp) {
+            this.logger.warn(
+                'No client IP available; skipping service country search',
+            );
+            return null;
+        }
+
+        const iso2 = await this.restCountriesIpService.resolveIso2(clientIp);
+        if (!iso2) {
+            return null;
+        }
+
+        const match = await this.search(iso2);
+        if (!match) {
+            this.logger.warn(
+                `No open service country found for iso2 ${iso2}`,
+            );
+            return null;
+        }
+
+        this.logger.log(
+            `Resolved service country ${match.iso2} from IP ${clientIp}`,
+        );
+        return match;
     }
 
     async findWithMarketStatus(

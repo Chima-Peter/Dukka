@@ -5,6 +5,7 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Ip,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -24,7 +25,6 @@ import { ServiceCountryService } from './service-country.service.js';
 import { AssignServiceCountryMarketDto } from './dto/assign-service-country-market.dto.js';
 import { CreateServiceCountryDto } from './dto/create-service-country.dto.js';
 import { FindStaffServiceCountriesDto } from './dto/find-staff-service-countries.dto.js';
-import { SearchServiceCountriesDto } from './dto/search-service-countries.dto.js';
 import { UpdateServiceCountryDto } from './dto/update-service-country.dto.js';
 
 @Auth('staff')
@@ -54,9 +54,9 @@ export class ServiceCountryController {
 
     @Get('search')
     @Public()
-    @ResponseMessage('Service countries retrieved successfully')
-    search(@Query() query: SearchServiceCountriesDto) {
-        return this.serviceCountryService.search(query.iso2);
+    @ResponseMessage('Service country retrieved successfully')
+    search(@Ip() clientIp: string) {
+        return this.serviceCountryService.searchByIp(clientIp);
     }
 
     @Patch(':id')

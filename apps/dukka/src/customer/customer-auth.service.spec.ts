@@ -23,7 +23,7 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
     GENERAL_JOBS: {
         EXPIRED_RESERVATIONS: 'expired-reservations',
         CANCEL_ORDER: 'cancel-order',
-        ORDER_MATCHING: 'order-matching',
+        CUSTOMER_REGISTERED: 'customer-registered',
         INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
         CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
     },

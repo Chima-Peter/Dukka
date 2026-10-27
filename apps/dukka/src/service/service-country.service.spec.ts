@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     ServiceCountryStatus,
     MarketStatus,
+    RestCountriesIpService,
 } from '@app/common';
 import { ServiceCountryRepository } from './service-country.repository.js';
 import { ServiceCountryService } from './service-country.service.js';
@@ -83,6 +84,12 @@ describe('ServiceCountryService', () => {
                 {
                     provide: MarketsService,
                     useValue: marketsService,
+                },
+                {
+                    provide: RestCountriesIpService,
+                    useValue: {
+                        resolveIso2: vi.fn(),
+                    },
                 },
             ],
         }).compile();

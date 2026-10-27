@@ -56,7 +56,10 @@ export class CustomerAuthService {
         private readonly cartRepository: CartRepository,
     ) {}
 
-    async register(data: CreateCustomerDto): Promise<PublicCustomer> {
+    async register(
+        data: CreateCustomerDto,
+        clientIp?: string,
+    ): Promise<PublicCustomer> {
         this.logger.log(`Registering customer ${data.email}`);
         const password = await this.passwordHasher.hash(data.password);
         const customer = await this.customerService.create({
@@ -82,9 +85,10 @@ export class CustomerAuthService {
                     email: customer.email,
                 },
             }),
-            this.generalQueueService.enqueue(GENERAL_JOBS.ORDER_MATCHING, {
+            this.generalQueueService.enqueue(GENERAL_JOBS.CUSTOMER_REGISTERED, {
                 customer_id: customer.id,
                 email: customer.email,
+                client_ip: clientIp,
             }),
         ]);
 

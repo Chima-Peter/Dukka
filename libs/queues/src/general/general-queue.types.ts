@@ -6,9 +6,10 @@ export type CancelOrderJobPayload = {
     order_id: string;
 };
 
-export type OrderMatchingJobPayload = {
+export type CustomerRegisteredJobPayload = {
     customer_id: string;
     email: string;
+    client_ip?: string;
 };
 
 export type InventoryStockReminderJobPayload = {
