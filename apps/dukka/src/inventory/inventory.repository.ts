@@ -25,52 +25,9 @@ import type {
     StockUpdateType,
 } from './types/inventory.type.js';
 
-const pendingReservationSelect = {
-    id: true,
-    order_id: true,
-    warehouse_id: true,
-    expires_at: true,
-    line_items: {
-        select: {
-            market_variant_id: true,
-            quantity: true,
-        },
-    },
-} satisfies Prisma.OrderInventorySelect;
-
 @Injectable()
 export class InventoryRepository {
     constructor(private readonly prisma: PrismaService) {}
-
-    async findPendingReservation(
-        orderId: string,
-        customerId: string,
-    ): Promise<ReserveInventoryResult | null> {
-        const existing = await this.prisma.orderInventory.findFirst({
-            where: {
-                order_id: orderId,
-                order: { customer_id: customerId },
-                status: OrderInventoryStatus.PENDING,
-                expires_at: { gt: new Date() },
-            },
-            select: pendingReservationSelect,
-        });
-
-        if (!existing) {
-            return null;
-        }
-
-        return {
-            order_id: existing.order_id,
-            order_inventory_id: existing.id,
-            warehouse_id: existing.warehouse_id,
-            expires_at: existing.expires_at,
-            items: existing.line_items.map((line) => ({
-                market_variant_id: line.market_variant_id,
-                quantity: line.quantity,
-            })),
-        };
-    }
 
     async create(data: CreateInventoryRecord): Promise<InventoryItem> {
         const row = await this.prisma.inventory.create({

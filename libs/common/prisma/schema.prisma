@@ -718,7 +718,7 @@ model Order {
   customer_id   String?
   customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
-  order_inventories OrderInventory[]
+  order_inventory OrderInventory?
   order_items OrderItems[]
   order_payment_attempt OrderPaymentAttempt?
 
@@ -764,7 +764,7 @@ model OrderInventory {
   expires_at  DateTime
   updated_at  DateTime @updatedAt
 
-  order_id String
+  order_id String @unique
   order    Order  @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
   warehouse_id String
@@ -772,7 +772,6 @@ model OrderInventory {
 
   line_items InventoryLineItem[]
 
-  @@unique([order_id, warehouse_id])
   @@index([warehouse_id])
 }
 

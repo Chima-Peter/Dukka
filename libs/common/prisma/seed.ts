@@ -1475,26 +1475,24 @@ async function seedOrdersReviewsAndFulfillment(
                         },
                     ],
                 },
-                order_inventories: {
-                    create: [
-                        {
-                            warehouse_id: lagosWarehouse.id,
-                            status: OrderInventoryStatus.SUCCESS,
-                            expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000),
-                            line_items: {
-                                create: [
-                                    {
-                                        market_variant_id: ngPulse.id,
-                                        quantity: pulseQty,
-                                    },
-                                    {
-                                        market_variant_id: ngTee.id,
-                                        quantity: teeQty,
-                                    },
-                                ],
-                            },
+                order_inventory: {
+                    create: {
+                        warehouse_id: lagosWarehouse.id,
+                        status: OrderInventoryStatus.SUCCESS,
+                        expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000),
+                        line_items: {
+                            create: [
+                                {
+                                    market_variant_id: ngPulse.id,
+                                    quantity: pulseQty,
+                                },
+                                {
+                                    market_variant_id: ngTee.id,
+                                    quantity: teeQty,
+                                },
+                            ],
                         },
-                    ],
+                    },
                 },
             },
         });
@@ -1535,22 +1533,20 @@ async function seedOrdersReviewsAndFulfillment(
                         },
                     ],
                 },
-                order_inventories: {
-                    create: [
-                        {
-                            warehouse_id: lagosWarehouse.id,
-                            status: OrderInventoryStatus.PENDING,
-                            expires_at: new Date(Date.now() + 30 * 60 * 1000),
-                            line_items: {
-                                create: [
-                                    {
-                                        market_variant_id: ngTee.id,
-                                        quantity: pendingTeeQty,
-                                    },
-                                ],
-                            },
+                order_inventory: {
+                    create: {
+                        warehouse_id: lagosWarehouse.id,
+                        status: OrderInventoryStatus.PENDING,
+                        expires_at: new Date(Date.now() + 30 * 60 * 1000),
+                        line_items: {
+                            create: [
+                                {
+                                    market_variant_id: ngTee.id,
+                                    quantity: pendingTeeQty,
+                                },
+                            ],
                         },
-                    ],
+                    },
                 },
             },
         });
@@ -1598,22 +1594,20 @@ async function seedOrdersReviewsAndFulfillment(
                         },
                     ],
                 },
-                order_inventories: {
-                    create: [
-                        {
-                            warehouse_id: accraWarehouse.id,
-                            status: OrderInventoryStatus.CLOSED,
-                            expires_at: new Date(Date.now() - 60 * 60 * 1000),
-                            line_items: {
-                                create: [
-                                    {
-                                        market_variant_id: ghPulse.id,
-                                        quantity: ghPulseQty,
-                                    },
-                                ],
-                            },
+                order_inventory: {
+                    create: {
+                        warehouse_id: accraWarehouse.id,
+                        status: OrderInventoryStatus.CLOSED,
+                        expires_at: new Date(Date.now() - 60 * 60 * 1000),
+                        line_items: {
+                            create: [
+                                {
+                                    market_variant_id: ghPulse.id,
+                                    quantity: ghPulseQty,
+                                },
+                            ],
                         },
-                    ],
+                    },
                 },
             },
         });

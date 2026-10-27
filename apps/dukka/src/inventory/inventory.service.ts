@@ -173,18 +173,6 @@ export class InventoryService {
 
     async reserve(customerId: string, data: ReserveInventoryDto) {
         try {
-            const existing =
-                await this.inventoryRepository.findPendingReservation(
-                    data.order_id,
-                    customerId,
-                );
-            if (existing) {
-                this.logger.log(
-                    `Returning existing pending reservation for order ${data.order_id}`,
-                );
-                return this.toReserveResponse(existing);
-            }
-
             const mergedItems = [
                 ...data.items
                     .reduce((byVariant, item) => {
@@ -408,10 +396,8 @@ export class InventoryService {
             ? error.meta.target.join(',')
             : String(error.meta?.target ?? '');
 
-        if (target.includes('order_id') && target.includes('warehouse_id')) {
-            return new ConflictException(
-                'Order inventory already exists for this order and warehouse',
-            );
+        if (target.includes('order_id')) {
+            return new ConflictException('INVENTORY_ALREADY_BOOKED');
         }
         if (
             target.includes('order_inventory_id') &&
