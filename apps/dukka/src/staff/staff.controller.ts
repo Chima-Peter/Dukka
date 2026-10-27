@@ -256,12 +256,12 @@ export class StaffController {
     @Delete(':id')
     @RequirePermission(StaffPermission.StaffDelete)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Staff deactivated successfully')
+    @ResponseMessage('Staff deactivation is in process')
     delete(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentStaff() staff: StaffJwtPayload,
     ) {
-        return this.staffService.delete(id, staff.sub);
+        return this.staffService.deactivate(id, staff.sub);
     }
 
     @Post(':id/avatar/upload-url')

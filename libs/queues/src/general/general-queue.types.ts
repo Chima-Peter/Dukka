@@ -20,3 +20,13 @@ export type CustomerAccountDeletedJobPayload = {
     email: string;
     name: string;
 };
+
+export type StaffDeactivatedJobPayload = {
+    staff_id: string;
+    email: string;
+    name: string;
+    performed_by_staff_id: string;
+    performed_by_staff_name: string;
+    role_id: string | null;
+    role_name: string | null;
+};

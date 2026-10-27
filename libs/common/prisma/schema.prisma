@@ -384,7 +384,7 @@ model RolePermission {
 
 enum StaffAuditAction {
   STAFF_CREATED
-  STAFF_DELETED
+  STAFF_DEACTIVATED
   ROLE_ASSIGNED
   ROLE_CHANGED
   ROLE_REVOKED

@@ -10,12 +10,14 @@ import {
     type ExpiredReservationsJobPayload,
     type InventoryStockReminderJobPayload,
     type OrderMatchingJobPayload,
+    type StaffDeactivatedJobPayload,
 } from '@app/queues';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { OrderMatchingService } from './handlers/order-matching.service.js';
+import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
 export class GeneralProcessor extends WorkerHost {
@@ -27,6 +29,7 @@ export class GeneralProcessor extends WorkerHost {
         private readonly orderMatchingService: OrderMatchingService,
         private readonly inventoryStockReminderService: InventoryStockReminderService,
         private readonly customerAccountDeletedService: CustomerAccountDeletedService,
+        private readonly staffDeactivatedService: StaffDeactivatedService,
     ) {
         super();
     }
@@ -60,6 +63,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.CUSTOMER_ACCOUNT_DELETED:
                 await this.customerAccountDeletedService.process(
                     job.data as CustomerAccountDeletedJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.STAFF_DEACTIVATED:
+                await this.staffDeactivatedService.process(
+                    job.data as StaffDeactivatedJobPayload,
                 );
                 return;
             default:

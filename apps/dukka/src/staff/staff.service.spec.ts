@@ -20,8 +20,13 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
 }));
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
+    GeneralQueueService: class GeneralQueueService {},
     MAIL_QUEUE: 'mail',
+    GENERAL_QUEUE: 'general',
     MAIL_JOBS: { SEND: 'send' },
+    GENERAL_JOBS: {
+        STAFF_DEACTIVATED: 'staff-deactivated',
+    },
     MAIL_TEMPLATES: {
         CUSTOMER_WELCOME: 'customer.welcome',
         CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
@@ -52,7 +57,7 @@ describe('StaffService', () => {
         const { SupabaseService } = await import(
             '../../../../libs/common/src/index.ts'
         );
-        const { MailQueueService } = await import(
+        const { MailQueueService, GeneralQueueService } = await import(
             '../../../../libs/queues/src/index.ts'
         );
 
@@ -69,7 +74,7 @@ describe('StaffService', () => {
                         update: vi.fn(),
                         assignRole: vi.fn(),
                         revokeRole: vi.fn(),
-                        delete: vi.fn(),
+                        assertCanDeactivate: vi.fn(),
                         createProfile: vi.fn(),
                         findProfileByStaffId: vi.fn(),
                         updateProfile: vi.fn(),
@@ -103,6 +108,13 @@ describe('StaffService', () => {
                     useValue: {
                         enqueueSend: vi.fn(),
                         enqueueSendMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: GeneralQueueService,
+                    useValue: {
+                        enqueue: vi.fn(),
+                        enqueueMany: vi.fn(),
                     },
                 },
             ],

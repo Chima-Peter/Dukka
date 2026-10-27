@@ -22,7 +22,12 @@ import {
     type Staff,
     type StaffProfile,
 } from '@app/common';
-import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+    MAIL_TEMPLATES,
+    MailQueueService,
+} from '@app/queues';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
@@ -68,6 +73,7 @@ export class StaffService {
         private readonly passwordHasher: PasswordHasher,
         private readonly supabaseService: SupabaseService,
         private readonly mailQueueService: MailQueueService,
+        private readonly generalQueueService: GeneralQueueService,
     ) {}
 
     async findAll(
@@ -455,28 +461,31 @@ export class StaffService {
         }
     }
 
-    async delete(
+    async deactivate(
         id: string,
         performed_by_staff_id: string,
     ): Promise<object> {
         try {
-            this.logger.log(`Deactivating staff ${id}`);
-            const deleted = await this.staffRepository.deactivate(
+            this.logger.log(`Queueing staff deactivation ${id}`);
+            const staff = await this.staffRepository.assertCanDeactivate(
                 id,
                 performed_by_staff_id,
             );
 
-            this.logger.log(`Staff deactivated ${id}`);
-
-            await this.mailQueueService.enqueueSend({
-                to: deleted.email,
-                subject: 'Your staff account was deactivated',
-                template: MAIL_TEMPLATES.STAFF_DEACTIVATED,
-                context: {
-                    name: deleted.name,
-                    email: deleted.email,
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.STAFF_DEACTIVATED,
+                {
+                    staff_id: id,
+                    email: staff.email,
+                    name: staff.name,
+                    performed_by_staff_id,
+                    performed_by_staff_name: staff.performed_by_staff_name,
+                    role_id: staff.role_id,
+                    role_name: staff.role_name,
                 },
-            });
+            );
+
+            this.logger.log(`Staff deactivation queued ${id}`);
 
             return { data: null };
         } catch (error) {
@@ -1012,6 +1021,9 @@ export class StaffService {
                 throw new ForbiddenException(
                     'Staff cannot deactivate themselves',
                 );
+            }
+            if (error.message === STAFF_REPO_ERROR.STAFF_INACTIVE) {
+                throw new ForbiddenException('Account is inactive');
             }
             if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
                 throw new ForbiddenException(

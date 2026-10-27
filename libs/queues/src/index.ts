@@ -22,6 +22,7 @@ export {
     type ExpiredReservationsJobPayload,
     type InventoryStockReminderJobPayload,
     type OrderMatchingJobPayload,
+    type StaffDeactivatedJobPayload,
 } from './general/index.js';
 export {
     QUEUES_MODULE_OPTIONS,

@@ -5,6 +5,7 @@ import { CustomerAccountDeletedService } from './handlers/customer-account-delet
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { OrderMatchingService } from './handlers/order-matching.service.js';
+import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
 @Module({
     providers: [
@@ -13,6 +14,7 @@ import { OrderMatchingService } from './handlers/order-matching.service.js';
         OrderMatchingService,
         InventoryStockReminderService,
         CustomerAccountDeletedService,
+        StaffDeactivatedService,
         GeneralProcessor,
     ],
 })

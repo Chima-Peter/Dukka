@@ -39,6 +39,7 @@ export const STAFF_REPO_ERROR = {
     SELF_MARKET_MODIFICATION: 'SELF_MARKET_MODIFICATION',
     SELF_DELETION: 'SELF_DELETION',
     STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
+    STAFF_INACTIVE: 'STAFF_INACTIVE',
 } as const;
 
 export type StaffRoleDetails = Role & {
@@ -756,84 +757,62 @@ export class StaffRepository {
         });
     }
 
-    async deactivate(
+    async assertCanDeactivate(
         id: string,
         performed_by_staff_id: string,
     ): Promise<{
         email: string;
         name: string;
+        performed_by_staff_name: string;
+        role_id: string | null;
+        role_name: string | null;
     }> {
-        return await this.prisma.$transaction(async (tx) => {
-            const existing = await tx.staff.findUnique({
-                where: { id },
-                include: {
-                    role: { select: { id: true, name: true, hierarchy: true } },
-                    staff_markets: { select: { market_id: true } },
-                    qualifications: {
-                        select: { document_url: true },
-                    },
-                },
-            });
-            if (!existing) {
-                throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
-            }
-
-            if (performed_by_staff_id === existing.id) {
-                throw new Error(STAFF_REPO_ERROR.SELF_DELETION);
-            }
-
-            const actor = await tx.staff.findUnique({
-                where: { id: performed_by_staff_id },
-                select: {
-                    id: true,
-                    name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
-                },
-            });
-            if (!actor) {
-                throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
-            }
-
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                existing.role?.hierarchy,
-            );
-            assertCanManageStaffInMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                existing.staff_markets.map((sm) => sm.market_id),
-            );
-
-            await tx.staffMarket.deleteMany({
-                where: { staff_id: id },
-            });
-
-            await tx.staff.update({
-                where: { id },
-                data: {
-                    is_active: false,
-                    role: { disconnect: true },
-                    avatar: null,
-                },
-            });
-
-            await tx.staffAudit.create({
-                data: {
-                    action: StaffAuditAction.STAFF_DELETED,
-                    staff_id: existing.id,
-                    staff_name: existing.name,
-                    performed_by_staff_id: actor.id,
-                    performed_by_staff_name: actor.name,
-                    role_id: existing.role?.id,
-                    role_name: existing.role?.name,
-                },
-            });
-
-            return {
-                email: existing.email,
-                name: existing.name,
-            };
+        const existing = await this.prisma.staff.findUnique({
+            where: { id },
+            include: {
+                role: { select: { id: true, name: true, hierarchy: true } },
+                staff_markets: { select: { market_id: true } },
+            },
         });
+        if (!existing) {
+            throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
+        }
+        if (!existing.is_active) {
+            throw new Error(STAFF_REPO_ERROR.STAFF_INACTIVE);
+        }
+
+        if (performed_by_staff_id === existing.id) {
+            throw new Error(STAFF_REPO_ERROR.SELF_DELETION);
+        }
+
+        const actor = await this.prisma.staff.findUnique({
+            where: { id: performed_by_staff_id },
+            select: {
+                name: true,
+                staff_markets: { select: { market_id: true } },
+                role: { select: { hierarchy: true } },
+            },
+        });
+        if (!actor) {
+            throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
+        }
+
+        assertCanManageHierarchies(
+            actor.role?.hierarchy,
+            existing.role?.hierarchy,
+        );
+        assertCanManageStaffInMarkets(
+            actor.staff_markets.map((sm) => sm.market_id),
+            existing.staff_markets.map((sm) => sm.market_id),
+        );
+
+        return {
+            email: existing.email,
+            name: existing.name,
+            performed_by_staff_name: actor.name,
+            role_id: existing.role?.id ?? null,
+            role_name: existing.role?.name ?? null,
+        };
     }
 
     async createProfile(

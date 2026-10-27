@@ -1,10 +1,13 @@
+export {
+    ACCESS_TOKEN_TTL_SECONDS,
+    REFRESH_TOKEN_TTL_SECONDS,
+    STAFF_ACCESS_TOKEN_TTL_SECONDS,
+    STAFF_REFRESH_TOKEN_TTL_SECONDS,
+} from '@app/common';
+
 export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 5 * 60;
 export const PASSWORD_RESET_VERIFIED_TTL_SECONDS = 1 * 60;
 export const ACCOUNT_DELETION_TOKEN_TTL_SECONDS = 5 * 60;
-export const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60; // 1 day
-export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
-export const STAFF_ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
-export const STAFF_REFRESH_TOKEN_TTL_SECONDS = 24 * 60 * 60; // 1 day
 export const STAFF_PERMISSIONS_TTL_SECONDS = 60 * 60; // 1 hour
 
 export const RedisKeys = {

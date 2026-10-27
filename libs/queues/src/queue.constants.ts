@@ -18,6 +18,7 @@ export const GENERAL_JOBS = {
     ORDER_MATCHING: 'order-matching',
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
+    STAFF_DEACTIVATED: 'staff-deactivated',
 } as const;
 
 export type GeneralJobName =
