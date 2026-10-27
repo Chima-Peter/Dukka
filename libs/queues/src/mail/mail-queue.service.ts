@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { MAIL_JOBS, MAIL_QUEUE } from '../queue.constants.js';
-import type { SendMailJobPayload } from './mail-queue.types.js';
+import type {
+    InventoryStockReminderMailPayload,
+    SendMailJobPayload,
+} from './mail-queue.types.js';
 
 @Injectable()
 export class MailQueueService {
@@ -35,5 +38,21 @@ export class MailQueueService {
         return Promise.all(
             payloads.map((payload) => this.enqueueSend(payload)),
         );
+    }
+
+    async enqueueInventoryStockReminder(
+        payload: InventoryStockReminderMailPayload,
+    ): Promise<Job<InventoryStockReminderMailPayload>> {
+        this.logger.log(
+            `Enqueueing inventory stock reminder mail to=${payload.to} warehouse=${payload.warehouse_id} products=${payload.product_names.length}`,
+        );
+
+        const job = await this.mailQueue.add(
+            MAIL_JOBS.INVENTORY_STOCK_REMINDER,
+            payload,
+        );
+
+        this.logger.log(`Mail job enqueued id=${job.id} name=${job.name}`);
+        return job;
     }
 }

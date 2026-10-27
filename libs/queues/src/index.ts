@@ -10,11 +10,15 @@ export {
     type MailJobName,
     type MailTemplate,
 } from './queue.constants.js';
-export type { SendMailJobPayload } from './mail/index.js';
+export type {
+    InventoryStockReminderMailPayload,
+    SendMailJobPayload,
+} from './mail/index.js';
 export { MailQueueService } from './mail/index.js';
 export {
     GeneralQueueService,
     type ExpiredReservationsJobPayload,
+    type InventoryStockReminderJobPayload,
     type OrderMatchingJobPayload,
 } from './general/index.js';
 export {

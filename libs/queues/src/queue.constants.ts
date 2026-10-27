@@ -3,6 +3,7 @@ export const GENERAL_QUEUE = 'general';
 
 export const MAIL_JOBS = {
     SEND: 'send',
+    INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
 } as const;
 
 export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
@@ -14,6 +15,7 @@ export type MailJobName = (typeof MAIL_JOBS)[keyof typeof MAIL_JOBS];
 export const GENERAL_JOBS = {
     EXPIRED_RESERVATIONS: 'expired-reservations',
     ORDER_MATCHING: 'order-matching',
+    INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
 } as const;
 
 export type GeneralJobName =
@@ -71,6 +73,7 @@ export const MAIL_TEMPLATES = {
     STAFF_MARKETS_CHANGED: 'staff.markets-changed',
     MARKET_UPDATED: 'market.updated',
     MARKET_DELETED: 'market.deleted',
+    INVENTORY_STOCK_REMINDER: 'inventory.stock-reminder',
 } as const;
 
 export type MailTemplate =

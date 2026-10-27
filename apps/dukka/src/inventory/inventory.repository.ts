@@ -73,6 +73,10 @@ export class InventoryRepository {
                         type === 'decrement'
                             ? { decrement: quantity }
                             : { increment: quantity },
+                    ...(type === 'increment' && {
+                        reminder_sent: false,
+                        reminder_sent_at: null,
+                    }),
                 },
                 select: { available_quantity: true },
             });

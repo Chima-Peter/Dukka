@@ -1,0 +1,34 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Products need restocking
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Inventory reminder
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  The following {{productCount}} product(s) at <strong>{{warehouseName}}</strong> still need attention. Review stock levels and restock when you can.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Warehouse" value=warehouseName}}
+{{/details}}
+
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Products
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
+  {{#each products}}
+  <li style="margin:0 0 6px;"><strong>{{this}}</strong></li>
+  {{/each}}
+</ul>
+
+{{#> tip title="Next step"}}
+  After you increase stock, Dukka clears the reminder flag so a new notice can be sent if levels drop again.
+{{/tip}}
+
+<p style="margin:0;">
+  This reminder was sent once per pending inventory row until stock is updated.
+</p>

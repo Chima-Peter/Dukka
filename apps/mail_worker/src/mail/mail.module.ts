@@ -6,8 +6,9 @@ import {
 } from '@nestjs/mail';
 import type { ConfigType } from '../config/env.interface.js';
 import { HandlebarsTemplateEngine } from './handlebars-template.engine.js';
+import { InventoryStockReminderMailService } from './handlers/inventory-stock-reminder.service.js';
 import { MailProcessor } from './mail.processor.js';
-import { MailService } from './mail.service.js';
+import { MailService } from './handlers/mail.service.js';
 
 @Module({
     imports: [
@@ -46,6 +47,10 @@ import { MailService } from './mail.service.js';
             },
         }),
     ],
-    providers: [MailService, MailProcessor],
+    providers: [
+        MailService,
+        InventoryStockReminderMailService,
+        MailProcessor,
+    ],
 })
 export class MailModule {}
