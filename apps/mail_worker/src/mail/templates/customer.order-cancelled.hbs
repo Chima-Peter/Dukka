@@ -1,0 +1,35 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your order has been cancelled
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Confirmation
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  This is a confirmation that your order <strong>#{{order_number}}</strong> has been cancelled as requested.
+</p>
+{{#if refund_pending}}
+<p style="margin:0 0 16px;">
+  A refund will be processed soon and should appear in your account shortly.
+</p>
+{{else}}
+<p style="margin:0 0 16px;">
+  You will not be charged for this order.
+</p>
+{{/if}}
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Status" value="Cancelled"}}
+{{/details}}
+
+{{#> tip title="Changed your mind?"}}
+  You can place a new order anytime from your Dukka account. If you did not request this cancellation, reply to this email and we will help right away.
+{{/tip}}
+
+<p style="margin:0;">
+  Thanks for shopping with Dukka.
+</p>

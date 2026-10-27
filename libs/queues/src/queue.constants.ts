@@ -65,6 +65,7 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_ORDER_PROCESSING: 'customer.order-processing',
     CUSTOMER_ORDER_SHIPPED: 'customer.order-shipped',
     CUSTOMER_ORDER_CANCEL_BLOCKED: 'customer.order-cancel-blocked',
+    CUSTOMER_ORDER_CANCELLED: 'customer.order-cancelled',
     STAFF_WELCOME: 'staff.welcome',
     STAFF_INVITATION: 'staff.invitation',
     STAFF_PASSWORD_RESET: 'staff.password-reset',

@@ -20,7 +20,12 @@ type LockedOrder = {
 };
 
 type CancelResult =
-    | { ok: true; id: string }
+    | {
+          ok: true;
+          id: string;
+          order_number: string;
+          status: OrderStatus;
+      }
     | {
           ok: false;
           reason: 'ineligible_status';
@@ -128,7 +133,12 @@ export class CancelOrderService {
                 },
             });
 
-            return { ok: true, id: order.id } satisfies CancelResult;
+            return {
+                ok: true,
+                id: order.id,
+                order_number: order.order_number,
+                status: order.status,
+            } satisfies CancelResult;
         });
 
         if (!result) {
@@ -147,19 +157,19 @@ export class CancelOrderService {
         }
 
         this.logger.log(`Cancelled order ${result.id}`);
+        await this.notifyCancelled(result);
+
+        if (result.status === OrderStatus.PROCESSING) {
+            // TODO: enqueue refund job for order
+        }
     }
 
-    private async notifyCancelBlocked(order: {
-        id: string;
-        order_number: string;
-        status: OrderStatus;
-    }): Promise<void> {
-        if (order.status === OrderStatus.CANCELLED) {
-            return;
-        }
-
+    private async resolveRecipient(orderId: string): Promise<{
+        email: string;
+        name: string;
+    } | null> {
         const row = await this.prisma.order.findUnique({
-            where: { id: order.id },
+            where: { id: orderId },
             select: {
                 guest_email: true,
                 guest_name: true,
@@ -171,25 +181,83 @@ export class CancelOrderService {
 
         const email = row?.customer?.email ?? row?.guest_email;
         if (!email) {
+            return null;
+        }
+
+        return {
+            email,
+            name: row?.customer?.name ?? row?.guest_name ?? email.split('@')[0],
+        };
+    }
+
+    private async notifyCancelled(order: {
+        id: string;
+        order_number: string;
+        status: OrderStatus;
+    }): Promise<void> {
+        const recipient = await this.resolveRecipient(order.id);
+        if (!recipient) {
+            this.logger.warn(
+                `No email for cancel notice on order ${order.id}`,
+            );
+            return;
+        }
+
+        await this.mailQueueService.enqueueSend({
+            to: recipient.email,
+            subject: `Your order #${order.order_number} has been cancelled`,
+            template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCELLED,
+            context: {
+                name: recipient.name,
+                email: recipient.email,
+                order_number: order.order_number,
+                refund_pending: order.status === OrderStatus.PROCESSING,
+            },
+        });
+    }
+
+    private async notifyCancelBlocked(order: {
+        id: string;
+        order_number: string;
+        status: OrderStatus;
+    }): Promise<void> {
+        if (order.status === OrderStatus.CANCELLED) {
+            return;
+        }
+
+        const recipient = await this.resolveRecipient(order.id);
+        if (!recipient) {
             this.logger.warn(
                 `No email for cancel-blocked notice on order ${order.id}`,
             );
             return;
         }
 
-        const name =
-            row?.customer?.name ?? row?.guest_name ?? email.split('@')[0];
-
         await this.mailQueueService.enqueueSend({
-            to: email,
-            subject: `We could not cancel order #${order.order_number}`,
+            to: recipient.email,
+            subject: `We could not cancel your order #${order.order_number}`,
             template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCEL_BLOCKED,
             context: {
-                name,
-                email,
+                name: recipient.name,
+                email: recipient.email,
                 order_number: order.order_number,
-                order_status: order.status,
+                order_status_label: this.toStatusLabel(order.status),
             },
         });
+    }
+
+    private toStatusLabel(status: OrderStatus): string {
+        switch (status) {
+            case OrderStatus.SHIPPED:
+                return 'on its way to you';
+            case OrderStatus.DELIVERED:
+                return 'delivered';
+            case OrderStatus.PROCESSING:
+                return 'being prepared';
+            case OrderStatus.PENDING:
+                return 'awaiting payment';
+            case OrderStatus.CANCELLED:
+                return 'cancelled';
+        }
     }
 }
