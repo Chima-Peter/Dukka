@@ -4,6 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import {
+    MarketVariantStatus,
     OrderInventoryStatus,
     Prisma,
     WarehouseStatus,
@@ -57,7 +58,11 @@ export class InventoryRepository {
                 id: warehouseId,
                 country: { market_id: marketId },
             },
-            market_variant: { id: marketVariantId, market_id: marketId },
+            market_variant: {
+                id: marketVariantId,
+                market_id: marketId,
+                status: MarketVariantStatus.ACTIVE,
+            },
         };
 
         return await this.prisma.$transaction(async (tx) => {
@@ -109,6 +114,7 @@ export class InventoryRepository {
                         id: true,
                         market_variants: {
                             where: {
+                                status: MarketVariantStatus.ACTIVE,
                                 market: { id: marketId, status: 'OPEN' },
                             },
                             select: {
@@ -169,6 +175,7 @@ export class InventoryRepository {
             {
                 market_variant: {
                     variant_id: variantId,
+                    status: MarketVariantStatus.ACTIVE,
                     market: {
                         id: query.market_id,
                         status: 'OPEN',
@@ -194,6 +201,7 @@ export class InventoryRepository {
         return this.findPage(
             {
                 market_variant: {
+                    status: MarketVariantStatus.ACTIVE,
                     market: {
                         id: query.market_id,
                         status: 'OPEN',
@@ -225,6 +233,7 @@ export class InventoryRepository {
                 },
                 market_variant: {
                     market_id: query.market_id,
+                    status: MarketVariantStatus.ACTIVE,
                 },
             },
             query,
@@ -240,6 +249,7 @@ export class InventoryRepository {
                 market_variant: {
                     id: marketVariantId,
                     market_id: query.market_id,
+                    status: MarketVariantStatus.ACTIVE,
                 },
                 warehouse: {
                     country: { market_id: query.market_id },
@@ -301,6 +311,7 @@ export class InventoryRepository {
                     market_variant: {
                         id: item.market_variant_id,
                         market_id: marketId,
+                        status: MarketVariantStatus.ACTIVE,
                     },
                 };
 

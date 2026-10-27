@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    MarketVariantStatus,
     Prisma,
     ProductStatus,
     VariantPendingUpdateStatus,
@@ -474,8 +475,12 @@ export class ProductVariantRepository {
         variantIds: string[],
     ): Promise<void> {
         await this.prisma.$transaction(async (tx) => {
-            await tx.marketVariant.deleteMany({
-                where: { variant_id: { in: variantIds } },
+            await tx.marketVariant.updateMany({
+                where: {
+                    variant_id: { in: variantIds },
+                    status: { not: MarketVariantStatus.CLOSED },
+                },
+                data: { status: MarketVariantStatus.CLOSED },
             });
             await tx.variant.updateMany({
                 where: {
@@ -507,8 +512,11 @@ export class ProductVariantRepository {
     }
 
     async findMarketVariantById(marketVariantId: string) {
-        return await this.prisma.marketVariant.findUnique({
-            where: { id: marketVariantId },
+        return await this.prisma.marketVariant.findFirst({
+            where: {
+                id: marketVariantId,
+                status: MarketVariantStatus.ACTIVE,
+            },
             select: {
                 id: true,
                 market_id: true,
@@ -519,26 +527,6 @@ export class ProductVariantRepository {
                         product_id: true,
                     },
                 },
-            },
-        });
-    }
-
-    async findMarketVariantAvailability(
-        marketVariantId: string,
-        tx?: Prisma.TransactionClient,
-    ) {
-        const db = tx ?? this.prisma;
-        return await db.marketVariant.findFirst({
-            where: {
-                id: marketVariantId,
-                variant: {
-                    status: VariantStatus.ACTIVE,
-                    product: { status: ProductStatus.ACTIVE },
-                },
-            },
-            select: {
-                id: true,
-                sold_out: true,
             },
         });
     }
@@ -557,7 +545,10 @@ export class ProductVariantRepository {
         }
 
         return await this.prisma.marketVariant.findMany({
-            where: { id: { in: marketVariantIds } },
+            where: {
+                id: { in: marketVariantIds },
+                status: MarketVariantStatus.ACTIVE,
+            },
             select: {
                 id: true,
                 market_id: true,
@@ -588,8 +579,30 @@ export class ProductVariantRepository {
                 },
                 price: data.price,
                 currency: data.currency,
+                status: MarketVariantStatus.ACTIVE,
             },
         });
+    }
+
+    async reopenMarketVariant(data: {
+        variant_id: string;
+        market_id: string;
+        price: number;
+        currency: string;
+    }) {
+        const updated = await this.prisma.marketVariant.updateManyAndReturn({
+            where: {
+                market_id: data.market_id,
+                variant_id: data.variant_id,
+                status: MarketVariantStatus.CLOSED,
+            },
+            data: {
+                price: data.price,
+                currency: data.currency,
+                status: MarketVariantStatus.ACTIVE,
+            },
+        });
+        return updated[0] ?? null;
     }
 
     async updateMarketVariant(
@@ -608,15 +621,19 @@ export class ProductVariantRepository {
         });
     }
 
-    async deleteMarketVariant(variantId: string, marketId: string) {
-        return await this.prisma.marketVariant.delete({
+    async closeMarketVariant(variantId: string, marketId: string) {
+        const updated = await this.prisma.marketVariant.updateManyAndReturn({
             where: {
-                market_id_variant_id: {
-                    market_id: marketId,
-                    variant_id: variantId,
-                },
+                market_id: marketId,
+                variant_id: variantId,
+                status: MarketVariantStatus.ACTIVE,
             },
+            data: { status: MarketVariantStatus.CLOSED },
         });
+        if (updated.length === 0) {
+            throw new NotFoundException('Market variant not found');
+        }
+        return updated[0];
     }
 
     async findMarketVariant(
@@ -627,6 +644,7 @@ export class ProductVariantRepository {
     ) {
         return await this.prisma.marketVariant.findFirst({
             where: {
+                status: MarketVariantStatus.ACTIVE,
                 market: { id: marketId, status: 'OPEN' },
                 variant_id: variantId,
                 variant: {

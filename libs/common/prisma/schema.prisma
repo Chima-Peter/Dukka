@@ -577,11 +577,17 @@ model VariantImage {
   updated_at DateTime @updatedAt
 }
 
+enum MarketVariantStatus {
+  ACTIVE
+  CLOSED
+}
+
 model MarketVariant {
-  id       String  @id @default(uuid())
-  price    Decimal @db.Decimal(12, 2)
+  id       String              @id @default(uuid())
+  price    Decimal             @db.Decimal(12, 2)
   currency String
-  sold_out Boolean @default(false)
+  sold_out Boolean             @default(false)
+  status   MarketVariantStatus @default(ACTIVE)
 
   market_id  String
   market     Market  @relation(fields: [market_id], references: [id], onDelete: Restrict)
@@ -598,6 +604,7 @@ model MarketVariant {
   updated_at DateTime @updatedAt
 
   @@unique([market_id, variant_id])
+  @@index([status])
 }
 
 enum WarehouseStatus {
@@ -789,7 +796,7 @@ model InventoryLineItem {
   order_inventory    OrderInventory @relation(fields: [order_inventory_id], references: [id], onDelete: Cascade)
 
   market_variant_id String
-  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Restrict)
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
 
   @@unique([order_inventory_id, market_variant_id])
   @@index([market_variant_id])
@@ -917,7 +924,7 @@ model CartItems {
   cart    Cart   @relation(fields: [cart_id], references: [id], onDelete: Cascade)
 
   market_variant_id String
-  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Restrict)
+  market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

@@ -13,6 +13,7 @@ import {
     MinLength,
 } from 'class-validator';
 import {
+    MarketVariantStatus,
     ProductStatus,
     VariantStatus,
 } from '@app/common';
@@ -62,6 +63,10 @@ export class FindStaffProductsDto {
     @IsOptional()
     @IsEnum(VariantStatus)
     variant_status?: VariantStatus;
+
+    @IsOptional()
+    @IsEnum(MarketVariantStatus)
+    market_variant_status?: MarketVariantStatus;
 
     @IsOptional()
     @Transform(({ value }) => {

@@ -1,11 +1,44 @@
 import {
+    MarketVariantStatus,
     VariantStatus,
     type Prisma,
 } from '@app/common';
+import type { ProductImageRecord } from '../types/product.type.js';
+
+export function parsePendingImages(
+    images: Prisma.JsonValue | null,
+): ProductImageRecord[] | null {
+    if (images === null) {
+        return null;
+    }
+    if (!Array.isArray(images)) {
+        return [];
+    }
+    return images.flatMap((image) => {
+        if (
+            typeof image !== 'object' ||
+            image === null ||
+            !('image_url' in image) ||
+            !('sort_order' in image) ||
+            typeof image.image_url !== 'string' ||
+            typeof image.sort_order !== 'number'
+        ) {
+            return [];
+        }
+        return [
+            {
+                image_url: image.image_url,
+                sort_order: image.sort_order,
+            },
+        ];
+    });
+}
 
 export function productListSummarySelect(
     marketId?: string,
     variantStatus?: VariantStatus,
+    marketVariantStatus: MarketVariantStatus = MarketVariantStatus.ACTIVE,
+    includeStatus = true,
 ) {
     const hasVariantWhere =
         marketId !== undefined || variantStatus !== undefined;
@@ -14,7 +47,7 @@ export function productListSummarySelect(
         id: true,
         name: true,
         description: true,
-        status: true,
+        ...(includeStatus && { status: true }),
         market_category_id: true,
         market_category: {
             select: {
@@ -45,6 +78,7 @@ export function productListSummarySelect(
                     ...(marketId !== undefined && {
                         market_variants: {
                             some: {
+                                status: marketVariantStatus,
                                 market: { id: marketId, status: 'OPEN' },
                             },
                         },
@@ -56,11 +90,12 @@ export function productListSummarySelect(
             select: {
                 status: true,
                 market_variants: {
-                    ...(marketId !== undefined && {
-                        where: {
+                    where: {
+                        status: marketVariantStatus,
+                        ...(marketId !== undefined && {
                             market: { id: marketId, status: 'OPEN' },
-                        },
-                    }),
+                        }),
+                    },
                     take: 1,
                     select: {
                         price: true,
@@ -147,6 +182,7 @@ export const productDetailSelect = {
 export function productDetailWithMarketSelect(marketId?: string) {
     return {
         ...productDetailSelect,
+        status: false,
         variants: {
             where: {
                 status: VariantStatus.ACTIVE,
@@ -158,7 +194,6 @@ export function productDetailWithMarketSelect(marketId?: string) {
                 color: true,
                 size: true,
                 variant_info: true,
-                status: true,
                 created_at: true,
                 updated_at: true,
                 image: {
@@ -167,11 +202,12 @@ export function productDetailWithMarketSelect(marketId?: string) {
                     },
                 },
                 market_variants: {
-                    ...(marketId !== undefined && {
-                        where: {
+                    where: {
+                        status: MarketVariantStatus.ACTIVE,
+                        ...(marketId !== undefined && {
                             market: { id: marketId, status: 'OPEN' },
-                        },
-                    }),
+                        }),
+                    },
                     select: {
                         id: true,
                         price: true,

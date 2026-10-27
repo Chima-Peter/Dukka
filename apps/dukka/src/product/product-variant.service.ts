@@ -12,7 +12,6 @@ import {
     PRODUCT_BUCKET,
     SupabaseService,
     MarketStatus,
-    Prisma,
     ProductStatus,
     VariantPendingUpdateStatus,
     VariantStatus,
@@ -320,26 +319,45 @@ export class ProductVariantService {
                 throw new BadRequestException('Market is not open');
             }
 
-            const marketVariant =
-                await this.productVariantRepository.createMarketVariant({
-                    variant_id: variantId,
-                    market_id: data.market_id,
-                    price: data.price,
-                    currency: market.currency.code,
-                });
-            this.logger.log(
-                `Market variant created ${marketVariant.id} for variant ${variantId}`,
-            );
-            return marketVariant;
-        } catch (error) {
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                throw new ConflictException(
-                    'Variant is already listed in this market',
+            try {
+                const marketVariant =
+                    await this.productVariantRepository.createMarketVariant({
+                        variant_id: variantId,
+                        market_id: data.market_id,
+                        price: data.price,
+                        currency: market.currency.code,
+                    });
+                this.logger.log(
+                    `Market variant created ${marketVariant.id} for variant ${variantId}`,
                 );
+                return marketVariant;
+            } catch (error) {
+                if (
+                    error instanceof PrismaClientKnownRequestError &&
+                    error.code === 'P2002'
+                ) {
+                    const reopened =
+                        await this.productVariantRepository.reopenMarketVariant(
+                            {
+                                variant_id: variantId,
+                                market_id: data.market_id,
+                                price: data.price,
+                                currency: market.currency.code,
+                            },
+                        );
+                    if (reopened) {
+                        this.logger.log(
+                            `Market variant reopened ${reopened.id} for variant ${variantId}`,
+                        );
+                        return reopened;
+                    }
+                    throw new ConflictException(
+                        'Variant is already listed in this market',
+                    );
+                }
+                throw error;
             }
+        } catch (error) {
             this.handleError(error, 'Variant not found');
         }
     }
@@ -381,12 +399,12 @@ export class ProductVariantService {
             );
             assertStaffHasMarkets(staffMarketIds, [marketId]);
             const marketVariant =
-                await this.productVariantRepository.deleteMarketVariant(
+                await this.productVariantRepository.closeMarketVariant(
                     variantId,
                     marketId,
                 );
             this.logger.log(
-                `Market variant removed for variant ${variantId} in market ${marketId}`,
+                `Market variant closed for variant ${variantId} in market ${marketId}`,
             );
             return marketVariant;
         } catch (error) {
@@ -416,24 +434,6 @@ export class ProductVariantService {
             return marketVariant;
         } catch (error) {
             this.handleError(error, 'Market variant not found');
-        }
-    }
-
-    async assertMarketVariantAvailable(
-        marketVariantId: string,
-        tx?: Prisma.TransactionClient,
-    ): Promise<void> {
-        const variant =
-            await this.productVariantRepository.findMarketVariantAvailability(
-                marketVariantId,
-                tx,
-            );
-
-        if (!variant) {
-            throw new NotFoundException('Market variant not found');
-        }
-        if (variant.sold_out) {
-            throw new BadRequestException('Market variant is sold out');
         }
     }
 

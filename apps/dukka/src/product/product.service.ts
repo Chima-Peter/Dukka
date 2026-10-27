@@ -576,7 +576,7 @@ export class ProductService {
             ];
             if (!allowedFrom.includes(existing.status)) {
                 throw new BadRequestException(
-                    'Product is already archived or cannot be archived from its current status',
+                    'Product is already archived. Cannot be archived from its current status.',
                 );
             }
             const product = await this.productRepository.archiveProduct(id);

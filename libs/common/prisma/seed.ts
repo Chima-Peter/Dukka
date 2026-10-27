@@ -1093,11 +1093,13 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                         price: marketPrice.price,
                         currency: marketPrice.currency,
                         sold_out: false,
+                        status: 'ACTIVE',
                     },
                     update: {
                         price: marketPrice.price,
                         currency: marketPrice.currency,
                         sold_out: false,
+                        status: 'ACTIVE',
                     },
                 });
 

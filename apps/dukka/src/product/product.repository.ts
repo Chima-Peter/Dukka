@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    MarketVariantStatus,
     Prisma,
     ProductPendingUpdateStatus,
     ProductStatus,
@@ -12,6 +13,7 @@ import type { FindProductsDto } from './dto/find-products.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import {
+    parsePendingImages,
     productDetailSelect,
     productDetailWithMarketSelect,
     productListSummarySelect,
@@ -23,35 +25,6 @@ import type {
     CreateProductRecord,
     ProductImageRecord,
 } from './types/product.type.js';
-
-function parsePendingImages(
-    images: Prisma.JsonValue | null,
-): ProductImageRecord[] | null {
-    if (images === null) {
-        return null;
-    }
-    if (!Array.isArray(images)) {
-        return [];
-    }
-    return images.flatMap((image) => {
-        if (
-            typeof image !== 'object' ||
-            image === null ||
-            !('image_url' in image) ||
-            !('sort_order' in image) ||
-            typeof image.image_url !== 'string' ||
-            typeof image.sort_order !== 'number'
-        ) {
-            return [];
-        }
-        return [
-            {
-                image_url: image.image_url,
-                sort_order: image.sort_order,
-            },
-        ];
-    });
-}
 
 @Injectable()
 export class ProductRepository {
@@ -120,6 +93,7 @@ export class ProductRepository {
                         status: VariantStatus.ACTIVE,
                         market_variants: {
                             some: {
+                                status: MarketVariantStatus.ACTIVE,
                                 market: {
                                     id: query.market_id,
                                     status: 'OPEN',
@@ -139,7 +113,12 @@ export class ProductRepository {
                     },
                 },
             },
-            select: productListSummarySelect(query.market_id),
+            select: productListSummarySelect(
+                query.market_id,
+                undefined,
+                MarketVariantStatus.ACTIVE,
+                false,
+            ),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -170,7 +149,8 @@ export class ProductRepository {
         const hasMarketVariantFilter =
             query.market_id !== undefined ||
             hasPriceFilter ||
-            query.sold_out !== undefined;
+            query.sold_out !== undefined ||
+            query.market_variant_status !== undefined;
         const hasVariantFilter =
             hasMarketVariantFilter || query.variant_status !== undefined;
         const records = await this.prisma.product.findMany({
@@ -186,7 +166,7 @@ export class ProductRepository {
                         market_id: query.market_id,
                     },
                 }),
-                ...(query.status !== undefined && { status: query.status }),
+                status: query.status ?? ProductStatus.ACTIVE,
                 ...(hasVariantFilter
                     ? {
                           variants: {
@@ -197,6 +177,9 @@ export class ProductRepository {
                                   ...(hasMarketVariantFilter && {
                                       market_variants: {
                                           some: {
+                                              status:
+                                                  query.market_variant_status ??
+                                                  MarketVariantStatus.ACTIVE,
                                               ...(query.market_id !==
                                                   undefined && {
                                                   market_id: query.market_id,
@@ -228,6 +211,7 @@ export class ProductRepository {
             select: productListSummarySelect(
                 query.market_id,
                 query.variant_status,
+                query.market_variant_status ?? MarketVariantStatus.ACTIVE,
             ),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
@@ -289,6 +273,7 @@ export class ProductRepository {
                         status: VariantStatus.ACTIVE,
                         market_variants: {
                             some: {
+                                status: MarketVariantStatus.ACTIVE,
                                 market: { id: marketId, status: 'OPEN' },
                             },
                         },
@@ -758,8 +743,12 @@ export class ProductRepository {
             const variantIds = variants.map((variant) => variant.id);
 
             if (variantIds.length > 0) {
-                await tx.marketVariant.deleteMany({
-                    where: { variant_id: { in: variantIds } },
+                await tx.marketVariant.updateMany({
+                    where: {
+                        variant_id: { in: variantIds },
+                        status: { not: MarketVariantStatus.CLOSED },
+                    },
+                    data: { status: MarketVariantStatus.CLOSED },
                 });
                 await tx.variant.updateMany({
                     where: { id: { in: variantIds } },

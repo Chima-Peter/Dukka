@@ -1,20 +1,35 @@
-import { randomUUID } from 'node:crypto';
 import {
     BadRequestException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaService } from '@app/common';
-import { ProductVariantService } from '../product/product-variant.service.js';
+import {
+    MarketVariantStatus,
+    Prisma,
+    PrismaService,
+} from '@app/common';
 import { cartSelect, toCartView } from './mappers/cart.mapper.js';
 import type { CartView } from './types/cart.type.js';
 
 @Injectable()
 export class CartRepository {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly productVariantService: ProductVariantService,
-    ) {}
+    constructor(private readonly prisma: PrismaService) {}
+
+    private async assertActiveMarketVariant(
+        tx: Prisma.TransactionClient,
+        marketVariantId: string,
+    ): Promise<void> {
+        const marketVariant = await tx.marketVariant.findFirst({
+            where: {
+                id: marketVariantId,
+                status: MarketVariantStatus.ACTIVE,
+            },
+            select: { id: true },
+        });
+        if (!marketVariant) {
+            throw new NotFoundException('Market variant not found');
+        }
+    }
 
     async findByCartId(cartId: string): Promise<CartView> {
         const cart = await this.prisma.cart.findUnique({
@@ -94,10 +109,7 @@ export class CartRepository {
         quantity: number,
     ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
-            await this.productVariantService.assertMarketVariantAvailable(
-                marketVariantId,
-                tx,
-            );
+            await this.assertActiveMarketVariant(tx, marketVariantId);
 
             const cart = await tx.cart.update({
                 where: { id: cartId },
@@ -133,10 +145,7 @@ export class CartRepository {
         cartId?: string,
     ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
-            await this.productVariantService.assertMarketVariantAvailable(
-                marketVariantId,
-                tx,
-            );
+            await this.assertActiveMarketVariant(tx, marketVariantId);
 
             if (cartId === undefined) {
                 const cart = await tx.cart.create({
