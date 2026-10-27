@@ -8,20 +8,17 @@ import {
     NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import {
     ServiceCountryStatus,
     MarketStatus,
-    TokenType,
     type Customer,
     ALLOWED_AVATAR_CONTENT_TYPES,
     AVATAR_BUCKET,
     MAX_AVATAR_BYTES,
     RedisService,
     SupabaseService,
-    type JwtPayload,
 } from '@app/common';
 import { CustomerRepository } from './customer.repository.js';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
@@ -39,7 +36,6 @@ import {
     MAIL_TEMPLATES,
     MailQueueService,
 } from '@app/queues';
-import { TokenRepository } from './token.repository.js';
 import { ServiceCountryService } from '../service/service-country.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
 
@@ -52,8 +48,6 @@ export class CustomerService {
         private readonly supabaseService: SupabaseService,
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
-        private readonly tokenRepository: TokenRepository,
-        private readonly jwtService: JwtService,
         private readonly mailQueueService: MailQueueService,
         private readonly generalQueueService: GeneralQueueService,
         private readonly paymentsService: PaymentsService,
@@ -473,14 +467,6 @@ export class CustomerService {
                 );
             }
 
-            const activeTokens =
-                await this.tokenRepository.findAllByCustomerId(customer_id);
-            await Promise.all(
-                activeTokens
-                    .filter((token) => token.type === TokenType.ACCESS)
-                    .map((token) => this.blacklistAccessToken(token.token)),
-            );
-            await this.tokenRepository.deleteAllByCustomerId(customer_id);
             await this.clearActiveMarketFromRedis(customer_id);
             await this.redisService.delete(key);
 
@@ -522,27 +508,6 @@ export class CustomerService {
                 'Cancel all open orders before deleting your account',
             );
         }
-    }
-
-    private async blacklistAccessToken(token: string): Promise<void> {
-        const payload = this.jwtService.decode<JwtPayload>(token);
-        if (!payload?.exp) {
-            return;
-        }
-
-        const remainingTtlSeconds = Math.max(
-            0,
-            payload.exp - Math.floor(Date.now() / 1000),
-        );
-        if (remainingTtlSeconds <= 0) {
-            return;
-        }
-
-        await this.redisService.set(
-            RedisKeys.blacklistedToken(token),
-            '1',
-            remainingTtlSeconds,
-        );
     }
 
     private async assertValidAvatar(

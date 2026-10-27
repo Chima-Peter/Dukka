@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+    ACCESS_TOKEN_TTL_SECONDS,
     AVATAR_BUCKET,
     OrderStatus,
     PrismaService,
+    RedisService,
     SupabaseService,
+    TokenType,
+    blacklistedTokenKey,
 } from '@app/common';
 import {
     MAIL_TEMPLATES,
@@ -67,6 +71,7 @@ export class CustomerAccountDeletedService {
 
     constructor(
         private readonly prisma: PrismaService,
+        private readonly redisService: RedisService,
         private readonly supabaseService: SupabaseService,
         private readonly mailQueueService: MailQueueService,
         private readonly cancelOrderService: CancelOrderService,
@@ -140,6 +145,8 @@ export class CustomerAccountDeletedService {
             return;
         }
 
+        await this.revokeTokens(customer_id);
+
         if (customer.avatar) {
             try {
                 await this.supabaseService.deleteFile(
@@ -168,6 +175,58 @@ export class CustomerAccountDeletedService {
                 email,
             },
         });
+    }
+
+    private async revokeTokens(customerId: string): Promise<void> {
+        const accessTokenCreatedAfter = new Date(
+            Date.now() - ACCESS_TOKEN_TTL_SECONDS * 1000,
+        );
+
+        const accessTokens = await this.prisma.token.findMany({
+            where: {
+                customerId,
+                type: TokenType.ACCESS,
+                createdAt: { gte: accessTokenCreatedAfter },
+            },
+            select: { token: true, createdAt: true },
+        });
+
+        await Promise.all(
+            accessTokens.map((token) =>
+                this.blacklistAccessToken(token.token, token.createdAt),
+            ),
+        );
+
+        const deletedRefresh = await this.prisma.token.deleteMany({
+            where: {
+                customerId,
+            },
+        });
+
+        this.logger.log(
+            `Revoked tokens for customer ${customerId}: blacklisted ${accessTokens.length} access, deleted ${deletedRefresh.count} refresh`,
+        );
+    }
+
+    private async blacklistAccessToken(
+        token: string,
+        createdAt: Date,
+    ): Promise<void> {
+        const expiresAtMs =
+            createdAt.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000;
+        const remainingTtlSeconds = Math.max(
+            0,
+            Math.ceil((expiresAtMs - Date.now()) / 1000),
+        );
+        if (remainingTtlSeconds <= 0) {
+            return;
+        }
+
+        await this.redisService.set(
+            blacklistedTokenKey(token),
+            '1',
+            remainingTtlSeconds,
+        );
     }
 
     private toOrderMailContext(

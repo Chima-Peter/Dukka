@@ -1,12 +1,10 @@
-import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketsService } from '../markets/markets.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
+import { ServiceCountryService } from '../service/service-country.service.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerService } from './customer.service.js';
-import { TokenRepository } from './token.repository.js';
 
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     RedisService: class RedisService {},
@@ -75,9 +73,9 @@ describe('CustomerService', () => {
                     },
                 },
                 {
-                    provide: MarketsService,
+                    provide: ServiceCountryService,
                     useValue: {
-                        validateIds: vi.fn(),
+                        findByCode: vi.fn(),
                     },
                 },
                 {
@@ -101,19 +99,6 @@ describe('CustomerService', () => {
                         set: vi.fn(),
                         get: vi.fn(),
                         delete: vi.fn(),
-                    },
-                },
-                {
-                    provide: TokenRepository,
-                    useValue: {
-                        findAllByCustomerId: vi.fn(),
-                        deleteAllByCustomerId: vi.fn(),
-                    },
-                },
-                {
-                    provide: JwtService,
-                    useValue: {
-                        decode: vi.fn(),
                     },
                 },
                 {
