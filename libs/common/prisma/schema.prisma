@@ -47,6 +47,7 @@ model Customer {
   reviews Reviews[]
   orders  Order[]
   notifications Notification[]
+  promotion_usages PromotionUsage[]
 
   @@index([active_market_id])
 }
@@ -309,6 +310,7 @@ model Market {
   market_payment_methods MarketPaymentMethod[]
   orders              Order[]
   customers           Customer[]
+  promotion_markets   PromotionMarket[]
 
   @@index([status])
   @@index([id, status])
@@ -475,6 +477,8 @@ model MarketCategory {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  promotion_market_categories PromotionMarketCategory[]
+
   @@unique([market_id, category_id])
 }
 
@@ -502,6 +506,7 @@ model Product {
   images          ProductImage[]
   variants        Variant[]
   pending_updates ProductPendingUpdate[]
+  promotion_market_products PromotionMarketProduct[]
 
   category_id String
   category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
@@ -628,6 +633,7 @@ model MarketVariant {
   reviews              Reviews[]
   cart_item            CartItems[]
   order_items OrderItems[]
+  promotion_market_variants PromotionMarketVariant[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -760,8 +766,9 @@ model Order {
   customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   order_inventory OrderInventory?
-  order_items OrderItems[]
   order_payment_attempt OrderPaymentAttempt?
+  order_items OrderItems[]
+  promotion_usages PromotionUsage[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -920,13 +927,6 @@ model ReviewsImages {
   updated_at DateTime @updatedAt
 }
 
-model Promos {
-  id    String    @id @default(uuid())
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-}
-
 model Coupon {
   id      String    @id @default(uuid())
 
@@ -1001,3 +1001,156 @@ model Notification {
   @@index([staff_id, stream_id])
 }
 
+enum PromotionStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+model Promotion {
+  id String @id @default(uuid())
+  name String
+  description String
+  code String @unique
+  status PromotionStatus @default(ACTIVE)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  discounts Discount?
+  promotion_markets PromotionMarket[]
+}
+
+enum DiscountType {
+  FIXED
+  PERCENTAGE
+}
+
+model Discount {
+  id String @id @default(uuid())
+  type DiscountType
+  value Decimal @db.Decimal(12, 2)
+  max_discount_amount Decimal @db.Decimal(12, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  promotion_id String @unique
+  promotion Promotion @relation(fields: [promotion_id], references: [id], onDelete: Cascade)
+
+  @@index([promotion_id])
+}
+
+enum PromotionMarketStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PromotionMarketScope {
+  ALL
+  PRODUCT
+  CATEGORY
+  VARIANT
+}
+
+model PromotionMarket {
+  id String @id @default(uuid())
+  status PromotionMarketStatus @default(ACTIVE)
+  max_total_uses Int @default(0)
+  max_uses_per_customer Int @default(0)
+  scope PromotionMarketScope
+
+  start_date DateTime
+  end_date DateTime
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  promotion_id String
+  promotion Promotion @relation(fields: [promotion_id], references: [id], onDelete: Cascade)
+
+  market_id String
+  market Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  promotion_market_categories PromotionMarketCategory[]
+  promotion_market_products PromotionMarketProduct[]
+  promotion_market_variants PromotionMarketVariant[]
+  promotion_usages PromotionUsage[]
+
+  @@unique([promotion_id, market_id])
+  @@index([promotion_id])
+  @@index([market_id])
+  @@index([start_date, end_date])
+}
+
+model PromotionMarketCategory {
+  id String @id @default(uuid())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  promotion_market_id String
+  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Cascade)
+
+  category_id String
+  category MarketCategory @relation(fields: [category_id], references: [id], onDelete: Restrict)
+
+  @@unique([promotion_market_id, category_id])
+  @@index([promotion_market_id])
+  @@index([category_id])
+}
+
+model PromotionMarketProduct {
+  id String @id @default(uuid())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  promotion_market_id String
+  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Cascade)
+
+  product_id String
+  product Product @relation(fields: [product_id], references: [id], onDelete: Restrict)
+
+  @@unique([promotion_market_id, product_id])
+  @@index([promotion_market_id])
+  @@index([product_id])
+}
+
+model PromotionMarketVariant {
+  id String @id @default(uuid())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  promotion_market_id String
+  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Cascade)
+
+  variant_id String
+  variant MarketVariant @relation(fields: [variant_id], references: [id], onDelete: Restrict)
+
+  @@unique([promotion_market_id, variant_id])
+  @@index([promotion_market_id])
+  @@index([variant_id])
+}
+
+model PromotionUsage {
+  id String @id @default(uuid())
+  discount_amount Decimal @db.Decimal(12, 2)
+
+  redeemed_at DateTime
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  promotion_market_id String
+  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Restrict)
+
+  order_id String
+  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  customer_id String?
+  customer Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  @@index([promotion_market_id])
+}
