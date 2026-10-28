@@ -36,8 +36,8 @@ export class ProductRepository {
                 name: data.name,
                 description: data.description,
                 specs: data.specs as Prisma.InputJsonValue,
-                market_category: {
-                    connect: { id: data.market_category_id },
+                category: {
+                    connect: { id: data.category_id },
                 },
                 images: {
                     create: data.images.map((image) => ({
@@ -78,15 +78,9 @@ export class ProductRepository {
                 ...(nameMatchedIds !== undefined && {
                     id: { in: nameMatchedIds },
                 }),
-                ...(query.market_category_id !== undefined && {
-                    market_category_id: query.market_category_id,
+                ...(query.category_id !== undefined && {
+                    category_id: query.category_id,
                 }),
-                market_category: {
-                    market: {
-                        id: query.market_id,
-                        status: 'OPEN',
-                    },
-                },
                 status: ProductStatus.ACTIVE,
                 variants: {
                     some: {
@@ -158,13 +152,8 @@ export class ProductRepository {
                 ...(nameMatchedIds !== undefined && {
                     id: { in: nameMatchedIds },
                 }),
-                ...(query.market_category_id !== undefined && {
-                    market_category_id: query.market_category_id,
-                }),
-                ...(query.market_id !== undefined && {
-                    market_category: {
-                        market_id: query.market_id,
-                    },
+                ...(query.category_id !== undefined && {
+                    category_id: query.category_id,
                 }),
                 status: query.status ?? ProductStatus.ACTIVE,
                 ...(hasVariantFilter
@@ -234,7 +223,7 @@ export class ProductRepository {
     async findById(id: string) {
         return await this.prisma.product.findUnique({
             where: { id },
-            select: { id: true, status: true },
+            select: { id: true, status: true, category_id: true },
         });
     }
 
@@ -314,9 +303,9 @@ export class ProductRepository {
             ...(data.specs !== undefined && {
                 specs: data.specs as Prisma.InputJsonValue,
             }),
-            ...(data.market_category_id !== undefined && {
-                market_category: {
-                    connect: { id: data.market_category_id },
+            ...(data.category_id !== undefined && {
+                category: {
+                    connect: { id: data.category_id },
                 },
             }),
         };
@@ -351,8 +340,8 @@ export class ProductRepository {
                 ...(data.specs !== undefined && {
                     specs: data.specs as Prisma.InputJsonValue,
                 }),
-                ...(data.market_category_id !== undefined && {
-                    market_category_id: data.market_category_id,
+                ...(data.category_id !== undefined && {
+                    category_id: data.category_id,
                 }),
                 ...(data.images !== undefined && {
                     images: data.images as unknown as Prisma.InputJsonValue,
@@ -379,7 +368,7 @@ export class ProductRepository {
                 name: true,
                 description: true,
                 specs: true,
-                market_category_id: true,
+                category_id: true,
                 images: true,
                 product_id: true,
                 product: {
@@ -408,7 +397,7 @@ export class ProductRepository {
             name: string | null;
             description: string | null;
             specs: Prisma.JsonValue | null;
-            market_category_id: string | null;
+            category_id: string | null;
             images: ProductImageRecord[] | null;
         }>,
     ): Promise<{ image_url: string }[]> {
@@ -424,9 +413,9 @@ export class ProductRepository {
                     ...(update.specs !== null && {
                         specs: update.specs as Prisma.InputJsonValue,
                     }),
-                    ...(update.market_category_id !== null && {
-                        market_category: {
-                            connect: { id: update.market_category_id },
+                    ...(update.category_id !== null && {
+                        category: {
+                            connect: { id: update.category_id },
                         },
                     }),
                 };
@@ -518,8 +507,8 @@ export class ProductRepository {
                     ...(data.specs !== undefined && {
                         specs: data.specs as Prisma.InputJsonValue,
                     }),
-                    ...(data.market_category_id !== undefined && {
-                        market_category_id: data.market_category_id,
+                    ...(data.category_id !== undefined && {
+                        category_id: data.category_id,
                     }),
                     ...(data.images !== undefined && {
                         images: data.images as unknown as Prisma.InputJsonValue,
@@ -532,7 +521,7 @@ export class ProductRepository {
                     name: true,
                     description: true,
                     specs: true,
-                    market_category_id: true,
+                    category_id: true,
                     images: true,
                     product_id: true,
                     created_at: true,
@@ -560,7 +549,7 @@ export class ProductRepository {
                 name: true,
                 description: true,
                 specs: true,
-                market_category_id: true,
+                category_id: true,
                 images: true,
                 product_id: true,
                 created_at: true,
@@ -572,7 +561,7 @@ export class ProductRepository {
                         description: true,
                         specs: true,
                         status: true,
-                        market_category_id: true,
+                        category_id: true,
                         images: {
                             select: {
                                 image_url: true,

@@ -85,6 +85,13 @@ export class CategoryService {
         }
     }
 
+    async existsInMarket(categoryId: string, marketId: string) {
+        return await this.categoryRepository.existsInMarket(
+            categoryId,
+            marketId,
+        );
+    }
+
     async addToMarket(
         categoryId: string,
         data: AddCategoryToMarketDto,

@@ -48,14 +48,10 @@ export function productListSummarySelect(
         name: true,
         description: true,
         ...(includeStatus && { status: true }),
-        market_category_id: true,
-        market_category: {
+        category_id: true,
+        category: {
             select: {
-                category: {
-                    select: {
-                        name: true,
-                    },
-                },
+                name: true,
             },
         },
         created_at: true,
@@ -110,7 +106,7 @@ export function productListSummarySelect(
 
 export function toProductListItem<
     T extends {
-        market_category: { category: { name: string } };
+        category: { name: string };
         images: Array<{ image_url: string }>;
         variants: Array<{
             market_variants: Array<{
@@ -121,11 +117,11 @@ export function toProductListItem<
         }>;
     },
 >(product: T) {
-    const { market_category, images, variants, ...rest } = product;
+    const { category, images, variants, ...rest } = product;
     const marketVariant = variants[0]?.market_variants[0];
     return {
         ...rest,
-        category_name: market_category.category.name,
+        category_name: category.name,
         image_url: images[0]?.image_url ?? null,
         price: marketVariant?.price ?? null,
         currency: marketVariant?.currency ?? null,
@@ -139,16 +135,12 @@ export const productDetailSelect = {
     description: true,
     specs: true,
     status: true,
-    market_category_id: true,
+    category_id: true,
     created_at: true,
     updated_at: true,
-    market_category: {
+    category: {
         select: {
-            category: {
-                select: {
-                    name: true,
-                },
-            },
+            name: true,
         },
     },
     images: {
@@ -222,7 +214,7 @@ export function productDetailWithMarketSelect(marketId?: string) {
 
 export function toProductDetail<
     T extends {
-        market_category: { category: { name: string } };
+        category: { name: string };
         variants: Array<{
             image: { image_url: string } | null;
             market_variants?: Array<{
@@ -234,10 +226,10 @@ export function toProductDetail<
         }>;
     },
 >(product: T) {
-    const { market_category, variants, ...rest } = product;
+    const { category, variants, ...rest } = product;
     return {
         ...rest,
-        category_name: market_category.category.name,
+        category_name: category.name,
         variants: variants.map(({ image, market_variants, ...variant }) => {
             const marketVariant = market_variants?.[0];
             return {

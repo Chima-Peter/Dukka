@@ -7,7 +7,7 @@ export type CreateProductRecord = {
     name: string;
     description: string;
     specs: Record<string, unknown>;
-    market_category_id: string;
+    category_id: string;
     images: ProductImageRecord[];
     variants: {
         variant_code: string;
@@ -22,6 +22,6 @@ export type CreateProductPendingUpdateData = {
     name?: string;
     description?: string;
     specs?: Record<string, unknown>;
-    market_category_id?: string;
+    category_id?: string;
     images?: ProductImageRecord[];
 };

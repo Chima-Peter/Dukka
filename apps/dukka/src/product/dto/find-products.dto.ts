@@ -18,7 +18,7 @@ export class FindProductsDto {
 
     @IsOptional()
     @IsUUID()
-    market_category_id?: string;
+    category_id?: string;
 
     @IsOptional()
     @IsString()

@@ -28,7 +28,7 @@ export class CreateProductDto {
     specs!: Record<string, unknown>;
 
     @IsUUID()
-    market_category_id!: string;
+    category_id!: string;
 
     @IsArray()
     @ArrayMinSize(1)

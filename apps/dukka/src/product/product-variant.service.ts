@@ -16,6 +16,7 @@ import {
     VariantPendingUpdateStatus,
     VariantStatus,
 } from '@app/common';
+import { CategoryService } from '../category/category.service.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
@@ -38,6 +39,7 @@ export class ProductVariantService {
     constructor(
         private readonly productVariantRepository: ProductVariantRepository,
         private readonly productRepository: ProductRepository,
+        private readonly categoryService: CategoryService,
         private readonly supabaseService: SupabaseService,
         private readonly marketsService: MarketsService,
     ) {}
@@ -317,6 +319,16 @@ export class ProductVariantService {
             );
             if (market.status !== MarketStatus.OPEN) {
                 throw new BadRequestException('Market is not open');
+            }
+
+            const categoryInMarket = await this.categoryService.existsInMarket(
+                product.category_id,
+                data.market_id,
+            );
+            if (!categoryInMarket) {
+                throw new BadRequestException(
+                    'Product category is not available in this market',
+                );
             }
 
             try {
@@ -670,10 +682,9 @@ export class ProductVariantService {
         error: PrismaClientKnownRequestError,
     ): NotFoundException | null {
         const model = prismaMissingRecordModel(error);
-        if (model === 'marketcategor' || model?.startsWith('marketcategor')) {
-            return new NotFoundException('Market category not found');
-        }
         switch (model) {
+            case 'category':
+                return new NotFoundException('Category not found');
             case 'market':
                 return new NotFoundException('Market not found');
             case 'variant':
@@ -684,8 +695,8 @@ export class ProductVariantService {
                 break;
         }
 
-        if (prismaHintIncludes(error, 'market_category')) {
-            return new NotFoundException('Market category not found');
+        if (prismaHintIncludes(error, 'category_id', "'category'")) {
+            return new NotFoundException('Category not found');
         }
         if (prismaHintIncludes(error, 'market_id', "'market'")) {
             return new NotFoundException('Market not found');

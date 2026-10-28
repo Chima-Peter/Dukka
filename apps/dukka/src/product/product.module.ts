@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { CategoryModule } from '../category/category.module.js';
 import { CustomerModule } from '../customer/customer.module.js';
 import { MarketsModule } from '../markets/markets.module.js';
 import { ProductController } from './product.controller.js';
@@ -9,7 +10,7 @@ import { ProductVariantRepository } from './product-variant.repository.js';
 import { ProductVariantService } from './product-variant.service.js';
 
 @Module({
-    imports: [MarketsModule, forwardRef(() => CustomerModule)],
+    imports: [CategoryModule, MarketsModule, forwardRef(() => CustomerModule)],
     controllers: [ProductController, ProductVariantController],
     providers: [
         ProductService,

@@ -9,6 +9,10 @@ vi.mock('@app/queues', () => ({
     MailQueueService: class MailQueueService {},
 }));
 
+vi.mock('../category/category.service.js', () => ({
+    CategoryService: class CategoryService {},
+}));
+
 vi.mock('../markets/markets.service.js', () => ({
     MarketsService: class MarketsService {},
 }));
@@ -31,6 +35,9 @@ describe('ProductVariantService', () => {
     beforeEach(async () => {
         const { SupabaseService } = await import(
             '../../../../libs/common/src/index.ts'
+        );
+        const { CategoryService } = await import(
+            '../category/category.service.js'
         );
         const { MarketsService } = await import(
             '../markets/markets.service.js'
@@ -61,6 +68,12 @@ describe('ProductVariantService', () => {
                     provide: ProductRepository,
                     useValue: {
                         findById: vi.fn(),
+                    },
+                },
+                {
+                    provide: CategoryService,
+                    useValue: {
+                        existsInMarket: vi.fn(),
                     },
                 },
                 {

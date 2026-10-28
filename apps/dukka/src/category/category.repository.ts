@@ -89,6 +89,19 @@ export class CategoryRepository {
         };
     }
 
+    async existsInMarket(categoryId: string, marketId: string) {
+        const row = await this.prisma.category.findFirst({
+            where: {
+                id: categoryId,
+                market_categories: {
+                    some: { market_id: marketId },
+                },
+            },
+            select: { id: true },
+        });
+        return row !== null;
+    }
+
     async removeFromMarket(
         categoryId: string,
         marketId: string,

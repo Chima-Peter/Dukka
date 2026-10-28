@@ -100,7 +100,7 @@ export class ProductService {
                 name: data.name,
                 description: data.description,
                 specs: data.specs,
-                market_category_id: data.market_category_id,
+                category_id: data.category_id,
                 images: data.images.map((image) => ({
                     image_url: this.supabaseService.getPublicURL(
                         image.image_path,
@@ -203,7 +203,7 @@ export class ProductService {
                 data.name === undefined &&
                 data.description === undefined &&
                 data.specs === undefined &&
-                data.market_category_id === undefined
+                data.category_id === undefined
             ) {
                 throw new BadRequestException(
                     'At least one product field must be updated',
@@ -273,7 +273,7 @@ export class ProductService {
                 data.name === undefined &&
                 data.description === undefined &&
                 data.specs === undefined &&
-                data.market_category_id === undefined
+                data.category_id === undefined
             ) {
                 throw new BadRequestException(
                     'At least one product field must be updated',
@@ -668,10 +668,9 @@ export class ProductService {
         error: PrismaClientKnownRequestError,
     ): NotFoundException | null {
         const model = prismaMissingRecordModel(error);
-        if (model === 'marketcategor' || model?.startsWith('marketcategor')) {
-            return new NotFoundException('Market category not found');
-        }
         switch (model) {
+            case 'category':
+                return new NotFoundException('Category not found');
             case 'market':
                 return new NotFoundException('Market not found');
             case 'variant':
@@ -682,8 +681,8 @@ export class ProductService {
                 break;
         }
 
-        if (prismaHintIncludes(error, 'market_category')) {
-            return new NotFoundException('Market category not found');
+        if (prismaHintIncludes(error, 'category_id', "'category'")) {
+            return new NotFoundException('Category not found');
         }
         if (prismaHintIncludes(error, 'market_id', "'market'")) {
             return new NotFoundException('Market not found');

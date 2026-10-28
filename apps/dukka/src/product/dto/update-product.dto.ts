@@ -26,5 +26,5 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsUUID()
-    market_category_id?: string;
+    category_id?: string;
 }

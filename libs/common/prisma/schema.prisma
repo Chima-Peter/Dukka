@@ -461,6 +461,7 @@ model Category {
   updated_at DateTime @updatedAt
 
   market_categories MarketCategory[]
+  products          Product[]
 }
 
 model MarketCategory {
@@ -470,8 +471,6 @@ model MarketCategory {
   market      Market   @relation(fields: [market_id], references: [id], onDelete: Restrict)
   category_id String
   category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
-
-  products Product[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -504,8 +503,8 @@ model Product {
   variants        Variant[]
   pending_updates ProductPendingUpdate[]
 
-  market_category_id String
-  market_category    MarketCategory @relation(fields: [market_category_id], references: [id], onDelete: Restrict)
+  category_id String
+  category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -521,11 +520,11 @@ model ProductPendingUpdate {
   id     String                     @id @default(uuid())
   status ProductPendingUpdateStatus @default(PENDING)
 
-  name               String?
-  description        String?
-  specs              Json?
-  market_category_id String?
-  images             Json?
+  name        String?
+  description String?
+  specs       Json?
+  category_id String?
+  images      Json?
 
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)

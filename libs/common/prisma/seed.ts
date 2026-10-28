@@ -959,17 +959,10 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
     const categories = await prisma.category.findMany({
         where: { name: { in: [...DEFAULT_CATEGORIES] } },
     });
-    const marketCategories: {
-        id: string;
-        market_id: string;
-        category_id: string;
-        category_name: string;
-        market_code: string;
-    }[] = [];
 
     for (const market of markets) {
         for (const category of categories) {
-            const marketCategory = await prisma.marketCategory.upsert({
+            await prisma.marketCategory.upsert({
                 where: {
                     market_id_category_id: {
                         market_id: market.id,
@@ -982,28 +975,14 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                 },
                 update: {},
             });
-            marketCategories.push({
-                id: marketCategory.id,
-                market_id: market.id,
-                category_id: category.id,
-                category_name: category.name,
-                market_code: market.code,
-            });
         }
     }
 
-    const ngElectronics = marketCategories.find(
-        (row) => row.market_code === 'NG' && row.category_name === 'Electronics',
-    );
-    const ngFashion = marketCategories.find(
-        (row) => row.market_code === 'NG' && row.category_name === 'Fashion',
-    );
-    const ghElectronics = marketCategories.find(
-        (row) => row.market_code === 'GH' && row.category_name === 'Electronics',
-    );
+    const electronics = categories.find((row) => row.name === 'Electronics');
+    const fashion = categories.find((row) => row.name === 'Fashion');
 
-    if (!ngElectronics || !ngFashion || !ghElectronics) {
-        throw new Error('Failed to resolve market categories for product seed');
+    if (!electronics || !fashion) {
+        throw new Error('Failed to resolve categories for product seed');
     }
 
     const productsDef = [
@@ -1012,7 +991,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
             description: 'Wireless over-ear headphones with ANC.',
             specs: { battery_hours: 30, connectivity: 'Bluetooth 5.3' },
             status: ProductStatus.ACTIVE,
-            market_category_id: ngElectronics.id,
+            category_id: electronics.id,
             images: [
                 {
                     image_url: 'https://cdn.dukka.local/products/pulse-1.jpg',
@@ -1052,7 +1031,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
             description: 'Soft cotton tee with contemporary Ankara print.',
             specs: { material: '100% cotton', fit: 'Regular' },
             status: ProductStatus.ACTIVE,
-            market_category_id: ngFashion.id,
+            category_id: fashion.id,
             images: [
                 {
                     image_url: 'https://cdn.dukka.local/products/ankara-tee-1.jpg',
@@ -1086,7 +1065,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
             description: 'Compact USB-C charging hub for home desks.',
             specs: { ports: 6, wattage: 65 },
             status: ProductStatus.PENDING_REVIEW,
-            market_category_id: ghElectronics.id,
+            category_id: electronics.id,
             images: [
                 {
                     image_url: 'https://cdn.dukka.local/products/charge-hub-1.jpg',
@@ -1119,7 +1098,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
         let product = await prisma.product.findFirst({
             where: {
                 name: productDef.name,
-                market_category_id: productDef.market_category_id,
+                category_id: productDef.category_id,
             },
         });
 
@@ -1130,7 +1109,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                     description: productDef.description,
                     specs: productDef.specs,
                     status: productDef.status,
-                    market_category_id: productDef.market_category_id,
+                    category_id: productDef.category_id,
                     images: {
                         create: productDef.images.map((image) => ({
                             image_url: image.image_url,
