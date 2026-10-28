@@ -240,6 +240,10 @@ export class RedisService implements OnModuleDestroy {
         return count === 1;
     }
 
+    async ping(): Promise<string> {
+        return this.client.ping();
+    }
+
     /**
      * Acquires a lock with a Lua `SET key token PX ttl NX` script.
      * Returns the lock token on success, or `null` if the key is already held.

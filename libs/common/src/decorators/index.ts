@@ -16,4 +16,9 @@ export {
     ResponseMessage,
 } from './response-message.decorator.js';
 
+export {
+    SKIP_TRANSFORM_KEY,
+    SkipTransform,
+} from './skip-transform.decorator.js';
+
 export { SSE_METADATA_KEY, SseDecorator } from './sse.decorator.js';

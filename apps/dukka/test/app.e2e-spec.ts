@@ -1,26 +1,74 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+    DiskHealthIndicator,
+    HealthCheckService,
+    MemoryHealthIndicator,
+    PrismaHealthIndicator,
+} from '@nestjs/terminus';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppController } from '../src/app.controller.js';
+import { HealthController } from '../src/health/health.controller.js';
 
 vi.mock('../../../libs/common/src/index.ts', () => ({
     Public: () => () => undefined,
-    ResponseMessage: () => () => undefined,
+    SkipTransform: () => () => undefined,
+    PrismaService: class PrismaService {},
+}));
+
+vi.mock('../src/health/redis.health.js', () => ({
+    RedisHealthIndicator: class RedisHealthIndicator {},
 }));
 
 /**
- * Boots a minimal app surface (health only) so e2e does not load the full
+ * Boots a minimal health surface so e2e does not load the full
  * AppModule graph (@app/common guards/redis/supabase), which Vitest cannot
  * transform due to Nest parameter decorators.
  */
-describe('AppController (e2e)', () => {
+describe('HealthController (e2e)', () => {
     let app: INestApplication;
 
     beforeEach(async () => {
+        const { RedisHealthIndicator } = await import(
+            '../src/health/redis.health.js'
+        );
+
         const moduleFixture: TestingModule = await Test.createTestingModule({
-            controllers: [AppController],
-        }).compile();
+            controllers: [HealthController],
+            providers: [
+                {
+                    provide: HealthCheckService,
+                    useValue: {
+                        check: vi.fn().mockResolvedValue({
+                            status: 'ok',
+                            info: {
+                                disk: { status: 'up' },
+                                memory_heap: { status: 'up' },
+                                database: { status: 'up' },
+                                redis: { status: 'up' },
+                                redis_general_queue: { status: 'up' },
+                                redis_mail_queue: { status: 'up' },
+                            },
+                            error: {},
+                            details: {
+                                disk: { status: 'up' },
+                                memory_heap: { status: 'up' },
+                                database: { status: 'up' },
+                                redis: { status: 'up' },
+                                redis_general_queue: { status: 'up' },
+                                redis_mail_queue: { status: 'up' },
+                            },
+                        }),
+                    },
+                },
+                { provide: DiskHealthIndicator, useValue: {} },
+                { provide: MemoryHealthIndicator, useValue: {} },
+                { provide: PrismaHealthIndicator, useValue: {} },
+                { provide: RedisHealthIndicator, useValue: {} },
+            ],
+        })
+            .useMocker(() => ({}))
+            .compile();
 
         app = moduleFixture.createNestApplication();
         await app.init();
@@ -34,10 +82,18 @@ describe('AppController (e2e)', () => {
         expect(app).toBeDefined();
     });
 
-    it('GET /health returns ok', async () => {
+    it('GET /health returns terminus health result', async () => {
         const response = await request(app.getHttpServer()).get('/health');
 
         expect(response.status).toBe(200);
-        expect(response.body).toEqual({ status: 'ok' });
+        expect(response.body.status).toBe('ok');
+        expect(response.body.details).toMatchObject({
+            disk: { status: 'up' },
+            memory_heap: { status: 'up' },
+            database: { status: 'up' },
+            redis: { status: 'up' },
+            redis_general_queue: { status: 'up' },
+            redis_mail_queue: { status: 'up' },
+        });
     });
 });

@@ -18,7 +18,6 @@ import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { CustomerModule } from './customer/customer.module.js';
 import { AddressModule } from './address/address.module.js';
-import { AppController } from './app.controller.js';
 import { PointsModule } from './points/points.module.js';
 import { RolesModule } from './roles/roles.module.js';
 import { PermissionsModule } from './permissions/permissions.module.js';
@@ -39,13 +38,14 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { CheckoutModule } from './checkout/checkout.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
+import { HealthModule } from './health/health.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
-    controllers: [AppController],
     imports: [
         ConfigModule,
+        HealthModule,
         PrismaModule.registerAsync({
             isGlobal: true,
             inject: [ConfigService],

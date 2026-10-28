@@ -56,6 +56,8 @@ async function bootstrap() {
         SwaggerModule.createDocument(app, swaggerConfig),
     );
 
+    app.enableShutdownHooks();
+
     const configService = app.get(ConfigService<ConfigType, true>);
     const port = configService.getOrThrow('DUKKA_PORT', {
         infer: true,

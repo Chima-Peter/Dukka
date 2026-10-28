@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
-import { RESPONSE_MESSAGE_KEY, SSE_METADATA_KEY } from '../decorators/index.js';
+import {
+    RESPONSE_MESSAGE_KEY,
+    SKIP_TRANSFORM_KEY,
+    SSE_METADATA_KEY,
+} from '../decorators/index.js';
 import { successResponse, type ApiResponse } from '../response/index.js';
 
 @Injectable()
@@ -28,6 +32,14 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<
         );
         if (isSse) {
             this.logger.log('SSE response detected');
+            return next.handle();
+        }
+
+        const skipTransform = this.reflector.getAllAndOverride<boolean>(
+            SKIP_TRANSFORM_KEY,
+            [context.getHandler(), context.getClass()],
+        );
+        if (skipTransform) {
             return next.handle();
         }
 
