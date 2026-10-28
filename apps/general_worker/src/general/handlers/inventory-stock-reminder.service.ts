@@ -24,6 +24,7 @@ export class InventoryStockReminderService {
         const inventories = await this.prisma.inventory.findMany({
             where: {
                 warehouse_id: warehouse_id,
+                available_quantity: 0,
                 reminder_sent: false,
                 reminder_sent_at: null,
             },

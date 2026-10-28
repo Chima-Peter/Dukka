@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { HttpClientModule } from '@nestjs/http-client';
+import { ScheduleModule } from '@nestjs/schedule';
 import { RestCountriesIpService } from '@app/common';
 import { GeneralProcessor } from './general.processor.js';
+import { GeneralScheduler } from './general.scheduler.js';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
 import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
@@ -12,6 +14,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
 
 @Module({
     imports: [
+        ScheduleModule.forRoot(),
         HttpClientModule.register({
             timeout: 5000,
         }),
@@ -26,6 +29,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
         StaffDeactivatedService,
         ExpirePromotionMarketService,
         GeneralProcessor,
+        GeneralScheduler,
     ],
 })
 export class GeneralModule {}
