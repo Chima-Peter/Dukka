@@ -39,8 +39,6 @@ export class OrdersRepository {
     }
 
     async createForGuest(data: CreateGuestOrderInput): Promise<Order> {
-        const sharedAddress = this.guestAddressSnapshot(data);
-
         return await this.create({
             currency: data.currency,
             subtotal: data.subtotal,
@@ -52,8 +50,14 @@ export class OrdersRepository {
             market_id: data.market_id,
             warehouse_id: data.warehouse_id,
             items: data.items,
-            shipping_address: sharedAddress,
-            billing_address: sharedAddress,
+            shipping_address: this.guestAddressSnapshot(
+                data.shipping_address,
+                data.market_id,
+            ),
+            billing_address: this.guestAddressSnapshot(
+                data.billing_address,
+                data.market_id,
+            ),
             guest_email: data.guest_email,
             guest_name: data.guest_name,
             guest_phone_number: data.guest_phone_number,
@@ -246,16 +250,17 @@ export class OrdersRepository {
     }
 
     private guestAddressSnapshot(
-        data: CreateGuestOrderInput,
+        address: Omit<GuestAddressSnapshot, 'market_id'>,
+        marketId: string,
     ): GuestAddressSnapshot {
         return {
-            name: data.guest_name,
-            email: data.guest_email,
-            phone_number: data.guest_phone_number,
-            country: data.country,
-            state: data.state,
-            market_id: data.market_id,
-            street_address: data.street_address,
+            name: address.name,
+            email: address.email,
+            phone_number: address.phone_number,
+            country: address.country,
+            state: address.state,
+            market_id: marketId,
+            street_address: address.street_address,
         };
     }
 

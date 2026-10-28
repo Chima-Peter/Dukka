@@ -7,7 +7,7 @@ import {
     MinLength,
 } from 'class-validator';
 
-export class UpdateShippingAddressDto {
+export class UpdateAddressDto {
     @IsOptional()
     @IsString()
     @MinLength(1)

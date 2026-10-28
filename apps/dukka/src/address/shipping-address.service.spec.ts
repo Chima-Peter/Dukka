@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomerService } from '../customer/customer.service.js';
-import { ShippingAddressRepository } from './shipping_address.repository.js';
-import { ShippingAddressService } from './shipping_address.service.js';
+import { ShippingAddressRepository } from './shipping-address.repository.js';
+import { ShippingAddressService } from './shipping-address.service.js';
 
 describe('ShippingAddressService', () => {
     let service: ShippingAddressService;
@@ -15,7 +15,6 @@ describe('ShippingAddressService', () => {
                     useValue: {
                         create: vi.fn(),
                         findAllByCustomerId: vi.fn(),
-                        findById: vi.fn(),
                         findByIdAndCustomerId: vi.fn(),
                         update: vi.fn(),
                         delete: vi.fn(),

@@ -51,6 +51,23 @@ export class CustomerRepository {
                       updated_at: true
                     }
                 },
+                billing_address: {
+                    orderBy: { created_at: 'desc' },
+                    select: {
+                      email: true,
+                      first_name: true,
+                      id: true,
+                      last_name: true,
+                      phone_number: true,
+                      country: true,
+                      state: true,
+                      market_id: true,
+                      street_address: true,
+                      whatsapp_number: true,
+                      created_at: true,
+                      updated_at: true
+                    }
+                },
                 points: {
                   select: {
                     balance: true

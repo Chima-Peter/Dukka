@@ -17,7 +17,7 @@ import { QueuesModule } from '@app/queues';
 import { ConfigModule } from './config/config.module.js';
 import type { ConfigType } from './config/env.interface.js';
 import { CustomerModule } from './customer/customer.module.js';
-import { ShippingAddressModule } from './shipping_address/shipping_address.module.js';
+import { AddressModule } from './address/address.module.js';
 import { AppController } from './app.controller.js';
 import { PointsModule } from './points/points.module.js';
 import { RolesModule } from './roles/roles.module.js';
@@ -36,6 +36,7 @@ import { CartModule } from './cart/cart.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { CheckoutModule } from './checkout/checkout.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -53,7 +54,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
             }),
         }),
         CustomerModule,
-        ShippingAddressModule,
+        AddressModule,
         CartModule,
         HttpClientModule.forRootAsync({
             inject: [ConfigService],
@@ -158,6 +159,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         OrdersModule,
         PaymentsModule,
         NotificationsModule,
+        CheckoutModule,
     ],
     providers: [
         {

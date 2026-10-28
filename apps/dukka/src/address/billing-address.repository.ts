@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { type ShippingAddress, PrismaService } from '@app/common';
-import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
-import type { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
+import { type BillingAddress, PrismaService } from '@app/common';
+import type { CreateAddressDto } from './dto/create-address.dto.js';
+import type { UpdateAddressDto } from './dto/update-address.dto.js';
 
 @Injectable()
-export class ShippingAddressRepository {
+export class BillingAddressRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(
         customer_id: string,
         market_id: string,
-        data: CreateShippingAddressDto,
-    ): Promise<ShippingAddress> {
-        return await this.prisma.shippingAddress.create({
+        data: CreateAddressDto,
+    ): Promise<BillingAddress> {
+        return await this.prisma.billingAddress.create({
             data: {
                 ...data,
                 market_id,
@@ -21,33 +21,27 @@ export class ShippingAddressRepository {
         });
     }
 
-    async findAllByCustomerId(customer_id: string): Promise<ShippingAddress[]> {
-        return await this.prisma.shippingAddress.findMany({
+    async findAllByCustomerId(customer_id: string): Promise<BillingAddress[]> {
+        return await this.prisma.billingAddress.findMany({
             where: { customer_id },
             orderBy: { created_at: 'desc' },
-        });
-    }
-
-    async findById(id: string): Promise<ShippingAddress | null> {
-        return await this.prisma.shippingAddress.findUnique({
-            where: { id },
         });
     }
 
     async findByIdAndCustomerId(
         id: string,
         customer_id: string,
-    ): Promise<ShippingAddress | null> {
-        return await this.prisma.shippingAddress.findFirst({
+    ): Promise<BillingAddress | null> {
+        return await this.prisma.billingAddress.findFirst({
             where: { id, customer_id },
         });
     }
 
     async update(
         id: string,
-        data: UpdateShippingAddressDto,
-    ): Promise<ShippingAddress> {
-        return await this.prisma.shippingAddress.update({
+        data: UpdateAddressDto,
+    ): Promise<BillingAddress> {
+        return await this.prisma.billingAddress.update({
             where: { id },
             data: {
                 ...(data.first_name !== undefined && {
@@ -72,7 +66,7 @@ export class ShippingAddressRepository {
         });
     }
 
-    async delete(id: string): Promise<ShippingAddress> {
-        return await this.prisma.shippingAddress.delete({ where: { id } });
+    async delete(id: string): Promise<BillingAddress> {
+        return await this.prisma.billingAddress.delete({ where: { id } });
     }
 }

@@ -7,7 +7,7 @@ import {
     MinLength,
 } from 'class-validator';
 
-export class CreateShippingAddressDto {
+export class CreateAddressDto {
     @IsString()
     @MinLength(1)
     @MaxLength(128)

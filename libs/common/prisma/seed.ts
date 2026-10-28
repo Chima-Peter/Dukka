@@ -847,6 +847,100 @@ async function seedShippingAddresses(
     console.log(`Seeded ${created} shipping address(es)`);
 }
 
+async function seedBillingAddresses(
+    customers: { id: string; email: string }[],
+    markets: { id: string; code: string }[],
+) {
+    const billingDefs = [
+        {
+            customer_email: 'adaeze.customer@dukka.local',
+            first_name: 'Adaeze',
+            last_name: 'Nnamdi',
+            email: 'bill.adaeze@dukka.local',
+            phone_number: '+2348033333333',
+            whatsapp_number: '+2348033333333',
+            country: 'Nigeria',
+            market_code: 'NG',
+            state_name: 'Lagos',
+            street_address: '12 Admiralty Way, Lekki',
+        },
+        {
+            customer_email: 'kofi.customer@dukka.local',
+            first_name: 'Kofi',
+            last_name: 'Asante',
+            email: 'bill.kofi@dukka.local',
+            phone_number: '+233202222222',
+            whatsapp_number: '+233202222222',
+            country: 'Ghana',
+            market_code: 'GH',
+            state_name: 'Greater Accra',
+            street_address: '45 Independence Ave, Accra',
+        },
+    ] as const;
+
+    let created = 0;
+
+    for (const billing of billingDefs) {
+        const customer = customers.find(
+            (row) => row.email === billing.customer_email,
+        );
+        const market = markets.find((row) => row.code === billing.market_code);
+        if (!customer || !market) {
+            continue;
+        }
+
+        const country = await prisma.serviceCountry.findUnique({
+            where: { iso2: billing.market_code },
+            select: { id: true },
+        });
+        if (!country) {
+            throw new Error(
+                `Missing service country ${billing.market_code} for billing address seed`,
+            );
+        }
+
+        const serviceState = await prisma.serviceState.findUnique({
+            where: {
+                country_id_state_name: {
+                    country_id: country.id,
+                    state_name: billing.state_name,
+                },
+            },
+            select: { id: true },
+        });
+        if (!serviceState) {
+            throw new Error(
+                `Missing service state ${billing.state_name} for service country ${billing.market_code}`,
+            );
+        }
+
+        const existingAddress = await prisma.billingAddress.findUnique({
+            where: { email: billing.email },
+        });
+        if (existingAddress) {
+            continue;
+        }
+
+        await prisma.billingAddress.create({
+            data: {
+                first_name: billing.first_name,
+                last_name: billing.last_name,
+                email: billing.email,
+                phone_number: billing.phone_number,
+                whatsapp_number: billing.whatsapp_number,
+                country: billing.country,
+                street_address: billing.street_address,
+                state: serviceState.id,
+                market_id: market.id,
+                customer_id: customer.id,
+            },
+        });
+        created += 1;
+    }
+
+    console.log(`Seeded ${created} billing address(es)`);
+}
+
 async function seedCatalog(markets: { id: string; code: string }[]) {
     for (const categoryName of DEFAULT_CATEGORIES) {
         await prisma.category.upsert({
@@ -1714,6 +1808,7 @@ async function main() {
         marketVariants,
     );
     await seedShippingAddresses(customers, markets);
+    await seedBillingAddresses(customers, markets);
     await seedOrdersReviewsAndFulfillment(
         customers,
         markets,

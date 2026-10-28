@@ -52,9 +52,8 @@ export type CreateGuestOrderInput = CreateOrderMoneyInput & {
     guest_email: string;
     guest_name: string;
     guest_phone_number: string;
-    country: string;
-    state: string;
-    street_address: string;
+    shipping_address: Omit<GuestAddressSnapshot, 'market_id'>;
+    billing_address: Omit<GuestAddressSnapshot, 'market_id'>;
 };
 
 export type CreateOrderBase = CreateOrderMoneyInput & {

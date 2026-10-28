@@ -11,9 +11,9 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { ShippingAddress } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
-import type { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
-import type { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
-import { ShippingAddressRepository } from './shipping_address.repository.js';
+import type { CreateAddressDto } from './dto/create-address.dto.js';
+import type { UpdateAddressDto } from './dto/update-address.dto.js';
+import { ShippingAddressRepository } from './shipping-address.repository.js';
 
 @Injectable()
 export class ShippingAddressService {
@@ -26,7 +26,7 @@ export class ShippingAddressService {
 
     async create(
         customer_id: string,
-        data: CreateShippingAddressDto,
+        data: CreateAddressDto,
     ): Promise<ShippingAddress> {
         try {
             this.logger.log(
@@ -46,29 +46,7 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address created ${address.id}`);
             return address;
         } catch (error) {
-            if (error instanceof HttpException) {
-                throw error;
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                this.logger.warn(`Conflict error: ${error.message}`);
-                throw new ConflictException(
-                    'A shipping address with this email already exists',
-                );
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2003'
-            ) {
-                this.throwForeignKeyNotFound(error);
-            }
-
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
-            );
+            this.handleWriteError(error, 'A shipping address with this email already exists');
         }
     }
 
@@ -81,13 +59,7 @@ export class ShippingAddressService {
                 customer_id,
             );
         } catch (error) {
-            if (error instanceof HttpException) {
-                throw error;
-            }
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
-            );
+            this.handleReadError(error);
         }
     }
 
@@ -106,21 +78,14 @@ export class ShippingAddressService {
             }
             return address;
         } catch (error) {
-            if (error instanceof HttpException) {
-                this.logger.warn(`HTTP exception: ${error.message}`);
-                throw error;
-            }
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
-            );
+            this.handleReadError(error);
         }
     }
 
     async update(
         customer_id: string,
         id: string,
-        data: UpdateShippingAddressDto,
+        data: UpdateAddressDto,
     ): Promise<ShippingAddress> {
         try {
             this.logger.log(
@@ -134,34 +99,10 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address updated ${id}`);
             return address;
         } catch (error) {
-            if (error instanceof HttpException) {
-                this.logger.warn(`HTTP exception: ${error.message}`);
-                throw error;
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                this.logger.warn(`Conflict error: ${error.message}`);
-                throw new ConflictException(
-                    'A shipping address with this email already exists',
-                );
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2003'
-            ) {
-                this.throwForeignKeyNotFound(error);
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2025'
-            ) {
-                throw new NotFoundException('Shipping address not found');
-            }
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
+            this.handleWriteError(
+                error,
+                'A shipping address with this email already exists',
+                'Shipping address not found',
             );
         }
     }
@@ -176,21 +117,63 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address deleted ${id}`);
             return { data: null };
         } catch (error) {
-            if (error instanceof HttpException) {
-                this.logger.warn(`HTTP exception: ${error.message}`);
-                throw error;
-            }
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code === 'P2025'
-            ) {
-                throw new NotFoundException('Shipping address not found');
-            }
-            this.logger.error(`Internal server error: ${error}`);
-            throw new InternalServerErrorException(
-                'An unexpected error occurred. Try again later.',
+            this.handleWriteError(
+                error,
+                undefined,
+                'Shipping address not found',
             );
         }
+    }
+
+    private handleReadError(error: unknown): never {
+        if (error instanceof HttpException) {
+            this.logger.warn(`HTTP exception: ${error.message}`);
+            throw error;
+        }
+        this.logger.error(`Internal server error: ${error}`);
+        throw new InternalServerErrorException(
+            'An unexpected error occurred. Try again later.',
+        );
+    }
+
+    private handleWriteError(
+        error: unknown,
+        conflictMessage?: string,
+        notFoundMessage?: string,
+    ): never {
+        if (error instanceof HttpException) {
+            this.logger.warn(`HTTP exception: ${error.message}`);
+            throw error;
+        }
+        if (
+            error instanceof PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+        ) {
+            this.logger.warn(`Conflict error: ${error.message}`);
+            throw new ConflictException(
+                conflictMessage ??
+                    'An address with this email already exists',
+            );
+        }
+        if (
+            error instanceof PrismaClientKnownRequestError &&
+            error.code === 'P2003'
+        ) {
+            this.throwForeignKeyNotFound(error);
+        }
+        if (
+            error instanceof PrismaClientKnownRequestError &&
+            error.code === 'P2025'
+        ) {
+            throw new NotFoundException(
+                notFoundMessage ?? 'Shipping address not found',
+            );
+        }
+
+        this.logger.error(`Internal server error: ${error}`);
+        throw new InternalServerErrorException(
+            'An unexpected error occurred. Try again later.',
+        );
     }
 
     private throwForeignKeyNotFound(

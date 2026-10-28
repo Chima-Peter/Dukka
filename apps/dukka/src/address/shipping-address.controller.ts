@@ -16,12 +16,12 @@ import {
     ResponseMessage,
     type CustomerJwtPayload,
 } from '@app/common';
-import { CreateShippingAddressDto } from './dto/create-shipping-address.dto.js';
-import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto.js';
-import { ShippingAddressService } from './shipping_address.service.js';
+import { CreateAddressDto } from './dto/create-address.dto.js';
+import { UpdateAddressDto } from './dto/update-address.dto.js';
+import { ShippingAddressService } from './shipping-address.service.js';
 
 @Auth('customer')
-@Controller('shipping-address')
+@Controller('address/shipping')
 export class ShippingAddressController {
     constructor(
         private readonly shippingAddressService: ShippingAddressService,
@@ -31,7 +31,7 @@ export class ShippingAddressController {
     @ResponseMessage('Shipping address created successfully')
     create(
         @CurrentCustomer() customer: CustomerJwtPayload,
-        @Body() data: CreateShippingAddressDto,
+        @Body() data: CreateAddressDto,
     ) {
         return this.shippingAddressService.create(customer.sub, data);
     }
@@ -56,7 +56,7 @@ export class ShippingAddressController {
     update(
         @CurrentCustomer() customer: CustomerJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() data: UpdateShippingAddressDto,
+        @Body() data: UpdateAddressDto,
     ) {
         return this.shippingAddressService.update(customer.sub, id, data);
     }
