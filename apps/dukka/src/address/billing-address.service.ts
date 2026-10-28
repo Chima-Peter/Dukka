@@ -46,10 +46,7 @@ export class BillingAddressService {
             this.logger.log(`Billing address created ${address.id}`);
             return address;
         } catch (error) {
-            this.handleWriteError(
-                error,
-                'A billing address with this email already exists',
-            );
+            this.handleWriteError(error);
         }
     }
 
@@ -102,11 +99,7 @@ export class BillingAddressService {
             this.logger.log(`Billing address updated ${id}`);
             return address;
         } catch (error) {
-            this.handleWriteError(
-                error,
-                'A billing address with this email already exists',
-                'Billing address not found',
-            );
+            this.handleWriteError(error, 'Billing address not found');
         }
     }
 
@@ -120,11 +113,7 @@ export class BillingAddressService {
             this.logger.log(`Billing address deleted ${id}`);
             return { data: null };
         } catch (error) {
-            this.handleWriteError(
-                error,
-                undefined,
-                'Billing address not found',
-            );
+            this.handleWriteError(error, 'Billing address not found');
         }
     }
 
@@ -141,7 +130,6 @@ export class BillingAddressService {
 
     private handleWriteError(
         error: unknown,
-        conflictMessage?: string,
         notFoundMessage?: string,
     ): never {
         if (error instanceof HttpException) {
@@ -154,8 +142,7 @@ export class BillingAddressService {
         ) {
             this.logger.warn(`Conflict error: ${error.message}`);
             throw new ConflictException(
-                conflictMessage ??
-                    'An address with this email already exists',
+                'A billing address with these details already exists',
             );
         }
         if (

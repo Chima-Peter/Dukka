@@ -46,7 +46,7 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address created ${address.id}`);
             return address;
         } catch (error) {
-            this.handleWriteError(error, 'A shipping address with this email already exists');
+            this.handleWriteError(error);
         }
     }
 
@@ -99,11 +99,7 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address updated ${id}`);
             return address;
         } catch (error) {
-            this.handleWriteError(
-                error,
-                'A shipping address with this email already exists',
-                'Shipping address not found',
-            );
+            this.handleWriteError(error, 'Shipping address not found');
         }
     }
 
@@ -117,11 +113,7 @@ export class ShippingAddressService {
             this.logger.log(`Shipping address deleted ${id}`);
             return { data: null };
         } catch (error) {
-            this.handleWriteError(
-                error,
-                undefined,
-                'Shipping address not found',
-            );
+            this.handleWriteError(error, 'Shipping address not found');
         }
     }
 
@@ -138,7 +130,6 @@ export class ShippingAddressService {
 
     private handleWriteError(
         error: unknown,
-        conflictMessage?: string,
         notFoundMessage?: string,
     ): never {
         if (error instanceof HttpException) {
@@ -151,8 +142,7 @@ export class ShippingAddressService {
         ) {
             this.logger.warn(`Conflict error: ${error.message}`);
             throw new ConflictException(
-                conflictMessage ??
-                    'An address with this email already exists',
+                'A shipping address with these details already exists',
             );
         }
         if (

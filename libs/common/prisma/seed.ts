@@ -820,8 +820,11 @@ async function seedShippingAddresses(
             );
         }
 
-        const existingAddress = await prisma.shippingAddress.findUnique({
-            where: { email: shipping.email },
+        const existingAddress = await prisma.shippingAddress.findFirst({
+            where: {
+                email: shipping.email,
+                customer_id: customer.id,
+            },
         });
         if (existingAddress) {
             continue;
@@ -914,8 +917,11 @@ async function seedBillingAddresses(
             );
         }
 
-        const existingAddress = await prisma.billingAddress.findUnique({
-            where: { email: billing.email },
+        const existingAddress = await prisma.billingAddress.findFirst({
+            where: {
+                email: billing.email,
+                customer_id: customer.id,
+            },
         });
         if (existingAddress) {
             continue;

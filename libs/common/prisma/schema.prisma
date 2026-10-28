@@ -67,7 +67,7 @@ model ShippingAddress {
   id              String  @id @default(uuid())
   first_name      String
   last_name       String
-  email           String  @unique
+  email           String
   phone_number    String
   whatsapp_number String?
   country         String
@@ -94,7 +94,7 @@ model BillingAddress {
   id              String  @id @default(uuid())
   first_name      String
   last_name       String
-  email           String  @unique
+  email           String
   phone_number    String
   whatsapp_number String?
   country         String
