@@ -203,7 +203,7 @@ export class InventoryService {
                 );
             }
 
-            const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
             const result = await this.inventoryRepository.reserveItems(
                 data.order_id,
                 customerId,

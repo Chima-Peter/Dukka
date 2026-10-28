@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
     OrderInventoryStatus,
     OrderPaymentAttemptStatus,
-    OrderStatus,
     PrismaService,
 } from '@app/common';
 import type { ExpiredReservationsJobPayload } from '@app/queues';
@@ -22,20 +21,14 @@ export class ExpiredReservationsService {
     async process(
         payload: ExpiredReservationsJobPayload,
     ): Promise<void> {
-        // first send request to provider to cancel payment attempt
         const expired = await this.prisma.$transaction(async (tx) => {
             const locked = await tx.$queryRaw<LockedReservation[]>`
                 SELECT oi.id, oi.order_id, oi.warehouse_id
                 FROM "OrderInventory" oi
-                INNER JOIN "Order" o ON o.id = oi.order_id
-                INNER JOIN "OrderPaymentAttempt" pa ON pa.order_id = o.id
                 WHERE oi.id = ${payload.order_inventory_id}::uuid
                   AND oi.expires_at <= NOW()
-                  AND pa.expires_at <= NOW()
                   AND oi.status = ${OrderInventoryStatus.PENDING}::"OrderInventoryStatus"
-                  AND o.status = ${OrderStatus.PENDING}::"OrderStatus"
-                  AND pa.status = ${OrderPaymentAttemptStatus.PENDING}::"OrderPaymentAttemptStatus"
-                FOR UPDATE OF oi, o, pa
+                FOR UPDATE OF oi
             `;
 
             if (locked.length === 0) {
@@ -76,11 +69,6 @@ export class ExpiredReservationsService {
                 }
             }
 
-            await tx.order.update({
-                where: { id: reservation.order_id },
-                data: { status: OrderStatus.CANCELLED },
-            });
-
             await tx.orderInventory.update({
                 where: { id: reservation.id },
                 data: { status: OrderInventoryStatus.CLOSED },
@@ -101,13 +89,13 @@ export class ExpiredReservationsService {
 
         if (!expired) {
             this.logger.log(
-                `Skipped expired-reservations for ${payload.order_inventory_id} (reservation/order/payment not eligible)`,
+                `Skipped expired-reservations for ${payload.order_inventory_id} (inventory booking not eligible)`,
             );
             return;
         }
 
         this.logger.log(
-            `System cancelled order ${expired.order_id} (expired reservation ${expired.id})`,
+            `Reverted expired inventory booking ${expired.id}`,
         );
     }
 }
