@@ -1017,8 +1017,12 @@ model Promotion {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  discounts Discount?
+  discount_id String
+  discount Discount @relation(fields: [discount_id], references: [id], onDelete: Restrict)
+
   promotion_markets PromotionMarket[]
+
+  @@index([discount_id])
 }
 
 enum DiscountType {
@@ -1034,11 +1038,8 @@ model Discount {
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  
-  promotion_id String @unique
-  promotion Promotion @relation(fields: [promotion_id], references: [id], onDelete: Cascade)
 
-  @@index([promotion_id])
+  promotions Promotion[]
 }
 
 enum PromotionMarketStatus {
