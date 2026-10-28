@@ -44,7 +44,7 @@ export class NotificationsController {
         );
     }
 
-    @Sse('staff/stream')
+    @Sse('internal/stream')
     @Auth('staff')
     streamForStaff(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -68,7 +68,7 @@ export class NotificationsController {
         return this.notificationsService.findForCustomer(customer.sub, query);
     }
 
-    @Get('staff')
+    @Get('internal')
     @Auth('staff')
     @ResponseMessage('Notifications retrieved successfully')
     findForStaff(
@@ -92,7 +92,7 @@ export class NotificationsController {
         );
     }
 
-    @Patch('staff/read')
+    @Patch('internal/read')
     @Auth('staff')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Notifications marked as read')

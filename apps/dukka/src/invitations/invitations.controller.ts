@@ -24,7 +24,7 @@ import { InviteStaffDto } from './dto/invite-staff.dto.js';
 import { InvitationsService } from './invitations.service.js';
 
 @Auth('staff')
-@Controller('staff/invitations')
+@Controller('internal/invitations')
 export class InvitationsController {
     constructor(private readonly invitationsService: InvitationsService) {}
 

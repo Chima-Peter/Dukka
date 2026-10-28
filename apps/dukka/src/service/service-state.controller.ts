@@ -59,7 +59,7 @@ export class ServiceStateController {
         return this.serviceStateService.findAll(customer?.sub, query);
     }
 
-    @Get('staff')
+    @Get('internal')
     @ResponseMessage('Service states retrieved successfully')
     findAllForStaff(@Query() query: FindStaffServiceStatesDto) {
         return this.serviceStateService.findAllForStaff(query);

@@ -35,7 +35,7 @@ export class OrdersController {
         return this.ordersService.findForCustomer(customer.sub, query);
     }
 
-    @Get('staff')
+    @Get('internal')
     @Auth('staff')
     @ResponseMessage('Orders retrieved successfully')
     findForStaff(
@@ -45,7 +45,7 @@ export class OrdersController {
         return this.ordersService.findForStaff(query, staff.market_ids);
     }
 
-    @Get('staff/:id')
+    @Get('internal/:id')
     @Auth('staff')
     @ResponseMessage('Order retrieved successfully')
     findOneForStaff(

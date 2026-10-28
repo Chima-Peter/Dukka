@@ -46,7 +46,7 @@ export class ServiceCountryController {
         return this.serviceCountryService.findAll();
     }
 
-    @Get('staff')
+    @Get('internal')
     @ResponseMessage('Service countries retrieved successfully')
     findAllForStaff(@Query() query: FindStaffServiceCountriesDto) {
         return this.serviceCountryService.findAllForStaff(query.status);

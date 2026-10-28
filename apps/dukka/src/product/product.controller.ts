@@ -64,13 +64,13 @@ export class ProductController {
         return this.productService.findAll(customer?.sub, query);
     }
 
-    @Get('staff')
+    @Get('internal')
     @ResponseMessage('Products retrieved successfully')
     findAllForStaff(@Query() query: FindStaffProductsDto) {
         return this.productService.findAllForStaff(query);
     }
 
-    @Get('staff/:id')
+    @Get('internal/:id')
     @ResponseMessage('Product retrieved successfully')
     findOneForStaff(@Param('id', ParseUUIDPipe) id: string) {
         return this.productService.findOneForStaff(id);
