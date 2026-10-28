@@ -29,7 +29,7 @@ export class HealthController {
             () =>
                 this.disk.checkStorage('disk', {
                     path: '/',
-                    thresholdPercent: 0.9,
+                    thresholdPercent: 0.7,
                 }),
             () => this.memory.checkHeap('memory_heap', 512 * 1024 * 1024),
             () =>
