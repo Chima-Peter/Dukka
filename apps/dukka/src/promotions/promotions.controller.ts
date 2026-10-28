@@ -22,6 +22,7 @@ import { AddPromotionMarketDto } from './dto/add-promotion-market.dto.js';
 import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { CreatePromotionDto } from './dto/create-promotion.dto.js';
 import { FindPromotionMarketTargetsDto } from './dto/find-promotion-market-targets.dto.js';
+import { FindPromotionUsagesDto } from './dto/find-promotion-usages.dto.js';
 import { FindPromotionsDto } from './dto/find-promotions.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import { UpdatePromotionDto } from './dto/update-promotion.dto.js';
@@ -48,6 +49,16 @@ export class PromotionsController {
         @Query() query: FindPromotionsDto,
     ) {
         return this.promotionsService.findAll(query, staff.market_ids);
+    }
+
+    @Get('usages')
+    @RequirePermission(StaffPermission.PromotionsRead)
+    @ResponseMessage('Promotion usages retrieved successfully')
+    findUsages(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindPromotionUsagesDto,
+    ) {
+        return this.promotionsService.findUsages(query, staff.market_ids);
     }
 
     @Get('discounts')

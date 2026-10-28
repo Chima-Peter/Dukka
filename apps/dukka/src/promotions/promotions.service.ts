@@ -20,6 +20,7 @@ import type { AddPromotionMarketDto } from './dto/add-promotion-market.dto.js';
 import type { CreateDiscountDto } from './dto/create-discount.dto.js';
 import type { CreatePromotionDto } from './dto/create-promotion.dto.js';
 import type { FindPromotionMarketTargetsDto } from './dto/find-promotion-market-targets.dto.js';
+import type { FindPromotionUsagesDto } from './dto/find-promotion-usages.dto.js';
 import type { FindPromotionsDto } from './dto/find-promotions.dto.js';
 import type { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import type { UpdatePromotionDto } from './dto/update-promotion.dto.js';
@@ -36,6 +37,7 @@ import type {
     PromotionMarketDetail,
     PromotionSummary,
     PromotionTargetPage,
+    PromotionUsagePage,
     PromotionWithDiscount,
 } from './types/promotion.type.js';
 
@@ -82,6 +84,30 @@ export class PromotionsService {
             );
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
             return await this.promotionsRepository.findAll(query);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findUsages(
+        query: FindPromotionUsagesDto,
+        staffMarketIds: string[],
+    ): Promise<PromotionUsagePage> {
+        try {
+            const marketIds = this.resolveUsageMarketIds(
+                staffMarketIds,
+                query.market_id,
+            );
+            this.logger.log(
+                `Fetching promotion usages for ${marketIds.length} market(s)`,
+            );
+            if (marketIds.length === 0) {
+                return { items: [], next_cursor: null };
+            }
+            return await this.promotionsRepository.findUsages(
+                query,
+                marketIds,
+            );
         } catch (error) {
             this.handleError(error);
         }
@@ -371,6 +397,17 @@ export class PromotionsService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private resolveUsageMarketIds(
+        staffMarketIds: string[],
+        marketId?: string,
+    ): string[] {
+        if (marketId !== undefined) {
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            return [marketId];
+        }
+        return staffMarketIds;
     }
 
     private validateDiscountValues(

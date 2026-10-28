@@ -5,12 +5,14 @@ import {
     PromotionMarketScope,
     PromotionMarketStatus,
     PromotionStatus,
+    type Prisma,
     PrismaService,
 } from '@app/common';
 import type { AddPromotionMarketDto } from './dto/add-promotion-market.dto.js';
 import type { CreateDiscountDto } from './dto/create-discount.dto.js';
 import type { CreatePromotionDto } from './dto/create-promotion.dto.js';
 import type { FindPromotionMarketTargetsDto } from './dto/find-promotion-market-targets.dto.js';
+import type { FindPromotionUsagesDto } from './dto/find-promotion-usages.dto.js';
 import type { FindPromotionsDto } from './dto/find-promotions.dto.js';
 import type { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import type { UpdatePromotionDto } from './dto/update-promotion.dto.js';
@@ -21,6 +23,7 @@ import {
     discountSummarySelect,
     marketSummarySelect,
     productTargetInclude,
+    promotionUsageSelect,
     variantTargetInclude,
     type DiscountSummary,
     type PromotionDetail,
@@ -28,6 +31,7 @@ import {
     type PromotionMarketStatusRecord,
     type PromotionSummary,
     type PromotionTargetPage,
+    type PromotionUsagePage,
     type PromotionWithDiscount,
 } from './types/promotion.type.js';
 
@@ -72,6 +76,40 @@ export class PromotionsRepository {
                 },
             },
         });
+    }
+
+    async findUsages(
+        query: FindPromotionUsagesDto,
+        marketIds: string[],
+    ): Promise<PromotionUsagePage> {
+        const limit = query.limit ?? 20;
+        const where: Prisma.PromotionUsageWhereInput = {
+            promotion_market: { market_id: { in: marketIds } },
+            ...(query.order_id !== undefined && { order_id: query.order_id }),
+            ...(query.customer_id !== undefined && {
+                customer_id: query.customer_id,
+            }),
+            ...this.redeemedAtFilter(query.from_date, query.to_date),
+        };
+
+        const records = await this.prisma.promotionUsage.findMany({
+            where,
+            select: promotionUsageSelect,
+            orderBy: [{ redeemed_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const items = hasMore ? records.slice(0, limit) : records;
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
+        };
     }
 
     async findAll(query: FindPromotionsDto): Promise<PromotionSummary[]> {
@@ -351,6 +389,22 @@ export class PromotionsRepository {
         return {
             items,
             next_cursor: hasMore ? items[items.length - 1]!.id : null,
+        };
+    }
+
+    private redeemedAtFilter(
+        fromDate?: string,
+        toDate?: string,
+    ): Pick<Prisma.PromotionUsageWhereInput, 'redeemed_at'> {
+        if (fromDate === undefined && toDate === undefined) {
+            return {};
+        }
+
+        return {
+            redeemed_at: {
+                ...(fromDate !== undefined && { gte: new Date(fromDate) }),
+                ...(toDate !== undefined && { lte: new Date(toDate) }),
+            },
         };
     }
 }

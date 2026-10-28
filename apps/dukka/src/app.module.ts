@@ -38,6 +38,7 @@ import { PaymentsModule } from './payments/payments.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { CheckoutModule } from './checkout/checkout.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
+import { CouponsModule } from './coupons/coupons.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -162,6 +163,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         NotificationsModule,
         CheckoutModule,
         PromotionsModule,
+        CouponsModule,
     ],
     providers: [
         {

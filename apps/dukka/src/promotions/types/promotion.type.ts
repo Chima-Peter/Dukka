@@ -121,3 +121,43 @@ export type PromotionDetail = Promotion & {
     discount: Discount;
     promotion_markets: PromotionMarketDetail[];
 };
+
+export const promotionUsageSelect = {
+    id: true,
+    discount_amount: true,
+    redeemed_at: true,
+    created_at: true,
+    order_id: true,
+    customer_id: true,
+    promotion_market: {
+        select: {
+            id: true,
+            market_id: true,
+            promotion: {
+                select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                },
+            },
+        },
+    },
+    order: {
+        select: {
+            id: true,
+            order_number: true,
+        },
+    },
+    customer: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+        },
+    },
+} as const;
+
+export type PromotionUsagePage = {
+    items: unknown[];
+    next_cursor: string | null;
+};

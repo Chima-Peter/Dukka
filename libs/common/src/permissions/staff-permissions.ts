@@ -246,6 +246,26 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         name: 'promotions:deactivate',
         description: 'Deactivate promotions and promotion markets',
     },
+    {
+        name: 'coupons:create',
+        description: 'Create coupons',
+    },
+    {
+        name: 'coupons:read',
+        description: 'View coupons',
+    },
+    {
+        name: 'coupons:update',
+        description: 'Update coupons',
+    },
+    {
+        name: 'coupons:activate',
+        description: 'Activate coupons',
+    },
+    {
+        name: 'coupons:deactivate',
+        description: 'Deactivate coupons',
+    },
 ] as const;
 
 export type StaffAccountPermissionName =
@@ -313,4 +333,9 @@ export const StaffPermission = {
     PromotionsUpdate: 'promotions:update',
     PromotionsActivate: 'promotions:activate',
     PromotionsDeactivate: 'promotions:deactivate',
+    CouponsCreate: 'coupons:create',
+    CouponsRead: 'coupons:read',
+    CouponsUpdate: 'coupons:update',
+    CouponsActivate: 'coupons:activate',
+    CouponsDeactivate: 'coupons:deactivate',
 } as const satisfies Record<string, StaffAccountPermissionName>;
