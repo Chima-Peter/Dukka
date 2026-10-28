@@ -1,0 +1,40 @@
+export type VerifyTransactionResult = {
+    id: number;
+    domain: string;
+    status: string;
+    reference: string;
+    amount: number;
+    message: string | null;
+    gateway_response: string;
+    paid_at: string | null;
+    created_at: string;
+    channel: string;
+    currency: string;
+    ip_address: string | null;
+    metadata: Record<string, unknown> | string | null;
+    fees: number | null;
+    requested_amount?: number;
+    customer?: {
+        id: number;
+        email: string;
+        customer_code: string;
+        first_name: string | null;
+        last_name: string | null;
+        phone: string | null;
+    };
+    authorization?: {
+        authorization_code: string;
+        bin: string;
+        last4: string;
+        exp_month: string;
+        exp_year: string;
+        channel: string;
+        card_type: string;
+        bank: string;
+        country_code: string;
+        brand: string;
+        reusable: boolean;
+        signature: string;
+        account_name: string | null;
+    };
+};
