@@ -82,6 +82,7 @@ export const MAIL_TEMPLATES = {
     MARKET_UPDATED: 'market.updated',
     MARKET_DELETED: 'market.deleted',
     INVENTORY_STOCK_REMINDER: 'inventory.stock-reminder',
+    INVENTORY_LOW_STOCK_REMINDER: 'inventory.low-stock-reminder',
 } as const;
 
 export type MailTemplate =

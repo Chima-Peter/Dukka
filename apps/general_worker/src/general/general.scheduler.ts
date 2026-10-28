@@ -2,10 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
     OrderInventoryStatus,
+    Prisma,
     PrismaService,
     PromotionMarketStatus,
 } from '@app/common';
-import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+    type InventoryStockReminderKind,
+} from '@app/queues';
+
+const quantityFilter = (
+    kind: InventoryStockReminderKind,
+): Prisma.IntFilter =>
+    kind === 'finished'
+        ? { equals: 0 }
+        : { gt: 0, lte: 10 };
 
 @Injectable()
 export class GeneralScheduler {
@@ -76,34 +88,58 @@ export class GeneralScheduler {
         );
     }
 
-    @Cron(CronExpression.EVERY_HOUR)
-    async stockReminders(): Promise<void> {
-        this.logger.log('Scanning for warehouses with pending stock reminders');
+    @Cron(CronExpression.EVERY_30_MINUTES)
+    async finishedStockReminders(): Promise<void> {
+        await this.enqueueStockReminders('finished', 50);
+    }
+
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async lowStockReminders(): Promise<void> {
+        await this.enqueueStockReminders('low', 10);
+    }
+
+    private async enqueueStockReminders(
+        kind: InventoryStockReminderKind,
+        maxAvailableQuantity: number,
+    ): Promise<void> {
+        this.logger.log(`Scanning for warehouses with pending ${kind} stock reminders`);
 
         const warehouses = await this.prisma.inventory.findMany({
             where: {
-                available_quantity: 0,
-                reminder_sent: false,
-                reminder_sent_at: null,
+                available_quantity: quantityFilter(kind),
+                ...(kind === 'finished'
+                    ? {
+                          finished_reminder_sent: false,
+                          finished_reminder_sent_at: null,
+                      }
+                    : {
+                          low_stock_reminder_sent: false,
+                          low_stock_reminder_sent_at: null,
+                      }),
             },
             select: { warehouse_id: true },
             distinct: ['warehouse_id'],
+            take: maxAvailableQuantity,
+            orderBy: { available_quantity: 'asc' },
         });
 
         if (warehouses.length === 0) {
-            this.logger.log('No pending stock reminders');
+            this.logger.log(`No pending ${kind} stock reminders`);
             return;
         }
 
         await this.generalQueueService.enqueueMany(
             warehouses.map((row) => ({
                 name: GENERAL_JOBS.INVENTORY_STOCK_REMINDER,
-                payload: { warehouse_id: row.warehouse_id },
+                payload: {
+                    warehouse_id: row.warehouse_id,
+                    kind,
+                },
             })),
         );
 
         this.logger.log(
-            `Enqueued ${warehouses.length} inventory-stock-reminder job(s)`,
+            `Enqueued ${warehouses.length} ${kind} inventory-stock-reminder job(s)`,
         );
     }
 }

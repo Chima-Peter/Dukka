@@ -22,6 +22,7 @@ export {
     type ExpiredReservationsJobPayload,
     type ExpirePromotionMarketJobPayload,
     type InventoryStockReminderJobPayload,
+    type InventoryStockReminderKind,
     type CustomerRegisteredJobPayload,
     type StaffDeactivatedJobPayload,
 } from './general/index.js';

@@ -12,8 +12,11 @@ export type CustomerRegisteredJobPayload = {
     client_ip?: string;
 };
 
+export type InventoryStockReminderKind = 'finished' | 'low';
+
 export type InventoryStockReminderJobPayload = {
     warehouse_id: string;
+    kind: InventoryStockReminderKind;
 };
 
 export type CustomerAccountDeletedJobPayload = {

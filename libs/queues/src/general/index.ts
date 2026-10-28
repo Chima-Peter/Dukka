@@ -5,6 +5,7 @@ export type {
     ExpiredReservationsJobPayload,
     ExpirePromotionMarketJobPayload,
     InventoryStockReminderJobPayload,
+    InventoryStockReminderKind,
     CustomerRegisteredJobPayload,
     StaffDeactivatedJobPayload,
 } from './general-queue.types.js';

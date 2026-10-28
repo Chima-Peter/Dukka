@@ -714,8 +714,10 @@ model Inventory {
   available_quantity Int    @default(0)
   reserved_quantity  Int    @default(0)
 
-  reminder_sent     Boolean @default(false)
-  reminder_sent_at  DateTime?
+  low_stock_reminder_sent    Boolean   @default(false)
+  low_stock_reminder_sent_at DateTime?
+  finished_reminder_sent     Boolean   @default(false)
+  finished_reminder_sent_at  DateTime?
   
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

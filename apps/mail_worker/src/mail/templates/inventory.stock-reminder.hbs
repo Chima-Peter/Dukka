@@ -1,15 +1,15 @@
 <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
-  Products need restocking
+  Products are out of stock
 </h1>
 <p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
-  Inventory reminder
+  Finished stock alert
 </p>
 
 <p style="margin:0 0 16px;">
   Hi {{name}},
 </p>
 <p style="margin:0 0 16px;">
-  The following {{productCount}} product(s) at <strong>{{warehouseName}}</strong> still need attention. Review stock levels and restock when you can.
+  The following {{productCount}} product(s) at <strong>{{warehouseName}}</strong> have reached zero available units and need restocking.
 </p>
 
 {{#> details}}
@@ -26,9 +26,9 @@
 </ul>
 
 {{#> tip title="Next step"}}
-  After you increase stock, Dukka clears the reminder flag so a new notice can be sent if levels drop again.
+  After you increase stock, Dukka clears low-stock and finished reminder flags so new notices can be sent if levels drop again.
 {{/tip}}
 
 <p style="margin:0;">
-  This reminder was sent once per pending inventory row until stock is updated.
+  This out-of-stock alert is sent once per inventory row until stock is updated.
 </p>

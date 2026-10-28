@@ -13,4 +13,5 @@ export type InventoryStockReminderMailPayload = {
     warehouse_name: string;
     inventory_ids: string[];
     product_names: string[];
+    kind: 'finished' | 'low';
 };

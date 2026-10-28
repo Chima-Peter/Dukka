@@ -1,9 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@app/common';
+import { Prisma, PrismaService } from '@app/common';
 import {
     MailQueueService,
     type InventoryStockReminderJobPayload,
+    type InventoryStockReminderKind,
 } from '@app/queues';
+
+const quantityFilter = (
+    kind: InventoryStockReminderKind,
+): Prisma.IntFilter =>
+    kind === 'finished'
+        ? { equals: 0 }
+        : { gt: 0, lte: 10 };
 
 @Injectable()
 export class InventoryStockReminderService {
@@ -15,18 +23,25 @@ export class InventoryStockReminderService {
     ) {}
 
     async process(payload: InventoryStockReminderJobPayload): Promise<void> {
-        const { warehouse_id } = payload;
+        const { warehouse_id, kind } = payload;
 
         this.logger.log(
-            `Collecting unsent stock reminders for warehouse ${warehouse_id}`,
+            `Collecting unsent ${kind} stock reminders for warehouse ${warehouse_id}`,
         );
 
         const inventories = await this.prisma.inventory.findMany({
             where: {
                 warehouse_id: warehouse_id,
-                available_quantity: 0,
-                reminder_sent: false,
-                reminder_sent_at: null,
+                available_quantity: quantityFilter(kind),
+                ...(kind === 'finished'
+                    ? {
+                          finished_reminder_sent: false,
+                          finished_reminder_sent_at: null,
+                      }
+                    : {
+                          low_stock_reminder_sent: false,
+                          low_stock_reminder_sent_at: null,
+                      }),
             },
             select: {
                 id: true,
@@ -40,7 +55,7 @@ export class InventoryStockReminderService {
                                 email: true,
                             },
                         },
-                    }
+                    },
                 },
                 market_variant: {
                     select: {
@@ -58,7 +73,7 @@ export class InventoryStockReminderService {
 
         if (inventories.length === 0) {
             this.logger.log(
-                `No pending stock reminders for warehouse ${warehouse_id}`,
+                `No pending ${kind} stock reminders for warehouse ${warehouse_id}`,
             );
             return;
         }
@@ -81,10 +96,11 @@ export class InventoryStockReminderService {
             warehouse_name: warehouse.name,
             inventory_ids,
             product_names,
+            kind,
         });
 
         this.logger.log(
-            `Enqueued stock reminder mail for warehouse ${warehouse_id} (${product_names.length} product(s))`,
+            `Enqueued ${kind} stock reminder mail for warehouse ${warehouse_id} (${product_names.length} product(s))`,
         );
     }
 }
