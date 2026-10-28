@@ -48,6 +48,7 @@ model Customer {
   orders  Order[]
   notifications Notification[]
   promotion_usages PromotionUsage[]
+  coupon_usages CouponUsage[]
 
   @@index([active_market_id])
 }
@@ -771,6 +772,7 @@ model Order {
   order_payment_attempt OrderPaymentAttempt?
   order_items OrderItems[]
   promotion_usages PromotionUsage[]
+  coupon_usages CouponUsage[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -924,13 +926,6 @@ model ReviewsImages {
 
   review_id String
   review    Reviews @relation(fields: [review_id], references: [id], onDelete: Cascade)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-}
-
-model Coupon {
-  id      String    @id @default(uuid())
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -1150,11 +1145,61 @@ model PromotionUsage {
   promotion_market_id String
   promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Restrict)
 
-  order_id String
-  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  order_id String?
+  order Order? @relation(fields: [order_id], references: [id], onDelete: SetNull)
 
   customer_id String?
   customer Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   @@index([promotion_market_id])
+  @@index([order_id])
+  @@index([customer_id])
+}
+
+enum CouponStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum CouponType {
+  FIXED
+  PERCENTAGE
+}
+
+model Coupon {
+  id String @id @default(uuid())
+  code String @unique
+  type CouponType
+  value Decimal @db.Decimal(12, 2)
+  max_discount_amount Decimal @db.Decimal(12, 2)
+  status CouponStatus @default(ACTIVE)
+  expires_at DateTime
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  coupon_usages CouponUsage[]
+}
+
+model CouponUsage {
+  id String @id @default(uuid())
+  guest_email String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  coupon_id String
+  coupon Coupon @relation(fields: [coupon_id], references: [id], onDelete: Cascade)
+
+  customer_id   String?
+  customer   Customer?     @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  order_id String?
+  order Order? @relation(fields: [order_id], references: [id], onDelete: SetNull)
+
+  @@unique([coupon_id, customer_id])
+  @@index([coupon_id])
+  @@index([customer_id])
+  @@index([order_id])
 }

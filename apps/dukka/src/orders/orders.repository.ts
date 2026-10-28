@@ -50,6 +50,7 @@ export class OrdersRepository {
             market_id: data.market_id,
             warehouse_id: data.warehouse_id,
             items: data.items,
+            coupon_usage_id: data.coupon_usage_id,
             shipping_address: this.guestAddressSnapshot(
                 data.shipping_address,
                 data.market_id,
@@ -214,6 +215,10 @@ export class OrdersRepository {
     }
 
     private async create(data: CreateOrderBase): Promise<Order> {
+        const promotionUsageIds = data.items
+            .map((item) => item.promotion_usage_id)
+            .filter((id): id is string => id !== undefined);
+
         return await this.prisma.order.create({
             data: {
                 order_number: this.generateOrderNumber(),
@@ -239,6 +244,20 @@ export class OrdersRepository {
                     ? {
                           customer: {
                               connect: { id: data.customer_id },
+                          },
+                      }
+                    : {}),
+                ...(data.coupon_usage_id
+                    ? {
+                          coupon_usages: {
+                              connect: { id: data.coupon_usage_id },
+                          },
+                      }
+                    : {}),
+                ...(promotionUsageIds.length > 0
+                    ? {
+                          promotion_usages: {
+                              connect: promotionUsageIds.map((id) => ({ id })),
                           },
                       }
                     : {}),

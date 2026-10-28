@@ -24,7 +24,7 @@ export class ExpirePromotionMarketService {
                 SELECT pm.id, pm.promotion_id, pm.status
                 FROM "PromotionMarket" pm
                 JOIN "Promotion" p ON p.id = pm.promotion_id
-                WHERE pm.id = ${payload.promotion_market_id}::uuid
+                WHERE pm.id = ${payload.promotion_market_id}
                   AND pm.end_date <= NOW()
                   AND pm.status <> ${PromotionMarketStatus.EXPIRED}::"PromotionMarketStatus"
                 FOR UPDATE OF pm, p

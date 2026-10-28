@@ -53,6 +53,31 @@ const orderPaymentAttemptSelect = {
     created_at: true,
 } satisfies Prisma.OrderPaymentAttemptSelect;
 
+const promotionUsageSelect = {
+    id: true,
+    discount_amount: true,
+    redeemed_at: true,
+    promotion_market_id: true,
+    customer_id: true,
+    created_at: true,
+} satisfies Prisma.PromotionUsageSelect;
+
+const couponUsageSelect = {
+    id: true,
+    guest_email: true,
+    coupon_id: true,
+    customer_id: true,
+    created_at: true,
+    coupon: {
+        select: {
+            id: true,
+            code: true,
+            type: true,
+            value: true,
+        },
+    },
+} satisfies Prisma.CouponUsageSelect;
+
 export const customerOrderDetailSelect = {
     id: true,
     order_number: true,
@@ -85,6 +110,12 @@ export const customerOrderDetailSelect = {
     },
     order_payment_attempt: {
         select: orderPaymentAttemptSelect,
+    },
+    promotion_usages: {
+        select: promotionUsageSelect,
+    },
+    coupon_usages: {
+        select: couponUsageSelect,
     },
 } satisfies Prisma.OrderSelect;
 
@@ -144,6 +175,12 @@ export const staffOrderDetailSelect = {
     },
     order_payment_attempt: {
         select: orderPaymentAttemptSelect,
+    },
+    promotion_usages: {
+        select: promotionUsageSelect,
+    },
+    coupon_usages: {
+        select: couponUsageSelect,
     },
 } satisfies Prisma.OrderSelect;
 

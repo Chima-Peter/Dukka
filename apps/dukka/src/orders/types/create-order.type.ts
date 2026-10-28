@@ -28,6 +28,7 @@ export type CreateOrderItemInput = {
     product_name: string;
     product_image: string;
     product_specs: Record<string, unknown>;
+    promotion_usage_id?: string;
 };
 
 export type CreateOrderMoneyInput = {
@@ -41,6 +42,7 @@ export type CreateOrderMoneyInput = {
     market_id: string;
     warehouse_id: string;
     items: CreateOrderItemInput[];
+    coupon_usage_id?: string;
 };
 
 export type CreateOrderInput = CreateOrderMoneyInput & {

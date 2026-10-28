@@ -241,6 +241,12 @@ export class OrdersService {
                 if (model === 'marketvariant') {
                     throw new NotFoundException('Market variant not found');
                 }
+                if (model === 'promotionusage') {
+                    throw new NotFoundException('Promotion usage not found');
+                }
+                if (model === 'couponusage') {
+                    throw new NotFoundException('Coupon usage not found');
+                }
                 throw new NotFoundException('Record not found');
             }
 
@@ -270,6 +276,24 @@ export class OrdersService {
                 prismaHintIncludes(error, 'market_variant', 'marketvariant')
             ) {
                 throw new NotFoundException('Market variant not found');
+            }
+
+            if (
+                error.code === 'P2003' &&
+                prismaHintIncludes(
+                    error,
+                    'promotion_usage',
+                    'promotionusage',
+                )
+            ) {
+                throw new NotFoundException('Promotion usage not found');
+            }
+
+            if (
+                error.code === 'P2003' &&
+                prismaHintIncludes(error, 'coupon_usage', 'couponusage')
+            ) {
+                throw new NotFoundException('Coupon usage not found');
             }
         }
 

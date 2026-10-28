@@ -25,7 +25,7 @@ export class ExpiredReservationsService {
             const locked = await tx.$queryRaw<LockedReservation[]>`
                 SELECT oi.id, oi.order_id, oi.warehouse_id
                 FROM "OrderInventory" oi
-                WHERE oi.id = ${payload.order_inventory_id}::uuid
+                WHERE oi.id = ${payload.order_inventory_id}
                   AND oi.expires_at <= NOW()
                   AND oi.status = ${OrderInventoryStatus.PENDING}::"OrderInventoryStatus"
                 FOR UPDATE OF oi

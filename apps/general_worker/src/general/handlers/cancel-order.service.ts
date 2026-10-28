@@ -56,7 +56,7 @@ export class CancelOrderService {
                 LEFT JOIN "OrderInventory" oi
                   ON oi.order_id = o.id
                  AND oi.status = ${OrderInventoryStatus.PENDING}::"OrderInventoryStatus"
-                WHERE o.id = ${payload.order_id}::uuid
+                WHERE o.id = ${payload.order_id}
                 FOR UPDATE OF o, oi
             `;
 
