@@ -31,9 +31,12 @@ export class CustomerRegisteredService {
     async process(payload: CustomerRegisteredJobPayload): Promise<void> {
         const { customer_id, email, client_ip } = payload;
 
-        await this.assignActiveMarketFromIp(customer_id, client_ip);
-        await this.matchGuestOrders(customer_id, email);
-        await this.matchAddressesFromOrders(customer_id);
+        await Promise.all([
+            await this.assignActiveMarketFromIp(customer_id, client_ip),
+            await this.matchGuestOrders(customer_id, email),
+            await this.resolveGuestCouponUsages(customer_id, email),
+            await this.matchAddressesFromOrders(customer_id),
+        ])
     }
 
     private async matchGuestOrders(
@@ -59,6 +62,32 @@ export class CustomerRegisteredService {
 
         this.logger.log(
             `Linked ${result.count} order(s) to customer ${customerId}`,
+        );
+    }
+
+    private async resolveGuestCouponUsages(
+        customerId: string,
+        email: string,
+    ): Promise<void> {
+        this.logger.log(
+            `Resolving guest coupon usages for customer ${customerId} email=${email}`,
+        );
+
+        const result = await this.prisma.couponUsage.updateMany({
+            where: {
+                customer_id: null,
+                guest_email: {
+                    equals: email,
+                    mode: 'insensitive',
+                },
+            },
+            data: {
+                customer_id: customerId,
+            },
+        });
+
+        this.logger.log(
+            `Linked ${result.count} coupon usage(s) to customer ${customerId}`,
         );
     }
 
