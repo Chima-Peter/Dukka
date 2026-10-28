@@ -5,6 +5,7 @@ import { GeneralProcessor } from './general.processor.js';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
 import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
+import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
@@ -23,6 +24,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
         InventoryStockReminderService,
         CustomerAccountDeletedService,
         StaffDeactivatedService,
+        ExpirePromotionMarketService,
         GeneralProcessor,
     ],
 })

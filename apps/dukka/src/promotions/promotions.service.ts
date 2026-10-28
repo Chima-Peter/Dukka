@@ -282,6 +282,11 @@ export class PromotionsService {
                 throw new NotFoundException('Promotion market not found');
             }
             assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            if (existing.status === PromotionMarketStatus.EXPIRED) {
+                throw new BadRequestException(
+                    'Expired promotion markets cannot be activated',
+                );
+            }
             if (existing.status === PromotionMarketStatus.ACTIVE) {
                 throw new BadRequestException(
                     'Promotion market is already active',
@@ -317,6 +322,11 @@ export class PromotionsService {
                 throw new NotFoundException('Promotion market not found');
             }
             assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            if (existing.status === PromotionMarketStatus.EXPIRED) {
+                throw new BadRequestException(
+                    'Expired promotion markets cannot be deactivated',
+                );
+            }
             if (existing.status === PromotionMarketStatus.INACTIVE) {
                 throw new BadRequestException(
                     'Promotion market is already inactive',

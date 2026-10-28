@@ -19,6 +19,7 @@ export const GENERAL_JOBS = {
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
     STAFF_DEACTIVATED: 'staff-deactivated',
+    EXPIRE_PROMOTION_MARKET: 'expire-promotion-market',
 } as const;
 
 export type GeneralJobName =

@@ -3,6 +3,7 @@ export type {
     CancelOrderJobPayload,
     CustomerAccountDeletedJobPayload,
     ExpiredReservationsJobPayload,
+    ExpirePromotionMarketJobPayload,
     InventoryStockReminderJobPayload,
     CustomerRegisteredJobPayload,
     StaffDeactivatedJobPayload,

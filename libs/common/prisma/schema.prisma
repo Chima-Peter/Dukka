@@ -1045,6 +1045,7 @@ model Discount {
 enum PromotionMarketStatus {
   ACTIVE
   INACTIVE
+  EXPIRED
 }
 
 enum PromotionMarketScope {
