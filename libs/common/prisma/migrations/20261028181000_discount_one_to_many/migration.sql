@@ -8,16 +8,16 @@ FROM "Discount" AS d
 WHERE d."promotion_id" = p."id";
 
 -- DropForeignKey
-ALTER TABLE "Discount" DROP CONSTRAINT "Discount_promotion_id_fkey";
+ALTER TABLE "Discount" DROP CONSTRAINT IF EXISTS "Discount_promotion_id_fkey";
 
 -- DropIndex
-DROP INDEX "Discount_promotion_id_key";
+DROP INDEX IF EXISTS "Discount_promotion_id_key";
 
 -- DropIndex
-DROP INDEX "Discount_promotion_id_idx";
+DROP INDEX IF EXISTS "Discount_promotion_id_idx";
 
 -- AlterTable
-ALTER TABLE "Discount" DROP COLUMN "promotion_id";
+ALTER TABLE "Discount" DROP COLUMN IF EXISTS "promotion_id";
 
 -- Delete orphan promotions that never had a discount (required FK)
 DELETE FROM "Promotion" WHERE "discount_id" IS NULL;
