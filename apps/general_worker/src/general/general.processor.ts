@@ -9,6 +9,7 @@ import {
     type CustomerAccountDeletedJobPayload,
     type CustomerRegisteredJobPayload,
     type ExpiredReservationsJobPayload,
+    type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,
     type InventoryStockReminderJobPayload,
     type StaffDeactivatedJobPayload,
@@ -16,6 +17,7 @@ import {
 import { CancelOrderService } from './handlers/cancel-order.service.js';
 import { CustomerAccountDeletedService } from './handlers/customer-account-deleted.service.js';
 import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
+import { ExpireCouponService } from './handlers/expire-coupon.service.js';
 import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
@@ -33,6 +35,7 @@ export class GeneralProcessor extends WorkerHost {
         private readonly customerAccountDeletedService: CustomerAccountDeletedService,
         private readonly staffDeactivatedService: StaffDeactivatedService,
         private readonly expirePromotionMarketService: ExpirePromotionMarketService,
+        private readonly expireCouponService: ExpireCouponService,
     ) {
         super();
     }
@@ -76,6 +79,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.EXPIRE_PROMOTION_MARKET:
                 await this.expirePromotionMarketService.process(
                     job.data as ExpirePromotionMarketJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.EXPIRE_COUPON:
+                await this.expireCouponService.process(
+                    job.data as ExpireCouponJobPayload,
                 );
                 return;
             default:

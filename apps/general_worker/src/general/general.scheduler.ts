@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+    CouponStatus,
     OrderInventoryStatus,
     Prisma,
     PrismaService,
@@ -12,12 +13,22 @@ import {
     type InventoryStockReminderKind,
 } from '@app/queues';
 
+const EXPIRY_BATCH_SIZE = 20;
+
 const quantityFilter = (
     kind: InventoryStockReminderKind,
 ): Prisma.IntFilter =>
     kind === 'finished'
         ? { equals: 0 }
         : { gt: 0, lte: 10 };
+
+function chunkIds(ids: string[], size: number): string[][] {
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += size) {
+        chunks.push(ids.slice(i, i + size));
+    }
+    return chunks;
+}
 
 @Injectable()
 export class GeneralScheduler {
@@ -29,8 +40,54 @@ export class GeneralScheduler {
     ) {}
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-    async expirePromotions(): Promise<void> {
-        this.logger.log('Scanning for promotion markets to expire');
+    async expirePromotionsAndCoupons(): Promise<void> {
+        await Promise.all([
+            this.enqueuePromotionMarketsByEndDate(),
+            this.enqueueExpiredCoupons(),
+        ]);
+    }
+
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async expireExhaustedPromotionMarkets(): Promise<void> {
+        this.logger.log(
+            'Scanning for promotion markets that exceeded usage caps',
+        );
+
+        const markets = await this.prisma.$queryRaw<{ id: string }[]>`
+            SELECT pm.id
+            FROM "PromotionMarket" pm
+            WHERE pm.status <> ${PromotionMarketStatus.EXPIRED}::"PromotionMarketStatus"
+              AND pm.max_total_uses > 0
+              AND (
+                SELECT COUNT(*)::int
+                FROM "PromotionUsage" pu
+                WHERE pu.promotion_market_id = pm.id
+              ) >= pm.max_total_uses
+        `;
+
+        if (markets.length === 0) {
+            this.logger.log('No usage-exhausted promotion markets to expire');
+            return;
+        }
+
+        const batches = chunkIds(
+            markets.map((market) => market.id),
+            EXPIRY_BATCH_SIZE,
+        );
+        await this.generalQueueService.enqueueMany(
+            batches.map((promotion_market_ids) => ({
+                name: GENERAL_JOBS.EXPIRE_PROMOTION_MARKET,
+                payload: { promotion_market_ids },
+            })),
+        );
+
+        this.logger.log(
+            `Enqueued ${batches.length} usage-exhausted expire-promotion-market batch job(s) for ${markets.length} market(s)`,
+        );
+    }
+
+    private async enqueuePromotionMarketsByEndDate(): Promise<void> {
+        this.logger.log('Scanning for promotion markets past end date');
 
         const markets = await this.prisma.promotionMarket.findMany({
             where: {
@@ -41,19 +98,55 @@ export class GeneralScheduler {
         });
 
         if (markets.length === 0) {
-            this.logger.log('No promotion markets to expire');
+            this.logger.log('No promotion markets to expire by end date');
             return;
         }
 
+        const batches = chunkIds(
+            markets.map((market) => market.id),
+            EXPIRY_BATCH_SIZE,
+        );
         await this.generalQueueService.enqueueMany(
-            markets.map((market) => ({
+            batches.map((promotion_market_ids) => ({
                 name: GENERAL_JOBS.EXPIRE_PROMOTION_MARKET,
-                payload: { promotion_market_id: market.id },
+                payload: { promotion_market_ids },
             })),
         );
 
         this.logger.log(
-            `Enqueued ${markets.length} expire-promotion-market job(s)`,
+            `Enqueued ${batches.length} end-date expire-promotion-market batch job(s) for ${markets.length} market(s)`,
+        );
+    }
+
+    private async enqueueExpiredCoupons(): Promise<void> {
+        this.logger.log('Scanning for coupons to expire');
+
+        const coupons = await this.prisma.coupon.findMany({
+            where: {
+                expires_at: { lte: new Date() },
+                status: { not: CouponStatus.EXPIRED },
+            },
+            select: { id: true },
+        });
+
+        if (coupons.length === 0) {
+            this.logger.log('No coupons to expire');
+            return;
+        }
+
+        const batches = chunkIds(
+            coupons.map((coupon) => coupon.id),
+            EXPIRY_BATCH_SIZE,
+        );
+        await this.generalQueueService.enqueueMany(
+            batches.map((coupon_ids) => ({
+                name: GENERAL_JOBS.EXPIRE_COUPON,
+                payload: { coupon_ids },
+            })),
+        );
+
+        this.logger.log(
+            `Enqueued ${batches.length} expire-coupon batch job(s) for ${coupons.length} coupon(s)`,
         );
     }
 

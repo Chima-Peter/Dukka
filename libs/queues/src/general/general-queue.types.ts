@@ -36,5 +36,9 @@ export type StaffDeactivatedJobPayload = {
 };
 
 export type ExpirePromotionMarketJobPayload = {
-    promotion_market_id: string;
+    promotion_market_ids: string[];
+};
+
+export type ExpireCouponJobPayload = {
+    coupon_ids: string[];
 };

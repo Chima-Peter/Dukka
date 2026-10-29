@@ -20,6 +20,7 @@ export {
     type CancelOrderJobPayload,
     type CustomerAccountDeletedJobPayload,
     type ExpiredReservationsJobPayload,
+    type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,
     type InventoryStockReminderJobPayload,
     type InventoryStockReminderKind,

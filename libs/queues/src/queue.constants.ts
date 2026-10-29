@@ -20,6 +20,7 @@ export const GENERAL_JOBS = {
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
     STAFF_DEACTIVATED: 'staff-deactivated',
     EXPIRE_PROMOTION_MARKET: 'expire-promotion-market',
+    EXPIRE_COUPON: 'expire-coupon',
 } as const;
 
 export type GeneralJobName =
