@@ -122,6 +122,7 @@ export class CustomerService {
                 ...data
             } = customer;
 
+            this.logger.log(`Fetched profile for customer ${customer_id}`);
             return {
                 ...data,
                 profile_url: avatar_url,

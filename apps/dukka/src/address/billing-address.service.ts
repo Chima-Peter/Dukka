@@ -55,9 +55,14 @@ export class BillingAddressService {
             this.logger.log(
                 `Fetching billing addresses for customer ${customer_id}`,
             );
-            return await this.billingAddressRepository.findAllByCustomerId(
-                customer_id,
+            const addresses =
+                await this.billingAddressRepository.findAllByCustomerId(
+                    customer_id,
+                );
+            this.logger.log(
+                `Fetched billing addresses for customer ${customer_id}`,
             );
+            return addresses;
         } catch (error) {
             this.handleReadError(error);
         }
@@ -76,6 +81,9 @@ export class BillingAddressService {
             if (!address) {
                 throw new NotFoundException('Billing address not found');
             }
+            this.logger.log(
+                `Fetched billing address ${id} for customer ${customer_id}`,
+            );
             return address;
         } catch (error) {
             this.handleReadError(error);

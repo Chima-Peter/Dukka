@@ -63,6 +63,7 @@ export class WarehouseService {
         try {
             this.logger.log('Fetching warehouses');
             const page = await this.warehouseRepository.findAll(query);
+            this.logger.log('Fetched warehouses');
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -75,7 +76,10 @@ export class WarehouseService {
     async findOne(id: string): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Fetching warehouse ${id}`);
-            return await this.warehouseRepository.findByIdOrThrow(id);
+            const warehouse =
+                await this.warehouseRepository.findByIdOrThrow(id);
+            this.logger.log(`Fetched warehouse ${id}`);
+            return warehouse;
         } catch (error) {
             this.handleError(error);
         }

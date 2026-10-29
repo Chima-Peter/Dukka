@@ -45,7 +45,12 @@ export class MarketsService {
     ): Promise<MarketWithCurrency[]> {
         try {
             this.logger.log('Fetching markets');
-            return await this.marketsRepository.findAll(market_ids, status);
+            const markets = await this.marketsRepository.findAll(
+                market_ids,
+                status,
+            );
+            this.logger.log('Fetched markets');
+            return markets;
         } catch (error) {
             this.handleError(error);
         }
@@ -64,6 +69,7 @@ export class MarketsService {
             if (!market) {
                 throw new NotFoundException('Market not found');
             }
+            this.logger.log(`Fetched market ${id}`);
             return market;
         } catch (error) {
             this.handleError(error);
@@ -90,6 +96,9 @@ export class MarketsService {
             );
             const inactiveIds = data.market_ids.filter(
                 (id) => existingById.get(id)?.status !== MarketStatus.OPEN,
+            );
+            this.logger.log(
+                `Validated ${data.market_ids.length} market id(s)`,
             );
             return {
                 valid: invalidIds.length === 0 && inactiveIds.length === 0,

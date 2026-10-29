@@ -34,7 +34,9 @@ export class CurrenciesService {
     async findAll(): Promise<Currency[]> {
         try {
             this.logger.log('Fetching currencies');
-            return await this.currenciesRepository.findAll();
+            const currencies = await this.currenciesRepository.findAll();
+            this.logger.log('Fetched currencies');
+            return currencies;
         } catch (error) {
             this.handleError(error);
         }
@@ -47,6 +49,7 @@ export class CurrenciesService {
             if (!currency) {
                 throw new NotFoundException('Currency not found');
             }
+            this.logger.log(`Fetched currency ${id}`);
             return currency;
         } catch (error) {
             this.handleError(error);

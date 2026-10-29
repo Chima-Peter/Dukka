@@ -158,9 +158,12 @@ export class ProductVariantService {
                     'from_date cannot be greater than to_date',
                 );
             }
-            return await this.productVariantRepository.findPendingUpdatesSummary(
-                query,
-            );
+            const pendingUpdates =
+                await this.productVariantRepository.findPendingUpdatesSummary(
+                    query,
+                );
+            this.logger.log('Fetched variant pending updates for staff');
+            return pendingUpdates;
         } catch (error) {
             this.handleError(error);
         }
@@ -174,6 +177,7 @@ export class ProductVariantService {
             if (!pendingUpdate) {
                 throw new NotFoundException('Pending update not found');
             }
+            this.logger.log(`Fetched variant pending update ${id}`);
             return pendingUpdate;
         } catch (error) {
             this.handleError(error, 'Pending update not found');
@@ -443,6 +447,9 @@ export class ProductVariantService {
             if (!marketVariant) {
                 throw new NotFoundException('Market variant not found');
             }
+            this.logger.log(
+                `Fetched market variant for variant ${variantId} in market ${marketId}`,
+            );
             return marketVariant;
         } catch (error) {
             this.handleError(error, 'Market variant not found');

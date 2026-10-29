@@ -96,10 +96,12 @@ export class PaystackService {
         id: string | number,
     ): Promise<FetchTransactionResult> {
         this.logger.log(`Fetching Paystack transaction id=${id}`);
-        return this.request<FetchTransactionResult>(
+        const result = await this.request<FetchTransactionResult>(
             'GET',
             `/transaction/${encodeURIComponent(String(id))}`,
         );
+        this.logger.log(`Fetched Paystack transaction id=${id}`);
+        return result;
     }
 
     async createRefund(input: CreateRefundInput): Promise<CreateRefundResult> {
@@ -143,10 +145,12 @@ export class PaystackService {
 
     async fetchRefund(id: string | number): Promise<FetchRefundResult> {
         this.logger.log(`Fetching Paystack refund id=${id}`);
-        return this.request<FetchRefundResult>(
+        const result = await this.request<FetchRefundResult>(
             'GET',
             `/refund/${encodeURIComponent(String(id))}`,
         );
+        this.logger.log(`Fetched Paystack refund id=${id}`);
+        return result;
     }
 
     async retryRefund(input: RetryRefundInput): Promise<RetryRefundResult> {

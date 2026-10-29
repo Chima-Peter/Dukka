@@ -29,7 +29,14 @@ export class PointsService {
             this.logger.log(
                 `Fetching points history for customer ${customer_id}`,
             );
-            return await this.pointsRepository.findHistory(customer_id, query);
+            const history = await this.pointsRepository.findHistory(
+                customer_id,
+                query,
+            );
+            this.logger.log(
+                `Fetched points history for customer ${customer_id}`,
+            );
+            return history;
         } catch (error) {
             this.handleError(error, customer_id);
         }

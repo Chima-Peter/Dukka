@@ -65,7 +65,12 @@ export class RolesService {
     ): Promise<Role[]> {
         try {
             this.logger.log('Fetching roles');
-            return await this.rolesRepository.findAll(market_ids, hierarchy);
+            const roles = await this.rolesRepository.findAll(
+                market_ids,
+                hierarchy,
+            );
+            this.logger.log('Fetched roles');
+            return roles;
         } catch (error) {
             this.handleError(error);
         }
@@ -85,6 +90,7 @@ export class RolesService {
             if (!role) {
                 throw new NotFoundException('Role not found');
             }
+            this.logger.log(`Fetched role ${id}`);
             return role;
         } catch (error) {
             this.handleError(error);

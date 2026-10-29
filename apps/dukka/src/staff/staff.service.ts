@@ -91,6 +91,7 @@ export class StaffService {
                 market_ids,
                 hierarchy,
             );
+            this.logger.log('Fetched staff');
             return {
                 items: page.items.map((item) => this.toStaffSummaryResponse(item)),
                 next_cursor: page.next_cursor,
@@ -117,6 +118,7 @@ export class StaffService {
             if (!staff) {
                 throw new NotFoundException('Staff not found');
             }
+            this.logger.log(`Fetched staff ${id}`);
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -255,10 +257,12 @@ export class StaffService {
         try {
             this.logger.log(`Fetching audit logs for staff ${staff_id}`);
             await this.ensureStaffInScope(staff_id, market_ids, hierarchy);
-            return await this.staffRepository.findAuditsByStaffId(
+            const page = await this.staffRepository.findAuditsByStaffId(
                 staff_id,
                 query,
             );
+            this.logger.log(`Fetched audit logs for staff ${staff_id}`);
+            return page;
         } catch (error) {
             this.handleError(error);
         }
@@ -563,6 +567,7 @@ export class StaffService {
             if (!profile) {
                 throw new NotFoundException('Staff profile not found');
             }
+            this.logger.log(`Fetched profile for staff ${staff_id}`);
             return profile;
         } catch (error) {
             this.handleProfileError(error);
@@ -644,11 +649,13 @@ export class StaffService {
                 await this.staffRepository.findQualificationsByStaffId(
                     staff_id,
                 );
-            return await Promise.all(
+            const result = await Promise.all(
                 qualifications.map((item) =>
                     this.toQualificationResponse(item),
                 ),
             );
+            this.logger.log(`Fetched qualifications for staff ${staff_id}`);
+            return result;
         } catch (error) {
             this.handleQualificationError(error);
         }

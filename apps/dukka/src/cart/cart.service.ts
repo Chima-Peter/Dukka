@@ -34,7 +34,9 @@ export class CartService {
     async getForCustomer(cartId: string): Promise<CartView> {
         try {
             this.logger.log(`Fetching cart ${cartId}`);
-            return await this.cartRepository.findByCartId(cartId);
+            const cart = await this.cartRepository.findByCartId(cartId);
+            this.logger.log(`Fetched cart ${cartId}`);
+            return cart;
         } catch (error) {
             this.handleError(error);
         }
@@ -51,6 +53,7 @@ export class CartService {
                 );
             }
 
+            this.logger.log(`Fetched guest cart ${cartId}`);
             return cart;
         } catch (error) {
             this.handleError(error);
@@ -61,7 +64,9 @@ export class CartService {
         try {
             this.logger.log(`Calculating total for cart ${cartId}`);
             const cart = await this.cartRepository.findByCartId(cartId);
-            return await this.syncTotal(cart);
+            const total = await this.syncTotal(cart);
+            this.logger.log(`Calculated total for cart ${cartId}`);
+            return total;
         } catch (error) {
             this.handleError(error);
         }
@@ -71,7 +76,9 @@ export class CartService {
         try {
             this.logger.log(`Calculating total for guest cart ${cartId}`);
             const cart = await this.cartRepository.findByCartId(cartId);
-            return await this.syncTotal(cart);
+            const total = await this.syncTotal(cart);
+            this.logger.log(`Calculated total for guest cart ${cartId}`);
+            return total;
         } catch (error) {
             this.handleError(error);
         }

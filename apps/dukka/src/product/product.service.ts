@@ -146,6 +146,7 @@ export class ProductService {
                 ...query,
                 market_id: marketId,
             });
+            this.logger.log('Fetched products');
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -160,6 +161,7 @@ export class ProductService {
             this.logger.log('Fetching products for staff');
             this.assertPriceRange(query.min_price, query.max_price);
             const page = await this.productRepository.findAll(query);
+            this.logger.log('Fetched products for staff');
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -189,6 +191,7 @@ export class ProductService {
                     customerId,
                 );
 
+            this.logger.log(`Fetched product ${id} for market ${marketId}`);
             return {
                 ...product,
                 best_promotion: this.resolveBestPromotion(
@@ -269,7 +272,14 @@ export class ProductService {
             this.logger.log(
                 `Fetching product ${id} for staff in market ${marketId}`,
             );
-            return await this.productRepository.findDetailedById(id, marketId);
+            const product = await this.productRepository.findDetailedById(
+                id,
+                marketId,
+            );
+            this.logger.log(
+                `Fetched product ${id} for staff in market ${marketId}`,
+            );
+            return product;
         } catch (error) {
             this.handleError(error);
         }
@@ -341,9 +351,10 @@ export class ProductService {
                     'from_date cannot be greater than to_date',
                 );
             }
-            return await this.productRepository.findPendingUpdatesSummary(
-                query,
-            );
+            const pendingUpdates =
+                await this.productRepository.findPendingUpdatesSummary(query);
+            this.logger.log('Fetched product pending updates for staff');
+            return pendingUpdates;
         } catch (error) {
             this.handleError(error);
         }
@@ -357,6 +368,7 @@ export class ProductService {
             if (!pendingUpdate) {
                 throw new NotFoundException('Pending update not found');
             }
+            this.logger.log(`Fetched product pending update ${id}`);
             return pendingUpdate;
         } catch (error) {
             this.handleError(error, 'Pending update not found');

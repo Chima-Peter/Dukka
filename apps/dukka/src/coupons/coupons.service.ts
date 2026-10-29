@@ -44,7 +44,9 @@ export class CouponsService {
     async findAll(query: FindCouponsDto): Promise<CouponPage> {
         try {
             this.logger.log('Fetching coupons');
-            return await this.couponsRepository.findAll(query);
+            const coupons = await this.couponsRepository.findAll(query);
+            this.logger.log('Fetched coupons');
+            return coupons;
         } catch (error) {
             this.handleError(error);
         }
@@ -62,10 +64,17 @@ export class CouponsService {
             this.logger.log(
                 `Fetching coupon usages for ${marketIds.length} market(s)`,
             );
-            if (marketIds.length === 0) {
-                return { items: [], next_cursor: null };
-            }
-            return await this.couponsRepository.findUsages(query, marketIds);
+            const usages =
+                marketIds.length === 0
+                    ? { items: [], next_cursor: null }
+                    : await this.couponsRepository.findUsages(
+                          query,
+                          marketIds,
+                      );
+            this.logger.log(
+                `Fetched coupon usages for ${marketIds.length} market(s)`,
+            );
+            return usages;
         } catch (error) {
             this.handleError(error);
         }

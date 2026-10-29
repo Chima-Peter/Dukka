@@ -110,6 +110,9 @@ export class ReviewsService {
             );
             const page =
                 await this.reviewsRepository.findAllByMarketVariant(query);
+            this.logger.log(
+                `Fetched reviews for market variant ${query.market_variant_id}`,
+            );
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,

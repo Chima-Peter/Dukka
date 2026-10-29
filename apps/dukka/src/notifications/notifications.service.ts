@@ -357,10 +357,14 @@ export class NotificationsService {
             this.logger.log(
                 `Fetching notifications for customer ${customer_id}`,
             );
-            return await this.notificationsRepository.findForCustomer(
+            const page = await this.notificationsRepository.findForCustomer(
                 customer_id,
                 query,
             );
+            this.logger.log(
+                `Fetched notifications for customer ${customer_id}`,
+            );
+            return page;
         } catch (error) {
             this.handleError(error);
         }
@@ -372,10 +376,12 @@ export class NotificationsService {
     ): Promise<NotificationsPage> {
         try {
             this.logger.log(`Fetching notifications for staff ${staff_id}`);
-            return await this.notificationsRepository.findForStaff(
+            const page = await this.notificationsRepository.findForStaff(
                 staff_id,
                 query,
             );
+            this.logger.log(`Fetched notifications for staff ${staff_id}`);
+            return page;
         } catch (error) {
             this.handleError(error);
         }

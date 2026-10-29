@@ -79,10 +79,12 @@ export class OrdersService {
     ): Promise<OrderSummaryPage> {
         try {
             this.logger.log(`Fetching orders for customer ${customerId}`);
-            return await this.ordersRepository.findForCustomer(
+            const page = await this.ordersRepository.findForCustomer(
                 customerId,
                 query,
             );
+            this.logger.log(`Fetched orders for customer ${customerId}`);
+            return page;
         } catch (error) {
             this.handleError(error);
         }
@@ -97,7 +99,11 @@ export class OrdersService {
                 `Fetching staff orders for market ${query.market_id}`,
             );
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
-            return await this.ordersRepository.findForStaff(query);
+            const page = await this.ordersRepository.findForStaff(query);
+            this.logger.log(
+                `Fetched staff orders for market ${query.market_id}`,
+            );
+            return page;
         } catch (error) {
             this.handleError(error);
         }
@@ -118,6 +124,9 @@ export class OrdersService {
             if (!order) {
                 throw new NotFoundException('Order not found');
             }
+            this.logger.log(
+                `Fetched order ${orderId} for customer ${customerId}`,
+            );
             return order;
         } catch (error) {
             this.handleError(error);
@@ -141,6 +150,9 @@ export class OrdersService {
             if (!order) {
                 throw new NotFoundException('Order not found');
             }
+            this.logger.log(
+                `Fetched staff order ${orderId} for market ${marketId}`,
+            );
             return order;
         } catch (error) {
             this.handleError(error);

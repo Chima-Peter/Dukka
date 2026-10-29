@@ -94,6 +94,11 @@ export class ServiceStateService {
                 ...query,
                 ...(marketId !== undefined && { market_id: marketId }),
             });
+            this.logger.log(
+                marketId !== undefined
+                    ? `Fetched open service states for market ${marketId}`
+                    : `Fetched open service states for service country ${query.country_id}`,
+            );
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -110,6 +115,9 @@ export class ServiceStateService {
             );
             const page =
                 await this.serviceStateRepository.findAllForStaff(query);
+            this.logger.log(
+                `Fetched staff service states for service country ${query.country_id}`,
+            );
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -135,6 +143,9 @@ export class ServiceStateService {
                     'No open warehouse covers this state',
                 );
             }
+            this.logger.log(
+                `Fetched warehouse covering service state ${serviceStateId}`,
+            );
             return warehouse;
         } catch (error) {
             this.handleError(error);

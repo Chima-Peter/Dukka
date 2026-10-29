@@ -69,7 +69,9 @@ export class PaymentsService {
                     'market_approved=false cannot be combined with market_ids',
                 );
             }
-            return await this.paymentsRepository.findMethods(query);
+            const methods = await this.paymentsRepository.findMethods(query);
+            this.logger.log('Fetched payment methods');
+            return methods;
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment method not found',
@@ -85,6 +87,7 @@ export class PaymentsService {
             if (!method) {
                 throw new NotFoundException('Payment method not found');
             }
+            this.logger.log(`Fetched payment method ${id}`);
             return method;
         } catch (error) {
             this.handleError(error, {
@@ -204,7 +207,11 @@ export class PaymentsService {
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
             this.assertPriceRange(query.min_price, query.max_price);
 
-            return await this.paymentsRepository.findAttempts(query);
+            const page = await this.paymentsRepository.findAttempts(query);
+            this.logger.log(
+                `Fetched payment attempts for market ${query.market_id}`,
+            );
+            return page;
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
@@ -228,6 +235,7 @@ export class PaymentsService {
             if (!attempt) {
                 throw new NotFoundException('Payment attempt not found');
             }
+            this.logger.log(`Fetched payment attempt ${id}`);
             return attempt;
         } catch (error) {
             this.handleError(error, {

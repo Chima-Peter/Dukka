@@ -137,6 +137,7 @@ export class CategoryService {
                 ...query,
                 market_id: marketId,
             });
+            this.logger.log(`Fetched categories for market ${marketId}`);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,

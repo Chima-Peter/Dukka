@@ -26,7 +26,9 @@ export class PermissionsService {
     async findAll(): Promise<Permission[]> {
         try {
             this.logger.log('Fetching permissions');
-            return await this.permissionsRepository.findAll();
+            const permissions = await this.permissionsRepository.findAll();
+            this.logger.log('Fetched permissions');
+            return permissions;
         } catch (error) {
             this.handleError(error);
         }

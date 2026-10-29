@@ -83,7 +83,12 @@ export class PromotionsService {
                 `Fetching promotions for market ${query.market_id}`,
             );
             assertStaffHasMarkets(staffMarketIds, [query.market_id]);
-            return await this.promotionsRepository.findAll(query);
+            const promotions =
+                await this.promotionsRepository.findAll(query);
+            this.logger.log(
+                `Fetched promotions for market ${query.market_id}`,
+            );
+            return promotions;
         } catch (error) {
             this.handleError(error);
         }
@@ -102,12 +107,19 @@ export class PromotionsService {
                 `Fetching promotion usages for ${marketIds.length} market(s)`,
             );
             if (marketIds.length === 0) {
+                this.logger.log(
+                    `Fetched promotion usages for ${marketIds.length} market(s)`,
+                );
                 return { items: [], next_cursor: null };
             }
-            return await this.promotionsRepository.findUsages(
+            const usages = await this.promotionsRepository.findUsages(
                 query,
                 marketIds,
             );
+            this.logger.log(
+                `Fetched promotion usages for ${marketIds.length} market(s)`,
+            );
+            return usages;
         } catch (error) {
             this.handleError(error);
         }
@@ -116,7 +128,10 @@ export class PromotionsService {
     async findAllDiscounts(): Promise<DiscountSummary[]> {
         try {
             this.logger.log('Fetching discounts');
-            return await this.promotionsRepository.findAllDiscounts();
+            const discounts =
+                await this.promotionsRepository.findAllDiscounts();
+            this.logger.log('Fetched discounts');
+            return discounts;
         } catch (error) {
             this.handleError(error);
         }
@@ -154,6 +169,7 @@ export class PromotionsService {
             if (!promotion) {
                 throw new NotFoundException('Promotion not found');
             }
+            this.logger.log(`Fetched promotion ${id}`);
             return promotion;
         } catch (error) {
             this.handleError(error);
@@ -389,11 +405,15 @@ export class PromotionsService {
             if (!promotionMarket) {
                 throw new NotFoundException('Promotion market not found');
             }
-            return await this.promotionsRepository.findMarketTargets(
+            const targets = await this.promotionsRepository.findMarketTargets(
                 promotionMarket.id,
                 promotionMarket.scope,
                 query,
             );
+            this.logger.log(
+                `Fetched targets for promotion market ${promotionMarketId}`,
+            );
+            return targets;
         } catch (error) {
             this.handleError(error);
         }

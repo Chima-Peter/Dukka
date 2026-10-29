@@ -55,9 +55,14 @@ export class ShippingAddressService {
             this.logger.log(
                 `Fetching shipping addresses for customer ${customer_id}`,
             );
-            return await this.shippingAddressRepository.findAllByCustomerId(
-                customer_id,
+            const addresses =
+                await this.shippingAddressRepository.findAllByCustomerId(
+                    customer_id,
+                );
+            this.logger.log(
+                `Fetched shipping addresses for customer ${customer_id}`,
             );
+            return addresses;
         } catch (error) {
             this.handleReadError(error);
         }
@@ -76,6 +81,9 @@ export class ShippingAddressService {
             if (!address) {
                 throw new NotFoundException('Shipping address not found');
             }
+            this.logger.log(
+                `Fetched shipping address ${id} for customer ${customer_id}`,
+            );
             return address;
         } catch (error) {
             this.handleReadError(error);

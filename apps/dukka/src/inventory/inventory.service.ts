@@ -248,6 +248,7 @@ export class InventoryService {
                 variantId,
                 { ...query, market_id: marketId },
             );
+            this.logger.log(`Fetched inventory for variant ${variantId}`);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -273,6 +274,7 @@ export class InventoryService {
                 productId,
                 { ...query, market_id: marketId },
             );
+            this.logger.log(`Fetched inventory for product ${productId}`);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -297,6 +299,7 @@ export class InventoryService {
                 warehouseId,
                 { ...query, market_id: query.market_id },
             );
+            this.logger.log(`Fetched inventory for warehouse ${warehouseId}`);
             return {
                 items: page.items,
                 next_cursor: page.next_cursor,
@@ -322,6 +325,9 @@ export class InventoryService {
             const page = await this.inventoryRepository.findByMarketVariantId(
                 marketVariantId,
                 { ...query, market_id: query.market_id },
+            );
+            this.logger.log(
+                `Fetched inventory for market variant ${marketVariantId}`,
             );
             return {
                 items: page.items,

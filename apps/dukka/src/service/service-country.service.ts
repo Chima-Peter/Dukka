@@ -58,7 +58,9 @@ export class ServiceCountryService {
     async findAll(): Promise<ServiceCountryWithMarket[]> {
         try {
             this.logger.log(`Fetching open service countries`);
-            return await this.serviceCountryRepository.findAll();
+            const countries = await this.serviceCountryRepository.findAll();
+            this.logger.log(`Fetched open service countries`);
+            return countries;
         } catch (error) {
             this.handleError(error);
         }
@@ -69,7 +71,10 @@ export class ServiceCountryService {
     ): Promise<ServiceCountryWithMarket[]> {
         try {
             this.logger.log('Fetching staff service countries');
-            return await this.serviceCountryRepository.findAllForStaff(status);
+            const countries =
+                await this.serviceCountryRepository.findAllForStaff(status);
+            this.logger.log('Fetched staff service countries');
+            return countries;
         } catch (error) {
             this.handleError(error);
         }
