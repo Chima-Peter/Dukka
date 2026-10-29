@@ -13,17 +13,20 @@ import {
 import {
     Auth,
     CurrentCustomer,
+    CurrentStaff,
     OptionalCustomerAuth,
     Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
     type CustomerJwtPayload,
+    type StaffJwtPayload,
 } from '@app/common';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import { FindProductsDto } from './dto/find-products.dto.js';
+import { FindStaffProductDto } from './dto/find-staff-product.dto.js';
 import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { PendingUpdateIdsDto } from './dto/pending-update-ids.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
@@ -72,8 +75,16 @@ export class ProductController {
 
     @Get('internal/:id')
     @ResponseMessage('Product retrieved successfully')
-    findOneForStaff(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productService.findOneForStaff(id);
+    findOneForStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: FindStaffProductDto,
+    ) {
+        return this.productService.findOneForStaff(
+            id,
+            query,
+            staff.market_ids,
+        );
     }
 
     @Get('product-pending-updates')

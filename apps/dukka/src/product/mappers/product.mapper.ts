@@ -5,6 +5,44 @@ import {
 } from '@app/common';
 import type { ProductImageRecord } from '../types/product.type.js';
 
+export function productPromotionMarketSelect(customerId?: string) {
+    return {
+        id: true,
+        scope: true,
+        start_date: true,
+        end_date: true,
+        max_total_uses: true,
+        max_uses_per_customer: true,
+        promotion: {
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                code: true,
+                status: true,
+                created_at: true,
+                updated_at: true,
+                discount: {
+                    select: {
+                        id: true,
+                        type: true,
+                        value: true,
+                        max_discount_amount: true,
+                    },
+                },
+            },
+        },
+        _count: {
+            select: {
+                promotion_usages:
+                    customerId === undefined
+                        ? true
+                        : { where: { customer_id: customerId } },
+            },
+        },
+    } satisfies Prisma.PromotionMarketSelect;
+}
+
 export function parsePendingImages(
     images: Prisma.JsonValue | null,
 ): ProductImageRecord[] | null {
@@ -171,7 +209,25 @@ export const productDetailSelect = {
     },
 } satisfies Prisma.ProductSelect;
 
-export function productDetailWithMarketSelect(marketId?: string) {
+function marketVariantSelect(marketId: string, activeOnly: boolean) {
+    return {
+        where: {
+            ...(activeOnly && { status: MarketVariantStatus.ACTIVE }),
+            market: {
+                id: marketId,
+                ...(activeOnly && { status: 'OPEN' as const }),
+            },
+        },
+        select: {
+            id: true,
+            price: true,
+            currency: true,
+            sold_out: true,
+        },
+    } as const;
+}
+
+export function productDetailWithMarketSelect(marketId: string) {
     return {
         ...productDetailSelect,
         status: false,
@@ -193,23 +249,79 @@ export function productDetailWithMarketSelect(marketId?: string) {
                         image_url: true,
                     },
                 },
-                market_variants: {
-                    where: {
-                        status: MarketVariantStatus.ACTIVE,
-                        ...(marketId !== undefined && {
-                            market: { id: marketId, status: 'OPEN' },
-                        }),
-                    },
-                    select: {
-                        id: true,
-                        price: true,
-                        currency: true,
-                        sold_out: true,
-                    },
-                },
+                market_variants: marketVariantSelect(marketId, true),
             },
         },
     } satisfies Prisma.ProductSelect;
+}
+
+export function productStaffDetailWithMarketSelect(marketId: string) {
+    return {
+        ...productDetailSelect,
+        variants: {
+            orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
+            select: {
+                id: true,
+                variant_code: true,
+                color: true,
+                size: true,
+                variant_info: true,
+                status: true,
+                created_at: true,
+                updated_at: true,
+                image: {
+                    select: {
+                        image_url: true,
+                    },
+                },
+                market_variants: marketVariantSelect(marketId, false),
+            },
+        },
+    } satisfies Prisma.ProductSelect;
+}
+
+export function toProductPromotions<
+    T extends {
+        id: string;
+        scope: string;
+        start_date: Date;
+        end_date: Date;
+        max_total_uses: number;
+        max_uses_per_customer: number;
+        _count: { promotion_usages: number };
+        promotion: {
+            id: string;
+            name: string;
+            description: string;
+            code: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            discount: {
+                id: string;
+                type: string;
+                value: unknown;
+                max_discount_amount: unknown;
+            };
+        };
+    },
+>(
+    promotionMarkets: T[],
+    options?: { customerUsage?: boolean },
+) {
+    return promotionMarkets.map(({ _count, promotion, ...market }) => ({
+        promotion_market_id: market.id,
+        scope: market.scope,
+        start_date: market.start_date,
+        end_date: market.end_date,
+        max_total_uses: market.max_total_uses,
+        max_uses_per_customer: market.max_uses_per_customer,
+        usage_count: _count.promotion_usages,
+        customer_usage_count: options?.customerUsage
+            ? _count.promotion_usages
+            : 0,
+        ...promotion,
+    }));
 }
 
 export function toProductDetail<

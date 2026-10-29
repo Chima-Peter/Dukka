@@ -2,12 +2,16 @@ import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
+    DiscountType,
     Gender,
     OrderInventoryStatus,
     POINT_REASON,
     POINT_STATUS,
     PrismaClient,
     ProductStatus,
+    PromotionMarketScope,
+    PromotionMarketStatus,
+    PromotionStatus,
     VariantStatus,
     StaffAuditAction,
     StaffInvitationStatus,
@@ -32,6 +36,7 @@ const SUPER_ADMIN_ROLE_NAME = 'Super Admin';
 const SUPER_ADMIN_HIERARCHY = 0;
 const BCRYPT_ROUNDS = 10;
 const DEMO_PASSWORD = 'Password123!';
+const PROMO_TARGET_PRODUCT_ID = '732b5445-5ea6-4d2a-b6f8-a9bad64893d9';
 
 const DEFAULT_CURRENCIES = [
     { code: 'NGN', name: 'Nigerian Naira' },
@@ -987,6 +992,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
 
     const productsDef = [
         {
+            id: PROMO_TARGET_PRODUCT_ID,
             name: 'Dukka Pulse Headphones',
             description: 'Wireless over-ear headphones with ANC.',
             specs: { battery_hours: 30, connectivity: 'Bluetooth 5.3' },
@@ -1095,16 +1101,21 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
     }[] = [];
 
     for (const productDef of productsDef) {
-        let product = await prisma.product.findFirst({
-            where: {
-                name: productDef.name,
-                category_id: productDef.category_id,
-            },
-        });
+        const productId =
+            'id' in productDef ? productDef.id : undefined;
+        let product = productId
+            ? await prisma.product.findUnique({ where: { id: productId } })
+            : await prisma.product.findFirst({
+                  where: {
+                      name: productDef.name,
+                      category_id: productDef.category_id,
+                  },
+              });
 
         if (!product) {
             product = await prisma.product.create({
                 data: {
+                    ...(productId !== undefined && { id: productId }),
                     name: productDef.name,
                     description: productDef.description,
                     specs: productDef.specs,
@@ -1125,6 +1136,7 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
                     description: productDef.description,
                     specs: productDef.specs,
                     status: productDef.status,
+                    category_id: productDef.category_id,
                 },
             });
         }
@@ -1448,6 +1460,254 @@ async function seedWarehousesAndInventory(
     );
 
     return warehouses;
+}
+
+async function seedPromotions(
+    markets: { id: string; code: string }[],
+    marketVariants: { id: string; variant_code: string; market_code: string }[],
+) {
+    const ngMarket = markets.find((market) => market.code === 'NG');
+    if (!ngMarket) {
+        throw new Error('NG market is required to seed promotions');
+    }
+
+    const product = await prisma.product.findUnique({
+        where: { id: PROMO_TARGET_PRODUCT_ID },
+        select: { id: true, category_id: true, name: true },
+    });
+    if (!product) {
+        throw new Error(
+            `Promotion target product ${PROMO_TARGET_PRODUCT_ID} was not seeded`,
+        );
+    }
+
+    const marketCategory = await prisma.marketCategory.findUnique({
+        where: {
+            market_id_category_id: {
+                market_id: ngMarket.id,
+                category_id: product.category_id,
+            },
+        },
+        select: { id: true },
+    });
+    if (!marketCategory) {
+        throw new Error(
+            `Market category for product ${product.id} in NG was not seeded`,
+        );
+    }
+
+    const pulseMarketVariant = marketVariants.find(
+        (row) =>
+            row.variant_code === 'PULSE-BLK-STD' && row.market_code === 'NG',
+    );
+    if (!pulseMarketVariant) {
+        throw new Error(
+            'PULSE-BLK-STD NG market variant is required to seed VARIANT promotions',
+        );
+    }
+
+    const now = new Date();
+    const startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const promotionsDef = [
+        {
+            code: 'STOREWIDE10',
+            name: 'Storewide 10% Off',
+            description: '10% off everything in Nigeria.',
+            discount: {
+                type: DiscountType.PERCENTAGE,
+                value: 10,
+                max_discount_amount: 5000,
+            },
+            market: {
+                scope: PromotionMarketScope.ALL,
+                max_total_uses: 0,
+                max_uses_per_customer: 3,
+            },
+        },
+        {
+            code: 'PULSE15',
+            name: 'Pulse Headphones 15% Off',
+            description: '15% off Dukka Pulse Headphones.',
+            discount: {
+                type: DiscountType.PERCENTAGE,
+                value: 15,
+                max_discount_amount: 15000,
+            },
+            market: {
+                scope: PromotionMarketScope.PRODUCT,
+                max_total_uses: 500,
+                max_uses_per_customer: 2,
+                product_ids: [product.id],
+            },
+        },
+        {
+            code: 'ELECTRONICS500',
+            name: 'Electronics ₦500 Off',
+            description: 'Flat ₦500 off electronics in Nigeria.',
+            discount: {
+                type: DiscountType.FIXED,
+                value: 500,
+                max_discount_amount: 500,
+            },
+            market: {
+                scope: PromotionMarketScope.CATEGORY,
+                max_total_uses: 1000,
+                max_uses_per_customer: 1,
+                category_ids: [marketCategory.id],
+            },
+        },
+        {
+            code: 'PULSEBLK2K',
+            name: 'Pulse Black ₦2000 Off',
+            description: 'Flat ₦2000 off Pulse Black Standard.',
+            discount: {
+                type: DiscountType.FIXED,
+                value: 2000,
+                max_discount_amount: 2000,
+            },
+            market: {
+                scope: PromotionMarketScope.VARIANT,
+                max_total_uses: 200,
+                max_uses_per_customer: 1,
+                variant_ids: [pulseMarketVariant.id],
+            },
+        },
+    ] as const;
+
+    let seededCount = 0;
+
+    for (const promoDef of promotionsDef) {
+        let promotion = await prisma.promotion.findUnique({
+            where: { code: promoDef.code },
+            select: { id: true, discount_id: true },
+        });
+
+        if (!promotion) {
+            const discount = await prisma.discount.create({
+                data: {
+                    type: promoDef.discount.type,
+                    value: promoDef.discount.value,
+                    max_discount_amount: promoDef.discount.max_discount_amount,
+                },
+            });
+            promotion = await prisma.promotion.create({
+                data: {
+                    name: promoDef.name,
+                    description: promoDef.description,
+                    code: promoDef.code,
+                    status: PromotionStatus.ACTIVE,
+                    discount_id: discount.id,
+                },
+                select: { id: true, discount_id: true },
+            });
+        } else {
+            await prisma.discount.update({
+                where: { id: promotion.discount_id },
+                data: {
+                    type: promoDef.discount.type,
+                    value: promoDef.discount.value,
+                    max_discount_amount: promoDef.discount.max_discount_amount,
+                },
+            });
+            await prisma.promotion.update({
+                where: { id: promotion.id },
+                data: {
+                    name: promoDef.name,
+                    description: promoDef.description,
+                    status: PromotionStatus.ACTIVE,
+                },
+            });
+        }
+
+        const promotionMarket = await prisma.promotionMarket.upsert({
+            where: {
+                promotion_id_market_id: {
+                    promotion_id: promotion.id,
+                    market_id: ngMarket.id,
+                },
+            },
+            create: {
+                promotion_id: promotion.id,
+                market_id: ngMarket.id,
+                status: PromotionMarketStatus.ACTIVE,
+                scope: promoDef.market.scope,
+                max_total_uses: promoDef.market.max_total_uses,
+                max_uses_per_customer: promoDef.market.max_uses_per_customer,
+                start_date: startDate,
+                end_date: endDate,
+            },
+            update: {
+                status: PromotionMarketStatus.ACTIVE,
+                scope: promoDef.market.scope,
+                max_total_uses: promoDef.market.max_total_uses,
+                max_uses_per_customer: promoDef.market.max_uses_per_customer,
+                start_date: startDate,
+                end_date: endDate,
+            },
+        });
+
+        if (promoDef.market.scope === PromotionMarketScope.PRODUCT) {
+            for (const product_id of promoDef.market.product_ids) {
+                await prisma.promotionMarketProduct.upsert({
+                    where: {
+                        promotion_market_id_product_id: {
+                            promotion_market_id: promotionMarket.id,
+                            product_id,
+                        },
+                    },
+                    create: {
+                        promotion_market_id: promotionMarket.id,
+                        product_id,
+                    },
+                    update: {},
+                });
+            }
+        }
+
+        if (promoDef.market.scope === PromotionMarketScope.CATEGORY) {
+            for (const category_id of promoDef.market.category_ids) {
+                await prisma.promotionMarketCategory.upsert({
+                    where: {
+                        promotion_market_id_category_id: {
+                            promotion_market_id: promotionMarket.id,
+                            category_id,
+                        },
+                    },
+                    create: {
+                        promotion_market_id: promotionMarket.id,
+                        category_id,
+                    },
+                    update: {},
+                });
+            }
+        }
+
+        if (promoDef.market.scope === PromotionMarketScope.VARIANT) {
+            for (const variant_id of promoDef.market.variant_ids) {
+                await prisma.promotionMarketVariant.upsert({
+                    where: {
+                        promotion_market_id_variant_id: {
+                            promotion_market_id: promotionMarket.id,
+                            variant_id,
+                        },
+                    },
+                    create: {
+                        promotion_market_id: promotionMarket.id,
+                        variant_id,
+                    },
+                    update: {},
+                });
+            }
+        }
+
+        seededCount += 1;
+    }
+
+    console.log(
+        `Seeded promotions: ${seededCount} active NG promotions targeting ${product.name} (${product.id})`,
+    );
 }
 
 async function seedOrdersReviewsAndFulfillment(
@@ -1787,6 +2047,7 @@ async function main() {
     );
     const customers = await seedCustomers();
     const marketVariants = await seedCatalog(markets);
+    await seedPromotions(markets, marketVariants);
     const warehouses = await seedWarehousesAndInventory(
         markets,
         demoStaff,

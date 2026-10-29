@@ -10,13 +10,16 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    DiscountType,
     PRODUCT_BUCKET,
+    Prisma,
     SupabaseService,
     ProductPendingUpdateStatus,
     ProductStatus,
     type Product,
 } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
+import { selectBestPromotion } from '../promotions/utils/select-best-promotion.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
 import {
     prismaHintIncludes,
@@ -27,11 +30,13 @@ import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
+import type { FindStaffProductDto } from './dto/find-staff-product.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
 import type { UploadFileDto } from './dto/upload-file.dto.js';
+import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { ProductRepository } from './product.repository.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
 
@@ -176,23 +181,116 @@ export class ProductService {
                 query.market_id,
             );
             this.logger.log(`Fetching product ${id} for market ${marketId}`);
-            return await this.productRepository.findByIdInMarket(
-                id,
-                marketId,
-                ProductStatus.ACTIVE,
-            );
+            const { promotions, ...product } =
+                await this.productRepository.findByIdInMarket(
+                    id,
+                    marketId,
+                    ProductStatus.ACTIVE,
+                    customerId,
+                );
+
+            return {
+                ...product,
+                best_promotion: this.resolveBestPromotion(
+                    promotions,
+                    product.variants,
+                ),
+            };
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async findOneForStaff(id: string) {
+    private resolveBestPromotion(
+        promotions: Array<{
+            promotion_market_id: string;
+            max_uses_per_customer: number;
+            customer_usage_count: number;
+            discount: {
+                type: string;
+                value: unknown;
+                max_discount_amount: unknown;
+            };
+            [key: string]: unknown;
+        }>,
+        variants: Array<{ price?: unknown | null }>,
+    ) {
+        const price = this.minVariantPrice(variants);
+        if (price === null) {
+            return null;
+        }
+
+        return selectBestPromotion(
+            promotions.map((promo) => ({
+                ...promo,
+                discount: {
+                    type: promo.discount.type as DiscountType,
+                    value: promo.discount.value as
+                        | Prisma.Decimal
+                        | number
+                        | string,
+                    max_discount_amount: promo.discount
+                        .max_discount_amount as
+                        | Prisma.Decimal
+                        | number
+                        | string,
+                },
+            })),
+            price,
+        );
+    }
+
+    private minVariantPrice(
+        variants: Array<{ price?: unknown | null }>,
+    ): Prisma.Decimal | null {
+        let min: Prisma.Decimal | null = null;
+        for (const variant of variants) {
+            if (variant.price === null || variant.price === undefined) {
+                continue;
+            }
+            const price = new Prisma.Decimal(variant.price as string | number);
+            if (min === null || price.lt(min)) {
+                min = price;
+            }
+        }
+        return min;
+    }
+
+    async findOneForStaff(
+        id: string,
+        query: FindStaffProductDto,
+        staffMarketIds: string[],
+    ) {
         try {
-            this.logger.log(`Fetching product ${id} for staff`);
-            return await this.productRepository.findDetailedById(id);
+            const marketId = this.resolveStaffMarketId(
+                staffMarketIds,
+                query.market_id,
+            );
+            this.logger.log(
+                `Fetching product ${id} for staff in market ${marketId}`,
+            );
+            return await this.productRepository.findDetailedById(id, marketId);
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private resolveStaffMarketId(
+        staffMarketIds: string[],
+        marketId?: string,
+    ): string {
+        if (marketId !== undefined) {
+            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            return marketId;
+        }
+
+        const defaultMarketId = staffMarketIds[0];
+        if (defaultMarketId === undefined) {
+            throw new BadRequestException(
+                'market_id is required when staff has no assigned markets',
+            );
+        }
+        return defaultMarketId;
     }
 
     async update(id: string, data: UpdateProductDto) {

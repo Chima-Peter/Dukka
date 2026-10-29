@@ -4,6 +4,9 @@ import {
     Prisma,
     ProductPendingUpdateStatus,
     ProductStatus,
+    PromotionMarketScope,
+    PromotionMarketStatus,
+    PromotionStatus,
     VariantStatus,
     type Product,
     PrismaService,
@@ -17,8 +20,11 @@ import {
     productDetailSelect,
     productDetailWithMarketSelect,
     productListSummarySelect,
+    productPromotionMarketSelect,
+    productStaffDetailWithMarketSelect,
     toProductDetail,
     toProductListItem,
+    toProductPromotions,
 } from './mappers/product.mapper.js';
 import type {
     CreateProductPendingUpdateData,
@@ -235,48 +241,117 @@ export class ProductRepository {
         return product;
     }
 
-    async findDetailedById(id: string) {
-        const product = await this.prisma.product.findUnique({
-            where: { id },
-            select: productDetailSelect,
-        });
+    async findDetailedById(id: string, marketId: string) {
+        const [product, promotionMarkets] = await Promise.all([
+            this.prisma.product.findUnique({
+                where: { id },
+                select: productStaffDetailWithMarketSelect(marketId),
+            }),
+            this.findApplicablePromotionMarkets(id, marketId),
+        ]);
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return toProductDetail(product);
+        return {
+            ...toProductDetail(product),
+            promotions: toProductPromotions(promotionMarkets),
+        };
     }
 
     async findByIdInMarket(
         id: string,
         marketId: string,
         status?: ProductStatus,
+        customerId?: string,
     ) {
-        const product = await this.prisma.product.findFirst({
-            where: {
-                id,
-                ...(status !== undefined && { status }),
-                variants: {
-                    some: {
-                        status: VariantStatus.ACTIVE,
-                        market_variants: {
-                            some: {
-                                status: MarketVariantStatus.ACTIVE,
-                                market: { id: marketId, status: 'OPEN' },
+        const [product, promotionMarkets] = await Promise.all([
+            this.prisma.product.findFirst({
+                where: {
+                    id,
+                    ...(status !== undefined && { status }),
+                    variants: {
+                        some: {
+                            status: VariantStatus.ACTIVE,
+                            market_variants: {
+                                some: {
+                                    status: MarketVariantStatus.ACTIVE,
+                                    market: { id: marketId, status: 'OPEN' },
+                                },
                             },
                         },
                     },
                 },
-            },
-            select: productDetailWithMarketSelect(marketId),
-        });
+                select: productDetailWithMarketSelect(marketId),
+            }),
+            this.findApplicablePromotionMarkets(id, marketId, customerId),
+        ]);
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return toProductDetail(product);
+        return {
+            ...toProductDetail(product),
+            promotions: toProductPromotions(promotionMarkets, {
+                customerUsage: customerId !== undefined,
+            }),
+        };
+    }
+
+    private async findApplicablePromotionMarkets(
+        productId: string,
+        marketId: string,
+        customerId?: string,
+    ) {
+        const now = new Date();
+        return await this.prisma.promotionMarket.findMany({
+            where: {
+                market_id: marketId,
+                status: PromotionMarketStatus.ACTIVE,
+                start_date: { lte: now },
+                end_date: { gte: now },
+                promotion: { status: PromotionStatus.ACTIVE },
+                OR: [
+                    { scope: PromotionMarketScope.ALL },
+                    {
+                        scope: PromotionMarketScope.PRODUCT,
+                        promotion_market_products: {
+                            some: { product_id: productId },
+                        },
+                    },
+                    {
+                        scope: PromotionMarketScope.CATEGORY,
+                        promotion_market_categories: {
+                            some: {
+                                category: {
+                                    market_id: marketId,
+                                    category: {
+                                        products: {
+                                            some: { id: productId },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        scope: PromotionMarketScope.VARIANT,
+                        promotion_market_variants: {
+                            some: {
+                                variant: {
+                                    market_id: marketId,
+                                    variant: { product_id: productId },
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+            select: productPromotionMarketSelect(customerId),
+            orderBy: { created_at: 'desc' },
+        });
     }
 
     private async findNameMatchedIds(name?: string) {
