@@ -1509,8 +1509,6 @@ async function seedPromotions(
                 max_discount_amount: 15000,
             },
             market: {
-                max_total_uses: 500,
-                max_uses_per_customer: 2,
                 variant_ids: [pulseWhite.id],
             },
         },
@@ -1524,8 +1522,6 @@ async function seedPromotions(
                 max_discount_amount: 2000,
             },
             market: {
-                max_total_uses: 200,
-                max_uses_per_customer: 1,
                 variant_ids: [pulseBlack.id],
             },
         },
@@ -1587,15 +1583,11 @@ async function seedPromotions(
                 promotion_id: promotion.id,
                 market_id: ngMarket.id,
                 status: PromotionMarketStatus.ACTIVE,
-                max_total_uses: promoDef.market.max_total_uses,
-                max_uses_per_customer: promoDef.market.max_uses_per_customer,
                 start_date: startDate,
                 end_date: endDate,
             },
             update: {
                 status: PromotionMarketStatus.ACTIVE,
-                max_total_uses: promoDef.market.max_total_uses,
-                max_uses_per_customer: promoDef.market.max_uses_per_customer,
                 start_date: startDate,
                 end_date: endDate,
             },

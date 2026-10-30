@@ -140,13 +140,10 @@ export class ProductService {
                 customerId,
                 query.market_id,
             );
-            const page = await this.productRepository.findAllPublic(
-                {
-                    ...query,
-                    market_id: marketId,
-                },
-                customerId,
-            );
+            const page = await this.productRepository.findAllPublic({
+                ...query,
+                market_id: marketId,
+            });
             this.logger.log('Fetched products');
             return {
                 items: page.items,
@@ -188,7 +185,6 @@ export class ProductService {
                 id,
                 marketId,
                 ProductStatus.ACTIVE,
-                customerId,
             );
 
             this.logger.log(`Fetched product ${id} for market ${marketId}`);

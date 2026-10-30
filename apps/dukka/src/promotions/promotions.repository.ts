@@ -206,12 +206,6 @@ export class PromotionsRepository {
         return await this.prisma.promotionMarket.update({
             where: { id },
             data: {
-                ...(data.max_total_uses !== undefined && {
-                    max_total_uses: data.max_total_uses,
-                }),
-                ...(data.max_uses_per_customer !== undefined && {
-                    max_uses_per_customer: data.max_uses_per_customer,
-                }),
                 ...(data.start_date !== undefined && {
                     start_date: data.start_date,
                 }),
@@ -231,8 +225,6 @@ export class PromotionsRepository {
     ): Promise<PromotionMarketDetail> {
         return await this.prisma.promotionMarket.create({
             data: {
-                max_total_uses: data.max_total_uses,
-                max_uses_per_customer: data.max_uses_per_customer,
                 start_date: data.start_date,
                 end_date: data.end_date,
                 promotion: { connect: { id: promotionId } },

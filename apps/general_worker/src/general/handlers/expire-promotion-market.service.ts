@@ -33,17 +33,7 @@ export class ExpirePromotionMarketService {
                 JOIN "Promotion" p ON p.id = pm.promotion_id
                 WHERE pm.id IN (${Prisma.join(ids)})
                   AND pm.status <> ${PromotionMarketStatus.EXPIRED}::"PromotionMarketStatus"
-                  AND (
-                    pm.end_date <= NOW()
-                    OR (
-                      pm.max_total_uses > 0
-                      AND (
-                        SELECT COUNT(*)::int
-                        FROM "PromotionUsage" pu
-                        WHERE pu.promotion_market_id = pm.id
-                      ) >= pm.max_total_uses
-                    )
-                  )
+                  AND pm.end_date <= NOW()
                 FOR UPDATE OF pm, p
             `;
 

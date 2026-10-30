@@ -47,45 +47,6 @@ export class GeneralScheduler {
         ]);
     }
 
-    @Cron(CronExpression.EVERY_5_MINUTES)
-    async expireExhaustedPromotionMarkets(): Promise<void> {
-        this.logger.log(
-            'Scanning for promotion markets that exceeded usage caps',
-        );
-
-        const markets = await this.prisma.$queryRaw<{ id: string }[]>`
-            SELECT pm.id
-            FROM "PromotionMarket" pm
-            WHERE pm.status <> ${PromotionMarketStatus.EXPIRED}::"PromotionMarketStatus"
-              AND pm.max_total_uses > 0
-              AND (
-                SELECT COUNT(*)::int
-                FROM "PromotionUsage" pu
-                WHERE pu.promotion_market_id = pm.id
-              ) >= pm.max_total_uses
-        `;
-
-        if (markets.length === 0) {
-            this.logger.log('No usage-exhausted promotion markets to expire');
-            return;
-        }
-
-        const batches = chunkIds(
-            markets.map((market) => market.id),
-            EXPIRY_BATCH_SIZE,
-        );
-        await this.generalQueueService.enqueueMany(
-            batches.map((promotion_market_ids) => ({
-                name: GENERAL_JOBS.EXPIRE_PROMOTION_MARKET,
-                payload: { promotion_market_ids },
-            })),
-        );
-
-        this.logger.log(
-            `Enqueued ${batches.length} usage-exhausted expire-promotion-market batch job(s) for ${markets.length} market(s)`,
-        );
-    }
-
     private async enqueuePromotionMarketsByEndDate(): Promise<void> {
         this.logger.log('Scanning for promotion markets past end date');
 

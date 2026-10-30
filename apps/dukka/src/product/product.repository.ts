@@ -66,10 +66,7 @@ export class ProductRepository {
         }).then(toProductDetail);
     }
 
-    async findAllPublic(
-        query: FindProductsDto & { market_id: string },
-        customerId?: string,
-    ) {
+    async findAllPublic(query: FindProductsDto & { market_id: string }) {
         const nameMatchedIds = await this.findNameMatchedIds(query.name);
         if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
             return { items: [], next_cursor: null };
@@ -117,7 +114,6 @@ export class ProductRepository {
                 undefined,
                 MarketVariantStatus.ACTIVE,
                 false,
-                customerId,
             ),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
@@ -258,7 +254,6 @@ export class ProductRepository {
         id: string,
         marketId: string,
         status?: ProductStatus,
-        customerId?: string,
     ) {
         const product = await this.prisma.product.findFirst({
             where: {
@@ -276,7 +271,7 @@ export class ProductRepository {
                     },
                 },
             },
-            select: productDetailWithMarketSelect(marketId, customerId),
+            select: productDetailWithMarketSelect(marketId),
         });
 
         if (!product) {

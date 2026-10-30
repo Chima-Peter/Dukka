@@ -1045,8 +1045,6 @@ enum PromotionMarketStatus {
 model PromotionMarket {
   id String @id @default(uuid())
   status PromotionMarketStatus @default(ACTIVE)
-  max_total_uses Int @default(0)
-  max_uses_per_customer Int @default(0)
 
   start_date DateTime
   end_date DateTime

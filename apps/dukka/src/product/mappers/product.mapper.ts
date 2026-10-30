@@ -6,16 +6,12 @@ import {
     VariantStatus,
     type Prisma,
 } from '@app/common';
-import {
-    computeDiscountAmount,
-    isPromotionAvailableForCustomer,
-} from '../../promotions/utils/compute-discount-amount.js';
+import { computeDiscountAmount } from '../../promotions/utils/compute-discount-amount.js';
 import type { ProductImageRecord } from '../types/product.type.js';
 
 type NestedValidPromotion = {
     promotion_market: {
         id: string;
-        max_uses_per_customer: number;
         promotion: {
             discount: {
                 type: DiscountType;
@@ -23,11 +19,10 @@ type NestedValidPromotion = {
                 max_discount_amount: unknown;
             };
         };
-        _count: { promotion_usages: number };
     };
 };
 
-function validPromotionMarketVariantSelect(customerId?: string) {
+function validPromotionMarketVariantSelect() {
     const now = new Date();
     return {
         where: {
@@ -43,7 +38,6 @@ function validPromotionMarketVariantSelect(customerId?: string) {
             promotion_market: {
                 select: {
                     id: true,
-                    max_uses_per_customer: true,
                     promotion: {
                         select: {
                             discount: {
@@ -51,15 +45,6 @@ function validPromotionMarketVariantSelect(customerId?: string) {
                                     type: true,
                                     value: true,
                                     max_discount_amount: true,
-                                },
-                            },
-                        },
-                    },
-                    _count: {
-                        select: {
-                            promotion_usages: {
-                                where: {
-                                    customer_id: customerId ?? '',
                                 },
                             },
                         },
@@ -79,15 +64,6 @@ function toVariantPromotion(
         promotionMarket === undefined ||
         price === null ||
         price === undefined
-    ) {
-        return null;
-    }
-
-    if (
-        !isPromotionAvailableForCustomer({
-            max_uses_per_customer: promotionMarket.max_uses_per_customer,
-            customer_usage_count: promotionMarket._count.promotion_usages,
-        })
     ) {
         return null;
     }
@@ -149,7 +125,6 @@ export function productListSummarySelect(
     variantStatus?: VariantStatus,
     marketVariantStatus: MarketVariantStatus = MarketVariantStatus.ACTIVE,
     includeStatus = true,
-    customerId?: string,
 ) {
     const hasVariantWhere =
         marketId !== undefined || variantStatus !== undefined;
@@ -210,7 +185,7 @@ export function productListSummarySelect(
                         currency: true,
                         sold_out: true,
                         promotion_market_variants:
-                            validPromotionMarketVariantSelect(customerId),
+                            validPromotionMarketVariantSelect(),
                     },
                 },
             },
@@ -328,11 +303,7 @@ function toVariantPromotions(
     }));
 }
 
-function marketVariantSelect(
-    marketId: string,
-    activeOnly: boolean,
-    customerId?: string,
-) {
+function marketVariantSelect(marketId: string, activeOnly: boolean) {
     return {
         where: {
             ...(activeOnly && { status: MarketVariantStatus.ACTIVE }),
@@ -346,8 +317,7 @@ function marketVariantSelect(
             price: true,
             currency: true,
             sold_out: true,
-            promotion_market_variants:
-                validPromotionMarketVariantSelect(customerId),
+            promotion_market_variants: validPromotionMarketVariantSelect(),
         },
     } satisfies Prisma.MarketVariantFindManyArgs;
 }
@@ -367,10 +337,7 @@ function staffMarketVariantSelect(marketId: string) {
     } satisfies Prisma.MarketVariantFindManyArgs;
 }
 
-export function productDetailWithMarketSelect(
-    marketId: string,
-    customerId?: string,
-) {
+export function productDetailWithMarketSelect(marketId: string) {
     return {
         ...productDetailSelect,
         status: false,
@@ -392,11 +359,7 @@ export function productDetailWithMarketSelect(
                         image_url: true,
                     },
                 },
-                market_variants: marketVariantSelect(
-                    marketId,
-                    true,
-                    customerId,
-                ),
+                market_variants: marketVariantSelect(marketId, true),
             },
         },
     } satisfies Prisma.ProductSelect;
