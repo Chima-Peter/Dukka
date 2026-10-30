@@ -100,6 +100,78 @@ export class CartRepository {
         return toCartView(cart);
     }
 
+    async syncPromotions(cartId: string): Promise<CartView> {
+        return await this.prisma.$transaction(async (tx) => {
+            const cart = await tx.cart.findUnique({
+                where: { id: cartId },
+                select: {
+                    id: true,
+                    items: {
+                        select: {
+                            id: true,
+                            market_variant_id: true,
+                            promotion_market_id: true,
+                        },
+                    },
+                },
+            });
+
+            if (!cart) {
+                throw new NotFoundException('Cart not found');
+            }
+
+            const removedItemIds = new Set<string>();
+
+            for (const item of cart.items) {
+                if (item.promotion_market_id === null) {
+                    continue;
+                }
+
+                const valid = await this.isValidPromotionForVariant(
+                    tx,
+                    item.market_variant_id,
+                    item.promotion_market_id,
+                );
+
+                if (!valid) {
+                    await tx.cartItems.update({
+                        where: { id: item.id },
+                        data: { promotion_market_id: null },
+                    });
+                    removedItemIds.add(item.id);
+                }
+            }
+
+            const updated = await tx.cart.findUnique({
+                where: { id: cartId },
+                select: cartSelect,
+            });
+
+            if (!updated) {
+                throw new NotFoundException('Cart not found');
+            }
+
+            const view = toCartView(updated);
+
+            if (removedItemIds.size === 0) {
+                return view;
+            }
+
+            return {
+                ...view,
+                items: view.items.map((item) =>
+                    removedItemIds.has(item.id)
+                        ? {
+                              ...item,
+                              promotion_warning:
+                                  'Promotion is not active and was removed',
+                          }
+                        : item,
+                ),
+            };
+        });
+    }
+
     async findByCustomerId(customerId: string): Promise<CartView> {
         const cart = await this.prisma.cart.findUnique({
             where: { customer_id: customerId },

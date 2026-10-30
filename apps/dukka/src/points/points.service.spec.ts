@@ -13,6 +13,7 @@ describe('PointsService', () => {
                     provide: PointsRepository,
                     useValue: {
                         findHistory: vi.fn(),
+                        findBalance: vi.fn(),
                         earn: vi.fn(),
                         redeem: vi.fn(),
                     },

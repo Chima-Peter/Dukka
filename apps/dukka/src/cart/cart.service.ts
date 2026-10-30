@@ -74,6 +74,50 @@ export class CartService {
         }
     }
 
+    async getForCustomerWithSyncedTotal(cartId: string): Promise<CartView> {
+        try {
+            this.logger.log(
+                `Fetching cart ${cartId} with promotions checked and total synced`,
+            );
+            const cart = await this.syncPromotionsAndTotal(cartId);
+            this.logger.log(
+                `Cart ${cartId} promotions checked and total synced`,
+            );
+            return cart;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async getForGuestWithSyncedTotal(cartId: string): Promise<CartView> {
+        try {
+            this.logger.log(
+                `Fetching guest cart ${cartId} with promotions checked and total synced`,
+            );
+            const cart = await this.syncPromotionsAndTotal(cartId);
+
+            if (cart.customer_id !== null) {
+                throw new BadRequestException(
+                    'Cannot access a customer cart as a guest',
+                );
+            }
+
+            this.logger.log(
+                `Guest cart ${cartId} promotions checked and total synced`,
+            );
+            return cart;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private async syncPromotionsAndTotal(cartId: string): Promise<CartView> {
+        const cart = await this.cartRepository.syncPromotions(cartId);
+        const total = this.calculateTotal(cart.items);
+        await this.cartRepository.setTotal(cart.id, total);
+        return { ...cart, total };
+    }
+
     async getTotalForGuest(cartId: string): Promise<CartTotalView> {
         try {
             this.logger.log(`Calculating total for guest cart ${cartId}`);

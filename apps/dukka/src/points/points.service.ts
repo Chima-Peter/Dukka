@@ -42,6 +42,22 @@ export class PointsService {
         }
     }
 
+    async getBalance(customer_id: string): Promise<number> {
+        try {
+            this.logger.log(
+                `Fetching points balance for customer ${customer_id}`,
+            );
+            const balance =
+                await this.pointsRepository.findBalance(customer_id);
+            this.logger.log(
+                `Fetched points balance for customer ${customer_id}: ${balance}`,
+            );
+            return balance;
+        } catch (error) {
+            this.handleError(error, customer_id);
+        }
+    }
+
     async earn(
         customer_id: string,
         data: CreatePointsHistoryDto,

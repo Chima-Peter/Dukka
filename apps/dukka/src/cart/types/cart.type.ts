@@ -16,6 +16,7 @@ export type CartItemView = {
     discount_amount: Prisma.Decimal;
     currency: string;
     sold_out: boolean;
+    promotion_warning: string | null;
     created_at: Date;
     updated_at: Date;
 };

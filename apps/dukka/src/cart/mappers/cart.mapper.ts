@@ -104,6 +104,7 @@ export function toCartItemView(row: CartItemRow): CartItemView {
         discount_amount,
         currency: row.market_variant.currency,
         sold_out: row.market_variant.sold_out,
+        promotion_warning: null,
         created_at: row.created_at,
         updated_at: row.updated_at,
     };

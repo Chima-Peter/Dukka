@@ -108,6 +108,15 @@ export class PointsRepository {
         });
     }
 
+    async findBalance(customer_id: string): Promise<number> {
+        const points = await this.prisma.points.findUnique({
+            where: { customer_id },
+            select: { balance: true },
+        });
+
+        return points?.balance ?? 0;
+    }
+
     async findHistory(
         customer_id: string,
         query: FindPointsHistoryDto,
