@@ -49,6 +49,7 @@ describe('ProductVariantService', () => {
                 {
                     provide: ProductVariantRepository,
                     useValue: {
+                        findMarketVariants: vi.fn(),
                         createVariant: vi.fn(),
                         findVariantInProduct: vi.fn(),
                         findVariantsInProduct: vi.fn(),

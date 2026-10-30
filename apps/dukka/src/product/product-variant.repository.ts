@@ -7,12 +7,76 @@ import {
     VariantStatus,
     PrismaService,
 } from '@app/common';
+import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
 
 @Injectable()
 export class ProductVariantRepository {
     constructor(private readonly prisma: PrismaService) {}
+
+    async findMarketVariants(
+        query: FindMarketVariantsDto,
+        marketIds: string[],
+    ) {
+        if (marketIds.length === 0) {
+            return { items: [], next_cursor: null };
+        }
+
+        const limit = query.limit ?? 50;
+        const records = await this.prisma.marketVariant.findMany({
+            where: {
+                market_id: { in: marketIds },
+                status:
+                    query.market_variant_status ?? MarketVariantStatus.ACTIVE,
+                ...(query.product_id !== undefined && {
+                    variant: { product_id: query.product_id },
+                }),
+            },
+            select: {
+                id: true,
+                variant: {
+                    select: {
+                        variant_code: true,
+                        image: { select: { image_url: true } },
+                        product: {
+                            select: {
+                                name: true,
+                                images: {
+                                    where: { sort_order: 0 },
+                                    take: 1,
+                                    select: { image_url: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const page = hasMore ? records.slice(0, limit) : records;
+        const items = page.map((row) => ({
+            id: row.id,
+            product_name: row.variant.product.name,
+            sku: row.variant.variant_code,
+            image_url:
+                row.variant.image?.image_url ??
+                row.variant.product.images[0]?.image_url ??
+                null,
+        }));
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
+        };
+    }
 
     async createVariant(
         productId: string,

@@ -22,6 +22,7 @@ import {
 } from '@app/common';
 import { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import { CreateVariantDto } from './dto/create-variant.dto.js';
+import { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import { PendingUpdateIdsDto } from './dto/pending-update-ids.dto.js';
 import { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
@@ -35,6 +36,18 @@ export class ProductVariantController {
     constructor(
         private readonly productVariantService: ProductVariantService,
     ) {}
+
+    @Get('market-variants')
+    @ResponseMessage('Market variants retrieved successfully')
+    findMarketVariants(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindMarketVariantsDto,
+    ) {
+        return this.productVariantService.findMarketVariants(
+            query,
+            staff.market_ids,
+        );
+    }
 
     @Get('variant-pending-updates')
     @ResponseMessage('Variant pending updates retrieved successfully')

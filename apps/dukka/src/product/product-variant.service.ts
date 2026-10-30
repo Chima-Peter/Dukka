@@ -26,6 +26,7 @@ import {
 } from '../shared/prisma-relation-error.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateVariantDto } from './dto/create-variant.dto.js';
+import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
@@ -425,6 +426,24 @@ export class ProductVariantService {
             return marketVariant;
         } catch (error) {
             this.handleError(error, 'Market variant not found');
+        }
+    }
+
+    async findMarketVariants(
+        query: FindMarketVariantsDto,
+        staffMarketIds: string[],
+    ) {
+        try {
+            this.logger.log('Fetching market variants');
+            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            const page = await this.productVariantRepository.findMarketVariants(
+                query,
+                [query.market_id],
+            );
+            this.logger.log('Fetched market variants');
+            return page;
+        } catch (error) {
+            this.handleError(error);
         }
     }
 
