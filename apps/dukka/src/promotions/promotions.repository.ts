@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import {
     type Discount,
     type Promotion,
-    PromotionMarketScope,
     PromotionMarketStatus,
     PromotionStatus,
     type Prisma,
@@ -19,10 +18,8 @@ import type { UpdatePromotionDto } from './dto/update-promotion.dto.js';
 import type { UpdatePromotionMarketDto } from './dto/update-promotion-market.dto.js';
 import {
     TARGET_PAGE_SIZE,
-    categoryTargetInclude,
     discountSummarySelect,
     marketSummarySelect,
-    productTargetInclude,
     promotionUsageSelect,
     variantTargetInclude,
     type DiscountSummary,
@@ -227,37 +224,87 @@ export class PromotionsRepository {
             data: {
                 max_total_uses: data.max_total_uses,
                 max_uses_per_customer: data.max_uses_per_customer,
-                scope: data.scope,
                 start_date: data.start_date,
                 end_date: data.end_date,
                 promotion: { connect: { id: promotionId } },
                 market: { connect: { id: data.market_id } },
-                ...(data.scope === PromotionMarketScope.CATEGORY && {
-                    promotion_market_categories: {
-                        create: data.category_ids!.map((category_id) => ({
-                            category: { connect: { id: category_id } },
-                        })),
-                    },
-                }),
-                ...(data.scope === PromotionMarketScope.PRODUCT && {
-                    promotion_market_products: {
-                        create: data.product_ids!.map((product_id) => ({
-                            product: { connect: { id: product_id } },
-                        })),
-                    },
-                }),
-                ...(data.scope === PromotionMarketScope.VARIANT && {
-                    promotion_market_variants: {
-                        create: data.variant_ids!.map((variant_id) => ({
-                            variant: { connect: { id: variant_id } },
-                        })),
-                    },
-                }),
+                promotion_market_variants: {
+                    create: data.variant_ids.map((variant_id) => ({
+                        variant: { connect: { id: variant_id } },
+                    })),
+                },
             },
             include: {
                 market: { select: marketSummarySelect },
             },
         });
+    }
+
+    async findConflictingVariantIds(
+        variantIds: string[],
+        startDate: Date,
+        endDate: Date,
+        excludePromotionMarketId?: string,
+    ): Promise<string[]> {
+        const conflicts = await this.prisma.promotionMarketVariant.findMany({
+            where: {
+                variant_id: { in: variantIds },
+                ...(excludePromotionMarketId !== undefined && {
+                    promotion_market_id: { not: excludePromotionMarketId },
+                }),
+                promotion_market: {
+                    status: PromotionMarketStatus.ACTIVE,
+                    start_date: { lt: endDate },
+                    end_date: { gt: startDate },
+                    promotion: { status: PromotionStatus.ACTIVE },
+                },
+            },
+            select: { variant_id: true },
+            distinct: ['variant_id'],
+        });
+        return conflicts.map((row) => row.variant_id);
+    }
+
+    async findPromotionMarketVariantIds(
+        promotionMarketId: string,
+    ): Promise<string[]> {
+        const rows = await this.prisma.promotionMarketVariant.findMany({
+            where: { promotion_market_id: promotionMarketId },
+            select: { variant_id: true },
+        });
+        return rows.map((row) => row.variant_id);
+    }
+
+    async addVariants(
+        promotionMarketId: string,
+        variantIds: string[],
+    ): Promise<PromotionMarketDetail> {
+        return await this.prisma.promotionMarket.update({
+            where: { id: promotionMarketId },
+            data: {
+                promotion_market_variants: {
+                    create: variantIds.map((variant_id) => ({
+                        variant: { connect: { id: variant_id } },
+                    })),
+                },
+            },
+            include: {
+                market: { select: marketSummarySelect },
+            },
+        });
+    }
+
+    async removeVariants(
+        promotionMarketId: string,
+        variantIds: string[],
+    ): Promise<number> {
+        const result = await this.prisma.promotionMarketVariant.deleteMany({
+            where: {
+                promotion_market_id: promotionMarketId,
+                variant_id: { in: variantIds },
+            },
+        });
+        return result.count;
     }
 
     async findPromotionStatus(
@@ -303,7 +350,6 @@ export class PromotionsRepository {
             },
             select: {
                 id: true,
-                scope: true,
                 status: true,
                 market_id: true,
                 start_date: true,
@@ -327,45 +373,10 @@ export class PromotionsRepository {
 
     async findMarketTargets(
         promotionMarketId: string,
-        scope: PromotionMarketScope,
         query: FindPromotionMarketTargetsDto,
     ): Promise<PromotionTargetPage> {
-        if (scope === PromotionMarketScope.ALL) {
-            return { items: [], next_cursor: null };
-        }
-
         let limit = query.limit ?? TARGET_PAGE_SIZE;
-
         limit = Math.max(limit, TARGET_PAGE_SIZE);
-
-        if (scope === PromotionMarketScope.CATEGORY) {
-            const records =
-                await this.prisma.promotionMarketCategory.findMany({
-                    where: { promotion_market_id: promotionMarketId },
-                    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-                    take: limit + 1,
-                    ...(query.cursor !== undefined && {
-                        cursor: { id: query.cursor },
-                        skip: 1,
-                    }),
-                    include: categoryTargetInclude,
-                });
-            return this.toTargetPage(records, limit);
-        }
-
-        if (scope === PromotionMarketScope.PRODUCT) {
-            const records = await this.prisma.promotionMarketProduct.findMany({
-                where: { promotion_market_id: promotionMarketId },
-                orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-                take: limit + 1,
-                ...(query.cursor !== undefined && {
-                    cursor: { id: query.cursor },
-                    skip: 1,
-                }),
-                include: productTargetInclude,
-            });
-            return this.toTargetPage(records, limit);
-        }
 
         const records = await this.prisma.promotionMarketVariant.findMany({
             where: { promotion_market_id: promotionMarketId },

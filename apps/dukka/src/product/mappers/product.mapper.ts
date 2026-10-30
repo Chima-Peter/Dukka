@@ -8,7 +8,6 @@ import type { ProductImageRecord } from '../types/product.type.js';
 export function productPromotionMarketSelect(customerId?: string) {
     return {
         id: true,
-        scope: true,
         start_date: true,
         end_date: true,
         max_total_uses: true,
@@ -283,7 +282,6 @@ export function productStaffDetailWithMarketSelect(marketId: string) {
 export function toProductPromotions<
     T extends {
         id: string;
-        scope: string;
         start_date: Date;
         end_date: Date;
         max_total_uses: number;
@@ -311,7 +309,6 @@ export function toProductPromotions<
 ) {
     return promotionMarkets.map(({ _count, promotion, ...market }) => ({
         promotion_market_id: market.id,
-        scope: market.scope,
         start_date: market.start_date,
         end_date: market.end_date,
         max_total_uses: market.max_total_uses,

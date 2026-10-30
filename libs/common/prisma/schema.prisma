@@ -478,8 +478,6 @@ model MarketCategory {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  promotion_market_categories PromotionMarketCategory[]
-
   @@unique([market_id, category_id])
 }
 
@@ -507,7 +505,6 @@ model Product {
   images          ProductImage[]
   variants        Variant[]
   pending_updates ProductPendingUpdate[]
-  promotion_market_products PromotionMarketProduct[]
 
   category_id String
   category    Category @relation(fields: [category_id], references: [id], onDelete: Restrict)
@@ -1045,19 +1042,11 @@ enum PromotionMarketStatus {
   EXPIRED
 }
 
-enum PromotionMarketScope {
-  ALL
-  PRODUCT
-  CATEGORY
-  VARIANT
-}
-
 model PromotionMarket {
   id String @id @default(uuid())
   status PromotionMarketStatus @default(ACTIVE)
   max_total_uses Int @default(0)
   max_uses_per_customer Int @default(0)
-  scope PromotionMarketScope
 
   start_date DateTime
   end_date DateTime
@@ -1071,8 +1060,6 @@ model PromotionMarket {
   market_id String
   market Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
 
-  promotion_market_categories PromotionMarketCategory[]
-  promotion_market_products PromotionMarketProduct[]
   promotion_market_variants PromotionMarketVariant[]
   promotion_usages PromotionUsage[]
 
@@ -1080,40 +1067,6 @@ model PromotionMarket {
   @@index([promotion_id])
   @@index([market_id])
   @@index([start_date, end_date])
-}
-
-model PromotionMarketCategory {
-  id String @id @default(uuid())
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  promotion_market_id String
-  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Cascade)
-
-  category_id String
-  category MarketCategory @relation(fields: [category_id], references: [id], onDelete: Restrict)
-
-  @@unique([promotion_market_id, category_id])
-  @@index([promotion_market_id])
-  @@index([category_id])
-}
-
-model PromotionMarketProduct {
-  id String @id @default(uuid())
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  promotion_market_id String
-  promotion_market PromotionMarket @relation(fields: [promotion_market_id], references: [id], onDelete: Cascade)
-
-  product_id String
-  product Product @relation(fields: [product_id], references: [id], onDelete: Restrict)
-
-  @@unique([promotion_market_id, product_id])
-  @@index([promotion_market_id])
-  @@index([product_id])
 }
 
 model PromotionMarketVariant {

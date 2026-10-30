@@ -47,6 +47,8 @@ describe('PromotionsController', () => {
                         deactivate: vi.fn(),
                         activateMarket: vi.fn(),
                         deactivateMarket: vi.fn(),
+                        addVariants: vi.fn(),
+                        removeVariants: vi.fn(),
                         findOne: vi.fn(),
                         findMarketTargets: vi.fn(),
                     },

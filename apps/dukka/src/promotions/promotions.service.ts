@@ -12,7 +12,6 @@ import {
     type Discount,
     DiscountType,
     type Promotion,
-    PromotionMarketScope,
     PromotionMarketStatus,
     PromotionStatus,
 } from '@app/common';
@@ -22,6 +21,7 @@ import type { CreatePromotionDto } from './dto/create-promotion.dto.js';
 import type { FindPromotionMarketTargetsDto } from './dto/find-promotion-market-targets.dto.js';
 import type { FindPromotionUsagesDto } from './dto/find-promotion-usages.dto.js';
 import type { FindPromotionsDto } from './dto/find-promotions.dto.js';
+import type { PromotionMarketVariantsDto } from './dto/promotion-market-variants.dto.js';
 import type { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import type { UpdatePromotionDto } from './dto/update-promotion.dto.js';
 import type { UpdatePromotionMarketDto } from './dto/update-promotion-market.dto.js';
@@ -148,6 +148,11 @@ export class PromotionsService {
             );
             assertStaffHasMarkets(staffMarketIds, [data.market_id]);
             this.validatePromotionMarketRules(data);
+            await this.assertNoValidVariantConflicts(
+                data.variant_ids,
+                new Date(data.start_date),
+                new Date(data.end_date),
+            );
 
             const promotionMarket = await this.promotionsRepository.addMarket(
                 promotionId,
@@ -253,6 +258,110 @@ export class PromotionsService {
         }
     }
 
+    async addVariants(
+        promotionId: string,
+        promotionMarketId: string,
+        data: PromotionMarketVariantsDto,
+        staffMarketIds: string[],
+    ): Promise<PromotionMarketDetail> {
+        try {
+            this.logger.log(
+                `Adding ${data.variant_ids.length} variant(s) to promotion market ${promotionMarketId}`,
+            );
+            const existing =
+                await this.promotionsRepository.findPromotionMarket(
+                    promotionId,
+                    promotionMarketId,
+                );
+            if (!existing) {
+                throw new NotFoundException('Promotion market not found');
+            }
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+
+            if (existing.status === PromotionMarketStatus.EXPIRED) {
+                throw new BadRequestException(
+                    'Expired promotion markets cannot be updated',
+                );
+            }
+
+            if (existing.status === PromotionMarketStatus.INACTIVE) {
+                throw new BadRequestException(
+                    'Inactive promotion markets cannot be updated',
+                );
+            }
+
+            await this.assertNoValidVariantConflicts(
+                data.variant_ids,
+                existing.start_date,
+                existing.end_date,
+                existing.id,
+            );
+
+            const promotionMarket =
+                await this.promotionsRepository.addVariants(
+                    existing.id,
+                    data.variant_ids,
+                );
+            this.logger.log(
+                `Added variants to promotion market ${promotionMarketId}`,
+            );
+            return promotionMarket;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async removeVariants(
+        promotionId: string,
+        promotionMarketId: string,
+        data: PromotionMarketVariantsDto,
+        staffMarketIds: string[],
+    ): Promise<{ removed: number }> {
+        try {
+            this.logger.log(
+                `Removing ${data.variant_ids.length} variant(s) from promotion market ${promotionMarketId}`,
+            );
+            const existing =
+                await this.promotionsRepository.findPromotionMarket(
+                    promotionId,
+                    promotionMarketId,
+                );
+            if (!existing) {
+                throw new NotFoundException('Promotion market not found');
+            }
+            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+
+            if (existing.status === PromotionMarketStatus.EXPIRED) {
+                throw new BadRequestException(
+                    'Expired promotion markets cannot be updated',
+                );
+            }
+
+            if (existing.status === PromotionMarketStatus.INACTIVE) {
+                throw new BadRequestException(
+                    'Inactive promotion markets cannot be updated',
+                );
+            }
+
+            const removed = await this.promotionsRepository.removeVariants(
+                existing.id,
+                data.variant_ids,
+            );
+            if (removed === 0) {
+                throw new NotFoundException(
+                    'None of the variants are assigned to this promotion market',
+                );
+            }
+
+            this.logger.log(
+                `Removed ${removed} variant(s) from promotion market ${promotionMarketId}`,
+            );
+            return { removed };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async activate(id: string): Promise<Promotion> {
         try {
             this.logger.log(`Activating promotion ${id}`);
@@ -334,6 +443,16 @@ export class PromotionsService {
                     'Promotion market is already active',
                 );
             }
+            const variantIds =
+                await this.promotionsRepository.findPromotionMarketVariantIds(
+                    existing.id,
+                );
+            await this.assertNoValidVariantConflicts(
+                variantIds,
+                existing.start_date,
+                existing.end_date,
+                existing.id,
+            );
             const promotionMarket =
                 await this.promotionsRepository.setPromotionMarketStatus(
                     existing.id,
@@ -407,7 +526,6 @@ export class PromotionsService {
             }
             const targets = await this.promotionsRepository.findMarketTargets(
                 promotionMarket.id,
-                promotionMarket.scope,
                 query,
             );
             this.logger.log(
@@ -471,43 +589,34 @@ export class PromotionsService {
             );
         }
 
-        if (data.scope === PromotionMarketScope.ALL) {
-            if (
-                (data.category_ids?.length ?? 0) > 0 ||
-                (data.product_ids?.length ?? 0) > 0 ||
-                (data.variant_ids?.length ?? 0) > 0
-            ) {
-                throw new BadRequestException(
-                    'Target ids are not allowed when scope is ALL',
-                );
-            }
+        if (data.variant_ids.length === 0) {
+            throw new BadRequestException(
+                'variant_ids are required',
+            );
+        }
+    }
+
+    private async assertNoValidVariantConflicts(
+        variantIds: string[],
+        startDate: Date,
+        endDate: Date,
+        excludePromotionMarketId?: string,
+    ): Promise<void> {
+        if (variantIds.length === 0) {
             return;
         }
 
-        if (
-            data.scope === PromotionMarketScope.CATEGORY &&
-            (data.category_ids?.length ?? 0) === 0
-        ) {
-            throw new BadRequestException(
-                'category_ids are required when scope is CATEGORY',
+        const conflictingVariantIds =
+            await this.promotionsRepository.findConflictingVariantIds(
+                variantIds,
+                startDate,
+                endDate,
+                excludePromotionMarketId,
             );
-        }
 
-        if (
-            data.scope === PromotionMarketScope.PRODUCT &&
-            (data.product_ids?.length ?? 0) === 0
-        ) {
-            throw new BadRequestException(
-                'product_ids are required when scope is PRODUCT',
-            );
-        }
-
-        if (
-            data.scope === PromotionMarketScope.VARIANT &&
-            (data.variant_ids?.length ?? 0) === 0
-        ) {
-            throw new BadRequestException(
-                'variant_ids are required when scope is VARIANT',
+        if (conflictingVariantIds.length > 0) {
+            throw new ConflictException(
+                'One or more variants already have a valid promotion for this period',
             );
         }
     }
@@ -536,16 +645,6 @@ export class PromotionsService {
                 ) {
                     throw new ConflictException(
                         'Promotion already assigned to this market',
-                    );
-                }
-                if (target.includes('category_id')) {
-                    throw new ConflictException(
-                        'Category already assigned to this promotion market',
-                    );
-                }
-                if (target.includes('product_id')) {
-                    throw new ConflictException(
-                        'Product already assigned to this promotion market',
                     );
                 }
                 if (target.includes('variant_id')) {
@@ -588,12 +687,6 @@ export class PromotionsService {
         if (model === 'market') {
             return new NotFoundException('Market not found');
         }
-        if (model === 'marketcategory' || model === 'category') {
-            return new NotFoundException('Category not found');
-        }
-        if (model === 'product') {
-            return new NotFoundException('Product not found');
-        }
         if (model === 'marketvariant' || model === 'variant') {
             return new NotFoundException('Variant not found');
         }
@@ -606,12 +699,6 @@ export class PromotionsService {
         }
         if (prismaHintIncludes(error, 'market_id', "'market'")) {
             return new NotFoundException('Market not found');
-        }
-        if (prismaHintIncludes(error, 'category_id', "'marketcategory'")) {
-            return new NotFoundException('Category not found');
-        }
-        if (prismaHintIncludes(error, 'product_id', "'product'")) {
-            return new NotFoundException('Product not found');
         }
         if (
             prismaHintIncludes(

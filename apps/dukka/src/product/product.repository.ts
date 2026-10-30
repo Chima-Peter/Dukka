@@ -4,7 +4,6 @@ import {
     Prisma,
     ProductPendingUpdateStatus,
     ProductStatus,
-    PromotionMarketScope,
     PromotionMarketStatus,
     PromotionStatus,
     VariantStatus,
@@ -313,41 +312,14 @@ export class ProductRepository {
                 start_date: { lte: now },
                 end_date: { gte: now },
                 promotion: { status: PromotionStatus.ACTIVE },
-                OR: [
-                    { scope: PromotionMarketScope.ALL },
-                    {
-                        scope: PromotionMarketScope.PRODUCT,
-                        promotion_market_products: {
-                            some: { product_id: productId },
+                promotion_market_variants: {
+                    some: {
+                        variant: {
+                            market_id: marketId,
+                            variant: { product_id: productId },
                         },
                     },
-                    {
-                        scope: PromotionMarketScope.CATEGORY,
-                        promotion_market_categories: {
-                            some: {
-                                category: {
-                                    market_id: marketId,
-                                    category: {
-                                        products: {
-                                            some: { id: productId },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    {
-                        scope: PromotionMarketScope.VARIANT,
-                        promotion_market_variants: {
-                            some: {
-                                variant: {
-                                    market_id: marketId,
-                                    variant: { product_id: productId },
-                                },
-                            },
-                        },
-                    },
-                ],
+                },
             },
             select: productPromotionMarketSelect(customerId),
             orderBy: { created_at: 'desc' },

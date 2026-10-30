@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     HttpCode,
     HttpStatus,
@@ -24,6 +25,7 @@ import { CreatePromotionDto } from './dto/create-promotion.dto.js';
 import { FindPromotionMarketTargetsDto } from './dto/find-promotion-market-targets.dto.js';
 import { FindPromotionUsagesDto } from './dto/find-promotion-usages.dto.js';
 import { FindPromotionsDto } from './dto/find-promotions.dto.js';
+import { PromotionMarketVariantsDto } from './dto/promotion-market-variants.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import { UpdatePromotionDto } from './dto/update-promotion.dto.js';
 import { UpdatePromotionMarketDto } from './dto/update-promotion-market.dto.js';
@@ -141,6 +143,41 @@ export class PromotionsController {
         return this.promotionsService.deactivateMarket(
             id,
             promotionMarketId,
+            staff.market_ids,
+        );
+    }
+
+    @Post(':id/markets/:promotionMarketId/variants')
+    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @ResponseMessage('Variants added to promotion market successfully')
+    addVariants(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('promotionMarketId', ParseUUIDPipe) promotionMarketId: string,
+        @Body() data: PromotionMarketVariantsDto,
+    ) {
+        return this.promotionsService.addVariants(
+            id,
+            promotionMarketId,
+            data,
+            staff.market_ids,
+        );
+    }
+
+    @Delete(':id/markets/:promotionMarketId/variants')
+    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Variants removed from promotion market successfully')
+    removeVariants(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('promotionMarketId', ParseUUIDPipe) promotionMarketId: string,
+        @Body() data: PromotionMarketVariantsDto,
+    ) {
+        return this.promotionsService.removeVariants(
+            id,
+            promotionMarketId,
+            data,
             staff.market_ids,
         );
     }

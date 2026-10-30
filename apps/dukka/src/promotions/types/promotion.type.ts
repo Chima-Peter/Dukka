@@ -2,7 +2,6 @@ import type {
     Discount,
     Promotion,
     PromotionMarket,
-    PromotionMarketScope,
     PromotionMarketStatus,
     PromotionStatus,
 } from '@app/common';
@@ -13,30 +12,6 @@ export const marketSummarySelect = {
     id: true,
     name: true,
     code: true,
-} as const;
-
-export const categoryTargetInclude = {
-    category: {
-        select: {
-            id: true,
-            category: { select: { id: true, name: true } },
-        },
-    },
-} as const;
-
-export const productTargetInclude = {
-    product: {
-        select: {
-            id: true,
-            name: true,
-            status: true,
-            images: {
-                orderBy: { sort_order: 'asc' as const },
-                take: 1,
-                select: { image_url: true },
-            },
-        },
-    },
 } as const;
 
 export const variantTargetInclude = {
@@ -110,7 +85,6 @@ export type PromotionMarketDetail = PromotionMarket & {
 
 export type PromotionMarketStatusRecord = {
     id: string;
-    scope: PromotionMarketScope;
     status: PromotionMarketStatus;
     market_id: string;
     start_date: Date;
