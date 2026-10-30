@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+import { IsInt, IsUUID, Min } from 'class-validator';
 
 export class AddCartItemDto {
     @IsUUID()
@@ -9,8 +9,4 @@ export class AddCartItemDto {
     @IsInt()
     @Min(1)
     quantity!: number;
-
-    @IsOptional()
-    @IsUUID()
-    promotion_market_id?: string;
 }

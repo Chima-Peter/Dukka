@@ -13,8 +13,4 @@ export class AddGuestCartItemDto {
     @IsInt()
     @Min(1)
     quantity!: number;
-
-    @IsOptional()
-    @IsUUID()
-    promotion_market_id?: string;
 }

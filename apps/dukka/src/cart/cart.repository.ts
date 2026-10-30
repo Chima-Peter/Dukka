@@ -56,35 +56,25 @@ export class CartRepository {
         return link !== null;
     }
 
-    private async resolvePromotionMarketId(
+    private async findPromotionMarketIdForVariant(
         tx: Prisma.TransactionClient,
         marketVariantId: string,
-        promotionMarketId: string | undefined,
-    ): Promise<{
-        promotionMarketId: string | null | undefined;
-        promotionApplied: boolean | null;
-    }> {
-        if (promotionMarketId === undefined) {
-            return { promotionMarketId: undefined, promotionApplied: null };
-        }
+    ): Promise<string | null> {
+        const now = new Date();
+        const link = await tx.promotionMarketVariant.findFirst({
+            where: {
+                variant_id: marketVariantId,
+                promotion_market: {
+                    status: PromotionMarketStatus.ACTIVE,
+                    start_date: { lte: now },
+                    end_date: { gte: now },
+                    promotion: { status: PromotionStatus.ACTIVE },
+                },
+            },
+            select: { promotion_market_id: true },
+        });
 
-        const valid = await this.isValidPromotionForVariant(
-            tx,
-            marketVariantId,
-            promotionMarketId,
-        );
-
-        if (valid) {
-            return {
-                promotionMarketId,
-                promotionApplied: true,
-            };
-        }
-
-        return {
-            promotionMarketId: null,
-            promotionApplied: false,
-        };
+        return link?.promotion_market_id ?? null;
     }
 
     async findByCartId(cartId: string): Promise<CartView> {
@@ -235,15 +225,14 @@ export class CartRepository {
         cartId: string,
         marketVariantId: string,
         quantity: number,
-        promotionMarketId?: string,
-    ): Promise<{ cart: CartView; promotionApplied: boolean | null }> {
+    ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
             await this.assertActiveMarketVariant(tx, marketVariantId);
-            const resolved = await this.resolvePromotionMarketId(
-                tx,
-                marketVariantId,
-                promotionMarketId,
-            );
+            const promotionMarketId =
+                await this.findPromotionMarketIdForVariant(
+                    tx,
+                    marketVariantId,
+                );
 
             const cart = await tx.cart.update({
                 where: { id: cartId },
@@ -259,19 +248,11 @@ export class CartRepository {
                             create: {
                                 market_variant_id: marketVariantId,
                                 quantity,
-                                ...(resolved.promotionMarketId !==
-                                    undefined && {
-                                    promotion_market_id:
-                                        resolved.promotionMarketId,
-                                }),
+                                promotion_market_id: promotionMarketId,
                             },
                             update: {
                                 quantity: { increment: quantity },
-                                ...(resolved.promotionMarketId !==
-                                    undefined && {
-                                    promotion_market_id:
-                                        resolved.promotionMarketId,
-                                }),
+                                promotion_market_id: promotionMarketId,
                             },
                         },
                     },
@@ -279,10 +260,7 @@ export class CartRepository {
                 select: cartSelect,
             });
 
-            return {
-                cart: toCartView(cart),
-                promotionApplied: resolved.promotionApplied,
-            };
+            return toCartView(cart);
         });
     }
 
@@ -290,22 +268,19 @@ export class CartRepository {
         marketVariantId: string,
         quantity: number,
         cartId?: string,
-        promotionMarketId?: string,
-    ): Promise<{ cart: CartView; promotionApplied: boolean | null }> {
+    ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
             await this.assertActiveMarketVariant(tx, marketVariantId);
-            const resolved = await this.resolvePromotionMarketId(
-                tx,
-                marketVariantId,
-                promotionMarketId,
-            );
+            const promotionMarketId =
+                await this.findPromotionMarketIdForVariant(
+                    tx,
+                    marketVariantId,
+                );
 
             const itemCreate = {
                 market_variant_id: marketVariantId,
                 quantity,
-                ...(resolved.promotionMarketId !== undefined && {
-                    promotion_market_id: resolved.promotionMarketId,
-                }),
+                promotion_market_id: promotionMarketId,
             };
 
             if (cartId === undefined) {
@@ -317,10 +292,7 @@ export class CartRepository {
                     },
                     select: cartSelect,
                 });
-                return {
-                    cart: toCartView(cart),
-                    promotionApplied: resolved.promotionApplied,
-                };
+                return toCartView(cart);
             }
 
             const cart = await tx.cart.upsert({
@@ -343,11 +315,7 @@ export class CartRepository {
                             create: itemCreate,
                             update: {
                                 quantity: { increment: quantity },
-                                ...(resolved.promotionMarketId !==
-                                    undefined && {
-                                    promotion_market_id:
-                                        resolved.promotionMarketId,
-                                }),
+                                promotion_market_id: promotionMarketId,
                             },
                         },
                     },
@@ -361,10 +329,7 @@ export class CartRepository {
                 );
             }
 
-            return {
-                cart: toCartView(cart),
-                promotionApplied: resolved.promotionApplied,
-            };
+            return toCartView(cart);
         });
     }
 

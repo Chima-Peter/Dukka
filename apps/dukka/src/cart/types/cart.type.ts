@@ -34,7 +34,3 @@ export type CartTotalView = {
     cart_id: string;
     total: Prisma.Decimal;
 };
-
-export type CartAddView = CartView & {
-    promotion_warning: string | null;
-};

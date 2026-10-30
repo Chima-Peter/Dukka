@@ -21,7 +21,6 @@ import type { DeleteGuestCartItemsDto } from './dto/delete-guest-cart-items.dto.
 import type { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto.js';
 import type { UpdateGuestCartItemQuantityDto } from './dto/update-guest-cart-item-quantity.dto.js';
 import type {
-    CartAddView,
     CartItemView,
     CartTotalView,
     CartView,
@@ -133,41 +132,37 @@ export class CartService {
     async addItemForCustomer(
         cartId: string,
         data: AddCartItemDto,
-    ): Promise<CartAddView> {
+    ): Promise<CartView> {
         try {
             this.logger.log(
                 `Adding item ${data.market_variant_id} x${data.quantity} to cart ${cartId}`,
             );
-            const { cart, promotionApplied } =
-                await this.cartRepository.addItemForCustomer(
-                    cartId,
-                    data.market_variant_id,
-                    data.quantity,
-                    data.promotion_market_id,
-                );
+            const cart = await this.cartRepository.addItemForCustomer(
+                cartId,
+                data.market_variant_id,
+                data.quantity,
+            );
             const updated = await this.applyTotal(cart);
             this.logger.log(`Cart ${updated.id} updated`);
-            return this.withPromotionWarning(updated, promotionApplied);
+            return updated;
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async addItemForGuest(data: AddGuestCartItemDto): Promise<CartAddView> {
+    async addItemForGuest(data: AddGuestCartItemDto): Promise<CartView> {
         try {
             this.logger.log(
                 `Adding item ${data.market_variant_id} x${data.quantity} for guest cart ${data.cart_id ?? 'new'}`,
             );
-            const { cart, promotionApplied } =
-                await this.cartRepository.addItemForGuest(
-                    data.market_variant_id,
-                    data.quantity,
-                    data.cart_id,
-                    data.promotion_market_id,
-                );
+            const cart = await this.cartRepository.addItemForGuest(
+                data.market_variant_id,
+                data.quantity,
+                data.cart_id,
+            );
             const updated = await this.applyTotal(cart);
             this.logger.log(`Guest cart ${updated.id} updated`);
-            return this.withPromotionWarning(updated, promotionApplied);
+            return updated;
         } catch (error) {
             this.handleError(error);
         }
@@ -260,19 +255,6 @@ export class CartService {
         } catch (error) {
             this.handleError(error);
         }
-    }
-
-    private withPromotionWarning(
-        cart: CartView,
-        promotionApplied: boolean | null,
-    ): CartAddView {
-        return {
-            ...cart,
-            promotion_warning:
-                promotionApplied === false
-                    ? 'Promotion is not active and was not applied'
-                    : null,
-        };
     }
 
     private async applyTotal(cart: CartView): Promise<CartView> {
