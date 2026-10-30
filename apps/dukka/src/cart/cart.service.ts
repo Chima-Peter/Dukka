@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { Prisma } from '@app/common';
+import { computeDiscountAmount } from '../promotions/utils/compute-discount-amount.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -20,6 +21,7 @@ import type { DeleteGuestCartItemsDto } from './dto/delete-guest-cart-items.dto.
 import type { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto.js';
 import type { UpdateGuestCartItemQuantityDto } from './dto/update-guest-cart-item-quantity.dto.js';
 import type {
+    CartAddView,
     CartItemView,
     CartTotalView,
     CartView,
@@ -87,35 +89,41 @@ export class CartService {
     async addItemForCustomer(
         cartId: string,
         data: AddCartItemDto,
-    ): Promise<CartView> {
+    ): Promise<CartAddView> {
         try {
             this.logger.log(
                 `Adding item ${data.market_variant_id} x${data.quantity} to cart ${cartId}`,
             );
-            const cart = await this.cartRepository.addItemForCustomer(
-                cartId,
-                data.market_variant_id,
-                data.quantity,
-            );
-            this.logger.log(`Cart ${cart.id} updated`);
-            return cart;
+            const { cart, promotionApplied } =
+                await this.cartRepository.addItemForCustomer(
+                    cartId,
+                    data.market_variant_id,
+                    data.quantity,
+                    data.promotion_market_id,
+                );
+            const updated = await this.applyTotal(cart);
+            this.logger.log(`Cart ${updated.id} updated`);
+            return this.withPromotionWarning(updated, promotionApplied);
         } catch (error) {
             this.handleError(error);
         }
     }
 
-    async addItemForGuest(data: AddGuestCartItemDto): Promise<CartView> {
+    async addItemForGuest(data: AddGuestCartItemDto): Promise<CartAddView> {
         try {
             this.logger.log(
                 `Adding item ${data.market_variant_id} x${data.quantity} for guest cart ${data.cart_id ?? 'new'}`,
             );
-            const cart = await this.cartRepository.addItemForGuest(
-                data.market_variant_id,
-                data.quantity,
-                data.cart_id,
-            );
-            this.logger.log(`Guest cart ${cart.id} updated`);
-            return cart;
+            const { cart, promotionApplied } =
+                await this.cartRepository.addItemForGuest(
+                    data.market_variant_id,
+                    data.quantity,
+                    data.cart_id,
+                    data.promotion_market_id,
+                );
+            const updated = await this.applyTotal(cart);
+            this.logger.log(`Guest cart ${updated.id} updated`);
+            return this.withPromotionWarning(updated, promotionApplied);
         } catch (error) {
             this.handleError(error);
         }
@@ -210,9 +218,22 @@ export class CartService {
         }
     }
 
+    private withPromotionWarning(
+        cart: CartView,
+        promotionApplied: boolean | null,
+    ): CartAddView {
+        return {
+            ...cart,
+            promotion_warning:
+                promotionApplied === false
+                    ? 'Promotion is not active and was not applied'
+                    : null,
+        };
+    }
+
     private async applyTotal(cart: CartView): Promise<CartView> {
         const total = this.calculateTotal(cart.items);
-        return await this.cartRepository.setTotal(cart.id, total);
+        return { ...cart, total };
     }
 
     private async syncTotal(cart: CartView): Promise<CartTotalView> {
@@ -223,12 +244,21 @@ export class CartService {
     }
 
     private calculateTotal(
-        items: Pick<CartItemView, 'quantity' | 'price'>[],
+        items: Pick<CartItemView, 'quantity' | 'price' | 'discount'>[],
     ): Prisma.Decimal {
-        return items.reduce(
-            (sum, item) => sum.plus(item.price.mul(item.quantity)),
-            new Prisma.Decimal(0),
-        );
+        return items.reduce((sum, item) => {
+            const discountAmount =
+                item.discount === null
+                    ? new Prisma.Decimal(0)
+                    : computeDiscountAmount(
+                          item.discount.type,
+                          item.discount.value,
+                          item.discount.max_discount_amount,
+                          item.price,
+                      );
+            const unitPrice = item.price.minus(discountAmount);
+            return sum.plus(unitPrice.mul(item.quantity));
+        }, new Prisma.Decimal(0));
     }
 
     private handleError(error: unknown): never {
@@ -264,6 +294,7 @@ export class CartService {
             ) {
                 throw new NotFoundException('Market variant not found');
             }
+
         }
 
         this.logger.error(`Internal server error: ${error}`);

@@ -7,6 +7,8 @@ import {
     MarketVariantStatus,
     Prisma,
     PrismaService,
+    PromotionMarketStatus,
+    PromotionStatus,
 } from '@app/common';
 import { cartSelect, toCartView } from './mappers/cart.mapper.js';
 import type { CartView } from './types/cart.type.js';
@@ -29,6 +31,60 @@ export class CartRepository {
         if (!marketVariant) {
             throw new NotFoundException('Market variant not found');
         }
+    }
+
+    private async isValidPromotionForVariant(
+        tx: Prisma.TransactionClient,
+        marketVariantId: string,
+        promotionMarketId: string,
+    ): Promise<boolean> {
+        const now = new Date();
+        const link = await tx.promotionMarketVariant.findFirst({
+            where: {
+                variant_id: marketVariantId,
+                promotion_market_id: promotionMarketId,
+                promotion_market: {
+                    status: PromotionMarketStatus.ACTIVE,
+                    start_date: { lte: now },
+                    end_date: { gte: now },
+                    promotion: { status: PromotionStatus.ACTIVE },
+                },
+            },
+            select: { id: true },
+        });
+
+        return link !== null;
+    }
+
+    private async resolvePromotionMarketId(
+        tx: Prisma.TransactionClient,
+        marketVariantId: string,
+        promotionMarketId: string | undefined,
+    ): Promise<{
+        promotionMarketId: string | null | undefined;
+        promotionApplied: boolean | null;
+    }> {
+        if (promotionMarketId === undefined) {
+            return { promotionMarketId: undefined, promotionApplied: null };
+        }
+
+        const valid = await this.isValidPromotionForVariant(
+            tx,
+            marketVariantId,
+            promotionMarketId,
+        );
+
+        if (valid) {
+            return {
+                promotionMarketId,
+                promotionApplied: true,
+            };
+        }
+
+        return {
+            promotionMarketId: null,
+            promotionApplied: false,
+        };
     }
 
     async findByCartId(cartId: string): Promise<CartView> {
@@ -107,9 +163,15 @@ export class CartRepository {
         cartId: string,
         marketVariantId: string,
         quantity: number,
-    ): Promise<CartView> {
+        promotionMarketId?: string,
+    ): Promise<{ cart: CartView; promotionApplied: boolean | null }> {
         return await this.prisma.$transaction(async (tx) => {
             await this.assertActiveMarketVariant(tx, marketVariantId);
+            const resolved = await this.resolvePromotionMarketId(
+                tx,
+                marketVariantId,
+                promotionMarketId,
+            );
 
             const cart = await tx.cart.update({
                 where: { id: cartId },
@@ -125,9 +187,19 @@ export class CartRepository {
                             create: {
                                 market_variant_id: marketVariantId,
                                 quantity,
+                                ...(resolved.promotionMarketId !==
+                                    undefined && {
+                                    promotion_market_id:
+                                        resolved.promotionMarketId,
+                                }),
                             },
                             update: {
                                 quantity: { increment: quantity },
+                                ...(resolved.promotionMarketId !==
+                                    undefined && {
+                                    promotion_market_id:
+                                        resolved.promotionMarketId,
+                                }),
                             },
                         },
                     },
@@ -135,7 +207,10 @@ export class CartRepository {
                 select: cartSelect,
             });
 
-            return toCartView(cart);
+            return {
+                cart: toCartView(cart),
+                promotionApplied: resolved.promotionApplied,
+            };
         });
     }
 
@@ -143,23 +218,37 @@ export class CartRepository {
         marketVariantId: string,
         quantity: number,
         cartId?: string,
-    ): Promise<CartView> {
+        promotionMarketId?: string,
+    ): Promise<{ cart: CartView; promotionApplied: boolean | null }> {
         return await this.prisma.$transaction(async (tx) => {
             await this.assertActiveMarketVariant(tx, marketVariantId);
+            const resolved = await this.resolvePromotionMarketId(
+                tx,
+                marketVariantId,
+                promotionMarketId,
+            );
+
+            const itemCreate = {
+                market_variant_id: marketVariantId,
+                quantity,
+                ...(resolved.promotionMarketId !== undefined && {
+                    promotion_market_id: resolved.promotionMarketId,
+                }),
+            };
 
             if (cartId === undefined) {
                 const cart = await tx.cart.create({
                     data: {
                         items: {
-                            create: {
-                                market_variant_id: marketVariantId,
-                                quantity,
-                            },
+                            create: itemCreate,
                         },
                     },
                     select: cartSelect,
                 });
-                return toCartView(cart);
+                return {
+                    cart: toCartView(cart),
+                    promotionApplied: resolved.promotionApplied,
+                };
             }
 
             const cart = await tx.cart.upsert({
@@ -167,10 +256,7 @@ export class CartRepository {
                 create: {
                     id: cartId,
                     items: {
-                        create: {
-                            market_variant_id: marketVariantId,
-                            quantity,
-                        },
+                        create: itemCreate,
                     },
                 },
                 update: {
@@ -182,12 +268,14 @@ export class CartRepository {
                                     market_variant_id: marketVariantId,
                                 },
                             },
-                            create: {
-                                market_variant_id: marketVariantId,
-                                quantity,
-                            },
+                            create: itemCreate,
                             update: {
                                 quantity: { increment: quantity },
+                                ...(resolved.promotionMarketId !==
+                                    undefined && {
+                                    promotion_market_id:
+                                        resolved.promotionMarketId,
+                                }),
                             },
                         },
                     },
@@ -201,7 +289,10 @@ export class CartRepository {
                 );
             }
 
-            return toCartView(cart);
+            return {
+                cart: toCartView(cart),
+                promotionApplied: resolved.promotionApplied,
+            };
         });
     }
 
@@ -230,20 +321,20 @@ export class CartRepository {
             const items = await tx.cartItems.findMany({
                 where: {
                     cart_id: cartId,
-                    id: { in: itemIds, },
+                    id: { in: itemIds },
                 },
-                select: { cart_id: true }
-            })
+                select: { cart_id: true },
+            });
             if (items.length != itemIds.length) {
                 throw new NotFoundException('One or more cart items not found');
             }
-            const result = await this.prisma.cartItems.deleteMany({
+            await this.prisma.cartItems.deleteMany({
                 where: {
                     cart_id: cartId,
                     id: { in: itemIds },
                 },
             });
-        })
+        });
     }
 
     async clearCart(cartId: string): Promise<void> {

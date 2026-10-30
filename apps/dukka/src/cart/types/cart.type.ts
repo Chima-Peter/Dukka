@@ -1,10 +1,19 @@
-import type { Prisma } from '@app/common';
+import type { DiscountType, Prisma } from '@app/common';
+
+export type CartItemDiscount = {
+    type: DiscountType;
+    value: Prisma.Decimal;
+    max_discount_amount: Prisma.Decimal;
+};
 
 export type CartItemView = {
     id: string;
     quantity: number;
     market_variant_id: string;
+    promotion_market_id: string | null;
     price: Prisma.Decimal;
+    discount: CartItemDiscount | null;
+    discount_amount: Prisma.Decimal;
     currency: string;
     sold_out: boolean;
     created_at: Date;
@@ -23,4 +32,8 @@ export type CartView = {
 export type CartTotalView = {
     cart_id: string;
     total: Prisma.Decimal;
+};
+
+export type CartAddView = CartView & {
+    promotion_warning: string | null;
 };

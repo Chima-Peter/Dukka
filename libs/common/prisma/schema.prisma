@@ -951,12 +951,16 @@ model CartItems {
   market_variant_id String
   market_variant    MarketVariant @relation(fields: [market_variant_id], references: [id], onDelete: Cascade)
 
+  promotion_market_id String?
+  promotion_market    PromotionMarket? @relation(fields: [promotion_market_id], references: [id], onDelete: SetNull)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@unique([cart_id, market_variant_id])
   @@index([cart_id])
   @@index([market_variant_id])
+  @@index([promotion_market_id])
 }
 
 enum NotificationType {
@@ -1060,6 +1064,7 @@ model PromotionMarket {
 
   promotion_market_variants PromotionMarketVariant[]
   promotion_usages PromotionUsage[]
+  cart_items CartItems[]
 
   @@unique([promotion_id, market_id])
   @@index([promotion_id])
