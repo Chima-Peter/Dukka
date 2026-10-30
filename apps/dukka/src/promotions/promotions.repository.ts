@@ -114,7 +114,16 @@ export class PromotionsRepository {
             where: {
                 ...(query.status !== undefined && { status: query.status }),
                 promotion_markets: {
-                    some: { market_id: query.market_id },
+                    some: {
+                        market_id: query.market_id,
+                        ...(query.market_variant_id !== undefined && {
+                            promotion_market_variants: {
+                                some: {
+                                    variant_id: query.market_variant_id,
+                                },
+                            },
+                        }),
+                    },
                 },
             },
             orderBy: { created_at: 'desc' },

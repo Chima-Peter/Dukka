@@ -1,45 +1,118 @@
 import {
+    DiscountType,
     MarketVariantStatus,
+    PromotionMarketStatus,
+    PromotionStatus,
     VariantStatus,
     type Prisma,
 } from '@app/common';
+import {
+    computeDiscountAmount,
+    isPromotionAvailableForCustomer,
+} from '../../promotions/utils/compute-discount-amount.js';
 import type { ProductImageRecord } from '../types/product.type.js';
 
-export function productPromotionMarketSelect(customerId?: string) {
-    return {
-        id: true,
-        start_date: true,
-        end_date: true,
-        max_total_uses: true,
-        max_uses_per_customer: true,
+type NestedValidPromotion = {
+    promotion_market: {
+        id: string;
+        max_uses_per_customer: number;
         promotion: {
-            select: {
-                id: true,
-                name: true,
-                description: true,
-                code: true,
-                status: true,
-                created_at: true,
-                updated_at: true,
-                discount: {
-                    select: {
-                        id: true,
-                        type: true,
-                        value: true,
-                        max_discount_amount: true,
+            discount: {
+                type: DiscountType;
+                value: unknown;
+                max_discount_amount: unknown;
+            };
+        };
+        _count: { promotion_usages: number };
+    };
+};
+
+function validPromotionMarketVariantSelect(customerId?: string) {
+    const now = new Date();
+    return {
+        where: {
+            promotion_market: {
+                status: PromotionMarketStatus.ACTIVE,
+                start_date: { lte: now },
+                end_date: { gte: now },
+                promotion: { status: PromotionStatus.ACTIVE },
+            },
+        },
+        take: 1,
+        select: {
+            promotion_market: {
+                select: {
+                    id: true,
+                    max_uses_per_customer: true,
+                    promotion: {
+                        select: {
+                            discount: {
+                                select: {
+                                    type: true,
+                                    value: true,
+                                    max_discount_amount: true,
+                                },
+                            },
+                        },
+                    },
+                    _count: {
+                        select: {
+                            promotion_usages: {
+                                where: {
+                                    customer_id: customerId ?? '',
+                                },
+                            },
+                        },
                     },
                 },
             },
         },
-        _count: {
-            select: {
-                promotion_usages:
-                    customerId === undefined
-                        ? true
-                        : { where: { customer_id: customerId } },
-            },
-        },
-    } satisfies Prisma.PromotionMarketSelect;
+    } satisfies Prisma.PromotionMarketVariantFindManyArgs;
+}
+
+function toVariantPromotion(
+    price: unknown | null | undefined,
+    promotionMarketVariants: NestedValidPromotion[] | undefined,
+): { promotion_market_id: string; amount: Prisma.Decimal } | null {
+    const promotionMarket = promotionMarketVariants?.[0]?.promotion_market;
+    if (
+        promotionMarket === undefined ||
+        price === null ||
+        price === undefined
+    ) {
+        return null;
+    }
+
+    if (
+        !isPromotionAvailableForCustomer({
+            max_uses_per_customer: promotionMarket.max_uses_per_customer,
+            customer_usage_count: promotionMarket._count.promotion_usages,
+        })
+    ) {
+        return null;
+    }
+
+    const amount = computeDiscountAmount(
+        promotionMarket.promotion.discount.type,
+        promotionMarket.promotion.discount.value as
+            | Prisma.Decimal
+            | number
+            | string,
+        promotionMarket.promotion.discount.max_discount_amount as
+            | Prisma.Decimal
+            | number
+            | string,
+        price as Prisma.Decimal | number | string,
+    );
+
+    if (amount.lte(0)) {
+        return null;
+    }
+
+    return {
+        promotion_market_id: promotionMarket.id,
+        amount,
+    };
 }
 
 export function parsePendingImages(
@@ -76,6 +149,7 @@ export function productListSummarySelect(
     variantStatus?: VariantStatus,
     marketVariantStatus: MarketVariantStatus = MarketVariantStatus.ACTIVE,
     includeStatus = true,
+    customerId?: string,
 ) {
     const hasVariantWhere =
         marketId !== undefined || variantStatus !== undefined;
@@ -131,9 +205,12 @@ export function productListSummarySelect(
                     },
                     take: 1,
                     select: {
+                        id: true,
                         price: true,
                         currency: true,
                         sold_out: true,
+                        promotion_market_variants:
+                            validPromotionMarketVariantSelect(customerId),
                     },
                 },
             },
@@ -147,9 +224,11 @@ export function toProductListItem<
         images: Array<{ image_url: string }>;
         variants: Array<{
             market_variants: Array<{
+                id: string;
                 price: unknown;
                 currency: string;
                 sold_out: boolean;
+                promotion_market_variants?: NestedValidPromotion[];
             }>;
         }>;
     },
@@ -160,9 +239,14 @@ export function toProductListItem<
         ...rest,
         category_name: category.name,
         image_url: images[0]?.image_url ?? null,
+        market_variant_id: marketVariant?.id ?? null,
         price: marketVariant?.price ?? null,
         currency: marketVariant?.currency ?? null,
         sold_out: marketVariant?.sold_out ?? false,
+        promotion: toVariantPromotion(
+            marketVariant?.price,
+            marketVariant?.promotion_market_variants,
+        ),
     };
 }
 
@@ -208,7 +292,47 @@ export const productDetailSelect = {
     },
 } satisfies Prisma.ProductSelect;
 
-function marketVariantSelect(marketId: string, activeOnly: boolean) {
+type NestedStaffPromotion = {
+    promotion_market: {
+        id: string;
+        status: PromotionMarketStatus;
+        start_date: Date;
+        end_date: Date;
+    };
+};
+
+function staffPromotionMarketVariantSelect() {
+    return {
+        orderBy: [{ created_at: 'desc' as const }],
+        select: {
+            promotion_market: {
+                select: {
+                    id: true,
+                    status: true,
+                    start_date: true,
+                    end_date: true,
+                },
+            },
+        },
+    } satisfies Prisma.PromotionMarketVariantFindManyArgs;
+}
+
+function toVariantPromotions(
+    promotionMarketVariants: NestedStaffPromotion[] | undefined,
+) {
+    return (promotionMarketVariants ?? []).map(({ promotion_market }) => ({
+        promotion_market_id: promotion_market.id,
+        status: promotion_market.status,
+        start_date: promotion_market.start_date,
+        end_date: promotion_market.end_date,
+    }));
+}
+
+function marketVariantSelect(
+    marketId: string,
+    activeOnly: boolean,
+    customerId?: string,
+) {
     return {
         where: {
             ...(activeOnly && { status: MarketVariantStatus.ACTIVE }),
@@ -222,11 +346,31 @@ function marketVariantSelect(marketId: string, activeOnly: boolean) {
             price: true,
             currency: true,
             sold_out: true,
+            promotion_market_variants:
+                validPromotionMarketVariantSelect(customerId),
         },
-    } as const;
+    } satisfies Prisma.MarketVariantFindManyArgs;
 }
 
-export function productDetailWithMarketSelect(marketId: string) {
+function staffMarketVariantSelect(marketId: string) {
+    return {
+        where: {
+            market: { id: marketId },
+        },
+        select: {
+            id: true,
+            price: true,
+            currency: true,
+            sold_out: true,
+            promotion_market_variants: staffPromotionMarketVariantSelect(),
+        },
+    } satisfies Prisma.MarketVariantFindManyArgs;
+}
+
+export function productDetailWithMarketSelect(
+    marketId: string,
+    customerId?: string,
+) {
     return {
         ...productDetailSelect,
         status: false,
@@ -248,7 +392,11 @@ export function productDetailWithMarketSelect(marketId: string) {
                         image_url: true,
                     },
                 },
-                market_variants: marketVariantSelect(marketId, true),
+                market_variants: marketVariantSelect(
+                    marketId,
+                    true,
+                    customerId,
+                ),
             },
         },
     } satisfies Prisma.ProductSelect;
@@ -273,52 +421,10 @@ export function productStaffDetailWithMarketSelect(marketId: string) {
                         image_url: true,
                     },
                 },
-                market_variants: marketVariantSelect(marketId, false),
+                market_variants: staffMarketVariantSelect(marketId),
             },
         },
     } satisfies Prisma.ProductSelect;
-}
-
-export function toProductPromotions<
-    T extends {
-        id: string;
-        start_date: Date;
-        end_date: Date;
-        max_total_uses: number;
-        max_uses_per_customer: number;
-        _count: { promotion_usages: number };
-        promotion: {
-            id: string;
-            name: string;
-            description: string;
-            code: string;
-            status: string;
-            created_at: Date;
-            updated_at: Date;
-            discount: {
-                id: string;
-                type: string;
-                value: unknown;
-                max_discount_amount: unknown;
-            };
-        };
-    },
->(
-    promotionMarkets: T[],
-    options?: { customerUsage?: boolean },
-) {
-    return promotionMarkets.map(({ _count, promotion, ...market }) => ({
-        promotion_market_id: market.id,
-        start_date: market.start_date,
-        end_date: market.end_date,
-        max_total_uses: market.max_total_uses,
-        max_uses_per_customer: market.max_uses_per_customer,
-        usage_count: _count.promotion_usages,
-        customer_usage_count: options?.customerUsage
-            ? _count.promotion_usages
-            : 0,
-        ...promotion,
-    }));
 }
 
 export function toProductDetail<
@@ -331,6 +437,7 @@ export function toProductDetail<
                 price: unknown;
                 currency: string;
                 sold_out: boolean;
+                promotion_market_variants?: NestedValidPromotion[];
             }>;
         }>;
     },
@@ -349,6 +456,48 @@ export function toProductDetail<
                     price: marketVariant?.price ?? null,
                     currency: marketVariant?.currency ?? null,
                     sold_out: marketVariant?.sold_out ?? false,
+                    promotion: toVariantPromotion(
+                        marketVariant?.price,
+                        marketVariant?.promotion_market_variants,
+                    ),
+                }),
+            };
+        }),
+    };
+}
+
+export function toStaffProductDetail<
+    T extends {
+        category: { name: string };
+        variants: Array<{
+            image: { image_url: string } | null;
+            market_variants?: Array<{
+                id: string;
+                price: unknown;
+                currency: string;
+                sold_out: boolean;
+                promotion_market_variants?: NestedStaffPromotion[];
+            }>;
+        }>;
+    },
+>(product: T) {
+    const { category, variants, ...rest } = product;
+    return {
+        ...rest,
+        category_name: category.name,
+        variants: variants.map(({ image, market_variants, ...variant }) => {
+            const marketVariant = market_variants?.[0];
+            return {
+                ...variant,
+                image_url: image?.image_url ?? null,
+                ...(market_variants !== undefined && {
+                    market_variant_id: marketVariant?.id ?? null,
+                    price: marketVariant?.price ?? null,
+                    currency: marketVariant?.currency ?? null,
+                    sold_out: marketVariant?.sold_out ?? false,
+                    promotions: toVariantPromotions(
+                        marketVariant?.promotion_market_variants,
+                    ),
                 }),
             };
         }),

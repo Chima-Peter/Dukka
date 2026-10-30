@@ -1,5 +1,15 @@
 import { DiscountType, Prisma } from '@app/common';
 
+export function isPromotionAvailableForCustomer(promo: {
+    max_uses_per_customer: number;
+    customer_usage_count: number;
+}): boolean {
+    return (
+        promo.max_uses_per_customer === 0 ||
+        promo.customer_usage_count < promo.max_uses_per_customer
+    );
+}
+
 export function computeDiscountAmount(
     type: DiscountType,
     value: Prisma.Decimal | number | string,

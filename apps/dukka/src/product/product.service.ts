@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
-    DiscountType,
     PRODUCT_BUCKET,
     Prisma,
     SupabaseService,
@@ -19,7 +18,6 @@ import {
     type Product,
 } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
-import { selectBestPromotion } from '../promotions/utils/select-best-promotion.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
 import {
     prismaHintIncludes,
@@ -142,10 +140,13 @@ export class ProductService {
                 customerId,
                 query.market_id,
             );
-            const page = await this.productRepository.findAllPublic({
-                ...query,
-                market_id: marketId,
-            });
+            const page = await this.productRepository.findAllPublic(
+                {
+                    ...query,
+                    market_id: marketId,
+                },
+                customerId,
+            );
             this.logger.log('Fetched products');
             return {
                 items: page.items,
@@ -183,80 +184,18 @@ export class ProductService {
                 query.market_id,
             );
             this.logger.log(`Fetching product ${id} for market ${marketId}`);
-            const { promotions, ...product } =
-                await this.productRepository.findByIdInMarket(
-                    id,
-                    marketId,
-                    ProductStatus.ACTIVE,
-                    customerId,
-                );
+            const product = await this.productRepository.findByIdInMarket(
+                id,
+                marketId,
+                ProductStatus.ACTIVE,
+                customerId,
+            );
 
             this.logger.log(`Fetched product ${id} for market ${marketId}`);
-            return {
-                ...product,
-                best_promotion: this.resolveBestPromotion(
-                    promotions,
-                    product.variants,
-                ),
-            };
+            return product;
         } catch (error) {
             this.handleError(error);
         }
-    }
-
-    private resolveBestPromotion(
-        promotions: Array<{
-            promotion_market_id: string;
-            max_uses_per_customer: number;
-            customer_usage_count: number;
-            discount: {
-                type: string;
-                value: unknown;
-                max_discount_amount: unknown;
-            };
-            [key: string]: unknown;
-        }>,
-        variants: Array<{ price?: unknown | null }>,
-    ) {
-        const price = this.minVariantPrice(variants);
-        if (price === null) {
-            return null;
-        }
-
-        return selectBestPromotion(
-            promotions.map((promo) => ({
-                ...promo,
-                discount: {
-                    type: promo.discount.type as DiscountType,
-                    value: promo.discount.value as
-                        | Prisma.Decimal
-                        | number
-                        | string,
-                    max_discount_amount: promo.discount
-                        .max_discount_amount as
-                        | Prisma.Decimal
-                        | number
-                        | string,
-                },
-            })),
-            price,
-        );
-    }
-
-    private minVariantPrice(
-        variants: Array<{ price?: unknown | null }>,
-    ): Prisma.Decimal | null {
-        let min: Prisma.Decimal | null = null;
-        for (const variant of variants) {
-            if (variant.price === null || variant.price === undefined) {
-                continue;
-            }
-            const price = new Prisma.Decimal(variant.price as string | number);
-            if (min === null || price.lt(min)) {
-                min = price;
-            }
-        }
-        return min;
     }
 
     async findOneForStaff(

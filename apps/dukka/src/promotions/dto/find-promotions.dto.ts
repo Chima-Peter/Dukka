@@ -6,6 +6,10 @@ export class FindPromotionsDto {
     market_id!: string;
 
     @IsOptional()
+    @IsUUID()
+    market_variant_id?: string;
+
+    @IsOptional()
     @IsEnum(PromotionStatus)
     status?: PromotionStatus;
 }

@@ -4,8 +4,6 @@ import {
     Prisma,
     ProductPendingUpdateStatus,
     ProductStatus,
-    PromotionMarketStatus,
-    PromotionStatus,
     VariantStatus,
     type Product,
     PrismaService,
@@ -19,11 +17,10 @@ import {
     productDetailSelect,
     productDetailWithMarketSelect,
     productListSummarySelect,
-    productPromotionMarketSelect,
     productStaffDetailWithMarketSelect,
     toProductDetail,
     toProductListItem,
-    toProductPromotions,
+    toStaffProductDetail,
 } from './mappers/product.mapper.js';
 import type {
     CreateProductPendingUpdateData,
@@ -69,7 +66,10 @@ export class ProductRepository {
         }).then(toProductDetail);
     }
 
-    async findAllPublic(query: FindProductsDto & { market_id: string }) {
+    async findAllPublic(
+        query: FindProductsDto & { market_id: string },
+        customerId?: string,
+    ) {
         const nameMatchedIds = await this.findNameMatchedIds(query.name);
         if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
             return { items: [], next_cursor: null };
@@ -117,6 +117,7 @@ export class ProductRepository {
                 undefined,
                 MarketVariantStatus.ACTIVE,
                 false,
+                customerId,
             ),
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
@@ -241,22 +242,16 @@ export class ProductRepository {
     }
 
     async findDetailedById(id: string, marketId: string) {
-        const [product, promotionMarkets] = await Promise.all([
-            this.prisma.product.findUnique({
-                where: { id },
-                select: productStaffDetailWithMarketSelect(marketId),
-            }),
-            this.findApplicablePromotionMarkets(id, marketId),
-        ]);
+        const product = await this.prisma.product.findUnique({
+            where: { id },
+            select: productStaffDetailWithMarketSelect(marketId),
+        });
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return {
-            ...toProductDetail(product),
-            promotions: toProductPromotions(promotionMarkets),
-        };
+        return toStaffProductDetail(product);
     }
 
     async findByIdInMarket(
@@ -265,65 +260,30 @@ export class ProductRepository {
         status?: ProductStatus,
         customerId?: string,
     ) {
-        const [product, promotionMarkets] = await Promise.all([
-            this.prisma.product.findFirst({
-                where: {
-                    id,
-                    ...(status !== undefined && { status }),
-                    variants: {
-                        some: {
-                            status: VariantStatus.ACTIVE,
-                            market_variants: {
-                                some: {
-                                    status: MarketVariantStatus.ACTIVE,
-                                    market: { id: marketId, status: 'OPEN' },
-                                },
+        const product = await this.prisma.product.findFirst({
+            where: {
+                id,
+                ...(status !== undefined && { status }),
+                variants: {
+                    some: {
+                        status: VariantStatus.ACTIVE,
+                        market_variants: {
+                            some: {
+                                status: MarketVariantStatus.ACTIVE,
+                                market: { id: marketId, status: 'OPEN' },
                             },
                         },
                     },
                 },
-                select: productDetailWithMarketSelect(marketId),
-            }),
-            this.findApplicablePromotionMarkets(id, marketId, customerId),
-        ]);
+            },
+            select: productDetailWithMarketSelect(marketId, customerId),
+        });
 
         if (!product) {
             throw new NotFoundException('Product not found');
         }
 
-        return {
-            ...toProductDetail(product),
-            promotions: toProductPromotions(promotionMarkets, {
-                customerUsage: customerId !== undefined,
-            }),
-        };
-    }
-
-    private async findApplicablePromotionMarkets(
-        productId: string,
-        marketId: string,
-        customerId?: string,
-    ) {
-        const now = new Date();
-        return await this.prisma.promotionMarket.findMany({
-            where: {
-                market_id: marketId,
-                status: PromotionMarketStatus.ACTIVE,
-                start_date: { lte: now },
-                end_date: { gte: now },
-                promotion: { status: PromotionStatus.ACTIVE },
-                promotion_market_variants: {
-                    some: {
-                        variant: {
-                            market_id: marketId,
-                            variant: { product_id: productId },
-                        },
-                    },
-                },
-            },
-            select: productPromotionMarketSelect(customerId),
-            orderBy: { created_at: 'desc' },
-        });
+        return toProductDetail(product);
     }
 
     private async findNameMatchedIds(name?: string) {
