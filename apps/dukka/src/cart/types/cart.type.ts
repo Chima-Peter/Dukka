@@ -25,6 +25,7 @@ export type CartView = {
     id: string;
     total: Prisma.Decimal;
     customer_id: string | null;
+    market_id: string | null;
     items: CartItemView[];
     created_at: Date;
     updated_at: Date;

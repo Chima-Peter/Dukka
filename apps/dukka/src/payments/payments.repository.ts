@@ -60,6 +60,16 @@ export class PaymentsRepository {
         });
     }
 
+    async findMarketPaymentMethods(
+        marketId: string,
+    ): Promise<MarketPaymentMethodDetail[]> {
+        return await this.prisma.marketPaymentMethod.findMany({
+            where: { market_id: marketId },
+            select: marketPaymentMethodSelect,
+            orderBy: { created_at: 'asc' },
+        });
+    }
+
     async approveForMarket(
         paymentMethodId: string,
         marketId: string,

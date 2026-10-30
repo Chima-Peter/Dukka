@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BillingAddressService } from '../address/billing-address.service.js';
 import { ShippingAddressService } from '../address/shipping-address.service.js';
 import { CartService } from '../cart/cart.service.js';
+import { CustomerService } from '../customer/customer.service.js';
+import { PaymentsService } from '../payments/payments.service.js';
 import { PointsService } from '../points/points.service.js';
 import { CheckoutService } from './checkout.service.js';
 
@@ -30,6 +32,14 @@ describe('CheckoutService', () => {
                         getForCustomerWithSyncedTotal: vi.fn(),
                         getForGuestWithSyncedTotal: vi.fn(),
                     },
+                },
+                {
+                    provide: CustomerService,
+                    useValue: { getActiveMarketId: vi.fn() },
+                },
+                {
+                    provide: PaymentsService,
+                    useValue: { findAvailableForMarket: vi.fn() },
                 },
             ],
         }).compile();

@@ -18,6 +18,7 @@ export const cartItemSelect = {
             price: true,
             currency: true,
             sold_out: true,
+            market_id: true,
         },
     },
     promotion_market: {
@@ -115,6 +116,7 @@ export function toCartView(row: CartRow): CartView {
         id: row.id,
         total: row.total,
         customer_id: row.customer_id,
+        market_id: row.items[0]?.market_variant.market_id ?? null,
         items: row.items.map(toCartItemView),
         created_at: row.created_at,
         updated_at: row.updated_at,

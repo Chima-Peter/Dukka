@@ -9,6 +9,8 @@ import type { CustomerJwtPayload } from '@app/common';
 import { BillingAddressService } from '../address/billing-address.service.js';
 import { ShippingAddressService } from '../address/shipping-address.service.js';
 import { CartService } from '../cart/cart.service.js';
+import { CustomerService } from '../customer/customer.service.js';
+import { PaymentsService } from '../payments/payments.service.js';
 import { PointsService } from '../points/points.service.js';
 import type { PrecheckoutView } from './types/precheckout.type.js';
 
@@ -21,6 +23,8 @@ export class CheckoutService {
         private readonly billingAddressService: BillingAddressService,
         private readonly pointsService: PointsService,
         private readonly cartService: CartService,
+        private readonly customerService: CustomerService,
+        private readonly paymentsService: PaymentsService,
     ) {}
 
     async getPrecheckout(
@@ -61,6 +65,16 @@ export class CheckoutService {
                 this.cartService.getForCustomerWithSyncedTotal(cartId),
             ]);
 
+            const marketId =
+                cart.market_id ??
+                (await this.customerService.getActiveMarketId(customerId));
+            if (!marketId) {
+                throw new BadRequestException('Active market is not set');
+            }
+
+            const payment_methods =
+                await this.paymentsService.findAvailableForMarket(marketId);
+
             this.logger.log(
                 `Fetched precheckout data for customer ${customerId}`,
             );
@@ -69,6 +83,7 @@ export class CheckoutService {
                 shipping_addresses: shipping_addresses ?? [],
                 billing_addresses: billing_addresses ?? [],
                 points_balance,
+                payment_methods,
                 cart,
             };
         } catch (error) {
@@ -85,12 +100,24 @@ export class CheckoutService {
             const cart =
                 await this.cartService.getForGuestWithSyncedTotal(cartId);
 
+            if (!cart.market_id) {
+                throw new BadRequestException(
+                    'Cart has no items to resolve market',
+                );
+            }
+
+            const payment_methods =
+                await this.paymentsService.findAvailableForMarket(
+                    cart.market_id,
+                );
+
             this.logger.log(`Fetched precheckout data for guest cart ${cartId}`);
 
             return {
                 shipping_addresses: [],
                 billing_addresses: [],
                 points_balance: 0,
+                payment_methods,
                 cart,
             };
         } catch (error) {

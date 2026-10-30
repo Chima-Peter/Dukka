@@ -96,6 +96,28 @@ export class PaymentsService {
         }
     }
 
+    async findAvailableForMarket(
+        marketId: string,
+    ): Promise<MarketPaymentMethodDetail[]> {
+        try {
+            this.logger.log(
+                `Fetching available payment methods for market ${marketId}`,
+            );
+            const methods =
+                await this.paymentsRepository.findMarketPaymentMethods(
+                    marketId,
+                );
+            this.logger.log(
+                `Fetched ${methods.length} payment method(s) for market ${marketId}`,
+            );
+            return methods;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Payment method not found',
+            });
+        }
+    }
+
     async approveForMarket(
         paymentMethodId: string,
         data: ApprovePaymentMethodDto,
