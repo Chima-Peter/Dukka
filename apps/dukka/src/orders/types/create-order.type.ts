@@ -1,3 +1,5 @@
+import type { DiscountType } from '@app/common';
+
 export type OrderAddressSnapshot = {
     first_name: string;
     last_name: string;
@@ -25,6 +27,11 @@ export type CreateOrderItemInput = {
     quantity: number;
     price: number;
     total: number;
+    discount_type: DiscountType | null;
+    discount_value: number | null;
+    max_discount_amount: number | null;
+    discount_amount: number;
+    promotion_market_id: string | null;
     product_name: string;
     product_image: string;
     product_specs: Record<string, unknown>;
