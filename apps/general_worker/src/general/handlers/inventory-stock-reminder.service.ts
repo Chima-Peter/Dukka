@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, PrismaService } from '@app/common';
+import {
+    NotificationPublisher,
+    NotificationType,
+    Prisma,
+    PrismaService,
+} from '@app/common';
 import {
     MailQueueService,
     type InventoryStockReminderJobPayload,
@@ -20,6 +25,7 @@ export class InventoryStockReminderService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly mailQueueService: MailQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async process(payload: InventoryStockReminderJobPayload): Promise<void> {
@@ -51,6 +57,7 @@ export class InventoryStockReminderService {
                         name: true,
                         manager: {
                             select: {
+                                id: true,
                                 name: true,
                                 email: true,
                             },
@@ -97,6 +104,13 @@ export class InventoryStockReminderService {
             inventory_ids,
             product_names,
             kind,
+        });
+
+        const kindLabel = kind === 'finished' ? 'out of stock' : 'low stock';
+        await this.notificationPublisher.notifyStaff(warehouse.manager.id, {
+            title: kind === 'finished' ? 'Stock depleted' : 'Low stock',
+            type: NotificationType.SYSTEM,
+            text: `${product_names.length} product(s) at ${warehouse.name} are ${kindLabel}.`,
         });
 
         this.logger.log(

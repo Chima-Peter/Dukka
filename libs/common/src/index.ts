@@ -68,6 +68,11 @@ export {
     successResponse,
 } from './response/index.js';
 export * from './prisma/index.js';
+export {
+    NotificationPublisherModule,
+    NotificationPublisher,
+    type PublishNotificationInput,
+} from './notifications/index.js';
 export { RestCountriesIpService } from './rest-countries/index.js';
 export {
     ALLOWED_AVATAR_CONTENT_TYPES,

@@ -9,14 +9,22 @@ vi.mock('@app/queues', () => ({
     MailQueueService: class MailQueueService {},
 }));
 
-vi.mock('../../../../libs/common/src/index.ts', () => ({
-    StaffPermission: new Proxy(
-        {},
-        {
-            get: (_target, property) => String(property),
-        },
-    ),
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual =
+        await importOriginal<
+            typeof import('../../../../libs/common/src/index.ts')
+        >();
+    return {
+        ...actual,
+        StaffPermission: new Proxy(
+            {},
+            {
+                get: (_target, property) => String(property),
+            },
+        ),
+        NotificationPublisher: class NotificationPublisher {},
+    };
+});
 
 vi.mock('../staff/staff.service.js', () => ({
     StaffService: class StaffService {},
@@ -31,6 +39,9 @@ describe('WarehouseService', () => {
 
     beforeEach(async () => {
         const { StaffService } = await import('../staff/staff.service.js');
+        const { NotificationPublisher } = await import(
+            '../../../../libs/common/src/index.ts'
+        );
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -56,6 +67,13 @@ describe('WarehouseService', () => {
                     provide: ServiceCountryService,
                     useValue: {
                         findWithMarketStatus: vi.fn(),
+                    },
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
             ],

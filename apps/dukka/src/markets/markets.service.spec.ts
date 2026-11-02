@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketStatus } from '@app/common';
+import { MarketStatus } from '../../../../libs/common/generated/prisma/enums.js';
+import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
 
@@ -85,6 +86,13 @@ describe('MarketsService', () => {
                 {
                     provide: MailQueueService,
                     useValue: mailQueue,
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
+                    },
                 },
             ],
         }).compile();

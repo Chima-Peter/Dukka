@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+    NotificationPublisher,
+    NotificationType,
     OrderInventoryStatus,
     OrderPaymentAttemptStatus,
     OrderStatus,
@@ -41,6 +43,7 @@ export class CancelOrderService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly mailQueueService: MailQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async process(payload: CancelOrderJobPayload): Promise<void> {
@@ -165,12 +168,14 @@ export class CancelOrderService {
     }
 
     private async resolveRecipient(orderId: string): Promise<{
-        email: string;
-        name: string;
-    } | null> {
+        email: string | null;
+        name: string | null;
+        customer_id: string | null;
+    }> {
         const row = await this.prisma.order.findUnique({
             where: { id: orderId },
             select: {
+                customer_id: true,
                 guest_email: true,
                 guest_name: true,
                 customer: {
@@ -179,14 +184,15 @@ export class CancelOrderService {
             },
         });
 
-        const email = row?.customer?.email ?? row?.guest_email;
-        if (!email) {
-            return null;
-        }
-
+        const email = row?.customer?.email ?? row?.guest_email ?? null;
         return {
             email,
-            name: row?.customer?.name ?? row?.guest_name ?? email.split('@')[0],
+            name: email
+                ? (row?.customer?.name ??
+                  row?.guest_name ??
+                  email.split('@')[0])
+                : null,
+            customer_id: row?.customer_id ?? null,
         };
     }
 
@@ -196,24 +202,34 @@ export class CancelOrderService {
         status: OrderStatus;
     }): Promise<void> {
         const recipient = await this.resolveRecipient(order.id);
-        if (!recipient) {
+        if (!recipient.email || !recipient.name) {
             this.logger.warn(
                 `No email for cancel notice on order ${order.id}`,
             );
-            return;
+        } else {
+            await this.mailQueueService.enqueueSend({
+                to: recipient.email,
+                subject: `Your order #${order.order_number} has been cancelled`,
+                template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCELLED,
+                context: {
+                    name: recipient.name,
+                    email: recipient.email,
+                    order_number: order.order_number,
+                    refund_pending: order.status === OrderStatus.PROCESSING,
+                },
+            });
         }
 
-        await this.mailQueueService.enqueueSend({
-            to: recipient.email,
-            subject: `Your order #${order.order_number} has been cancelled`,
-            template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCELLED,
-            context: {
-                name: recipient.name,
-                email: recipient.email,
-                order_number: order.order_number,
-                refund_pending: order.status === OrderStatus.PROCESSING,
-            },
-        });
+        if (recipient.customer_id) {
+            await this.notificationPublisher.notifyCustomer(
+                recipient.customer_id,
+                {
+                    title: 'Order cancelled',
+                    type: NotificationType.ORDER,
+                    text: `Your order #${order.order_number} has been cancelled.`,
+                },
+            );
+        }
     }
 
     private async notifyCancelBlocked(order: {
@@ -226,24 +242,34 @@ export class CancelOrderService {
         }
 
         const recipient = await this.resolveRecipient(order.id);
-        if (!recipient) {
+        if (!recipient.email || !recipient.name) {
             this.logger.warn(
                 `No email for cancel-blocked notice on order ${order.id}`,
             );
-            return;
+        } else {
+            await this.mailQueueService.enqueueSend({
+                to: recipient.email,
+                subject: `We could not cancel your order #${order.order_number}`,
+                template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCEL_BLOCKED,
+                context: {
+                    name: recipient.name,
+                    email: recipient.email,
+                    order_number: order.order_number,
+                    order_status_label: this.toStatusLabel(order.status),
+                },
+            });
         }
 
-        await this.mailQueueService.enqueueSend({
-            to: recipient.email,
-            subject: `We could not cancel your order #${order.order_number}`,
-            template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCEL_BLOCKED,
-            context: {
-                name: recipient.name,
-                email: recipient.email,
-                order_number: order.order_number,
-                order_status_label: this.toStatusLabel(order.status),
-            },
-        });
+        if (recipient.customer_id) {
+            await this.notificationPublisher.notifyCustomer(
+                recipient.customer_id,
+                {
+                    title: 'Cancellation unavailable',
+                    type: NotificationType.ORDER,
+                    text: `We could not cancel order #${order.order_number} because it is ${this.toStatusLabel(order.status)}.`,
+                },
+            );
+        }
     }
 
     private toStatusLabel(status: OrderStatus): string {

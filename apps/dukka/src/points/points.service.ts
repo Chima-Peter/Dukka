@@ -7,7 +7,11 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { Prisma } from '@app/common';
+import {
+    NotificationPublisher,
+    NotificationType,
+    Prisma,
+} from '@app/common';
 import type { CreatePointsHistoryDto } from './dto/create-points-history.dto.js';
 import type { FindPointsHistoryDto } from './dto/find-points-history.dto.js';
 import {
@@ -20,7 +24,10 @@ import {
 export class PointsService {
     private readonly logger = new Logger(PointsService.name);
 
-    constructor(private readonly pointsRepository: PointsRepository) {}
+    constructor(
+        private readonly pointsRepository: PointsRepository,
+        private readonly notificationPublisher: NotificationPublisher,
+    ) {}
 
     async findHistory(
         customer_id: string,
@@ -73,6 +80,12 @@ export class PointsService {
             this.logger.log(
                 `Points earned for customer ${customer_id}. New balance: ${result.points.balance}`,
             );
+
+            await this.notificationPublisher.notifyCustomer(customer_id, {
+                title: 'Points earned',
+                type: NotificationType.POINTS,
+                text: `You earned ${data.count} points. New balance: ${result.points.balance}.`,
+            });
 
             return result;
         } catch (error) {

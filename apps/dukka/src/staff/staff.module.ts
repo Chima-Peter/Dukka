@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { STAFF_JWT_SERVICE } from '@app/common';
+import {
+    NotificationPublisherModule,
+    STAFF_JWT_SERVICE,
+} from '@app/common';
 import type { ConfigType } from '../config/env.interface.js';
 import { PermissionsModule } from '../permissions/permissions.module.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
@@ -15,7 +18,7 @@ import { StaffTokenRepository } from './token.repository.js';
 
 @Global()
 @Module({
-    imports: [PermissionsModule],
+    imports: [PermissionsModule, NotificationPublisherModule],
     controllers: [StaffAuthController, StaffController],
     providers: [
         StaffService,

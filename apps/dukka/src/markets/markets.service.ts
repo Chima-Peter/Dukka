@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import { MarketStatus } from '@app/common';
+import {
+    MarketStatus,
+    NotificationPublisher,
+    NotificationType,
+} from '@app/common';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -26,6 +30,7 @@ export class MarketsService {
     constructor(
         private readonly marketsRepository: MarketsRepository,
         private readonly mailQueueService: MailQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
@@ -216,6 +221,16 @@ export class MarketsService {
                 })),
             );
 
+            await Promise.all(
+                contacts.map((contact) =>
+                    this.notificationPublisher.notifyStaff(contact.id, {
+                        title: 'Market deleted',
+                        type: NotificationType.MARKET,
+                        text: `${market.name} (${market.code}) was deleted.`,
+                    }),
+                ),
+            );
+
             return { data: null };
         } catch (error) {
             this.handleError(error);
@@ -256,6 +271,16 @@ export class MarketsService {
                     isOpen: market.status === MarketStatus.OPEN,
                 },
             })),
+        );
+
+        await Promise.all(
+            contacts.map((contact) =>
+                this.notificationPublisher.notifyStaff(contact.id, {
+                    title: subject,
+                    type: NotificationType.MARKET,
+                    text: `${market.name} (${market.code}) is now ${market.status.toLowerCase()}.`,
+                }),
+            ),
         );
     }
 

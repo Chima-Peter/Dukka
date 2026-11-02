@@ -6,13 +6,14 @@ import { NotificationsService } from './notifications.service.js';
 vi.mock('../../../../libs/common/src/index.ts', () => ({
     RedisService: class RedisService {},
     PrismaService: class PrismaService {},
+    NotificationPublisher: class NotificationPublisher {},
 }));
 
 describe('NotificationsService', () => {
     let service: NotificationsService;
 
     beforeEach(async () => {
-        const { RedisService } = await import(
+        const { RedisService, NotificationPublisher } = await import(
             '../../../../libs/common/src/index.ts'
         );
 
@@ -30,6 +31,13 @@ describe('NotificationsService', () => {
                         markReadForStaff: vi.fn(),
                         findByStreamIdRangeForCustomer: vi.fn(),
                         findByStreamIdRangeForStaff: vi.fn(),
+                    },
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
                 {

@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
 import { PointsRepository } from './points.repository.js';
 import { PointsService } from './points.service.js';
 
@@ -16,6 +18,13 @@ describe('PointsService', () => {
                         findBalance: vi.fn(),
                         earn: vi.fn(),
                         redeem: vi.fn(),
+                    },
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
             ],

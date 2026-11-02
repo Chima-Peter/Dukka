@@ -4,20 +4,28 @@ import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { StaffRepository } from './staff.repository.js';
 import { StaffService } from './staff.service.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => ({
-    AVATAR_BUCKET: 'avatar',
-    QUALIFICATIONS_BUCKET: 'qualifications',
-    MAX_AVATAR_BYTES: 5 * 1024 * 1024,
-    MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
-    ALLOWED_AVATAR_CONTENT_TYPES: new Set([
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/webp',
-    ]),
-    ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set(['application/pdf']),
-    SupabaseService: class SupabaseService {},
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual =
+        await importOriginal<
+            typeof import('../../../../libs/common/src/index.ts')
+        >();
+    return {
+        ...actual,
+        AVATAR_BUCKET: 'avatar',
+        QUALIFICATIONS_BUCKET: 'qualifications',
+        MAX_AVATAR_BYTES: 5 * 1024 * 1024,
+        MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
+        ALLOWED_AVATAR_CONTENT_TYPES: new Set([
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+        ]),
+        ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set(['application/pdf']),
+        SupabaseService: class SupabaseService {},
+        NotificationPublisher: class NotificationPublisher {},
+    };
+});
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
     GeneralQueueService: class GeneralQueueService {},
@@ -54,7 +62,7 @@ describe('StaffService', () => {
     let service: StaffService;
 
     beforeEach(async () => {
-        const { SupabaseService } = await import(
+        const { SupabaseService, NotificationPublisher } = await import(
             '../../../../libs/common/src/index.ts'
         );
         const { MailQueueService, GeneralQueueService } = await import(
@@ -115,6 +123,13 @@ describe('StaffService', () => {
                     useValue: {
                         enqueue: vi.fn(),
                         enqueueMany: vi.fn(),
+                    },
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
             ],

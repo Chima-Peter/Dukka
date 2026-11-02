@@ -26,7 +26,6 @@ import type { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryRepository } from './inventory.repository.js';
 import type {
     InventoryItem,
-    OrderInventoryItem,
     ReserveInventoryResult,
 } from './types/inventory.type.js';
 
@@ -331,34 +330,6 @@ export class InventoryService {
                 items: page.items,
                 next_cursor: page.next_cursor,
             };
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
-    async completeOrderInventory(
-        id: string,
-        staffMarketIds: string[],
-    ): Promise<OrderInventoryItem> {
-        try {
-            this.logger.log(`Completing order inventory ${id}`);
-
-            const existing =
-                await this.inventoryRepository.findOrderInventoryById(id);
-            if (!existing) {
-                throw new NotFoundException('Order inventory not found');
-            }
-            if (existing.status !== 'PENDING') {
-                throw new BadRequestException(
-                    `Cannot complete order inventory from ${existing.status}`,
-                );
-            }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
-
-            const updated =
-                await this.inventoryRepository.completeOrderInventory(id);
-            this.logger.log(`Order inventory ${id} marked SUCCESS`);
-            return updated;
         } catch (error) {
             this.handleError(error);
         }

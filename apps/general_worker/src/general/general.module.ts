@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { HttpClientModule } from '@nestjs/http-client';
 import { ScheduleModule } from '@nestjs/schedule';
-import { RestCountriesIpService } from '@app/common';
+import {
+    NotificationPublisherModule,
+    RestCountriesIpService,
+} from '@app/common';
 import { GeneralProcessor } from './general.processor.js';
 import { GeneralScheduler } from './general.scheduler.js';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
@@ -17,6 +20,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
 @Module({
     imports: [
         ScheduleModule.forRoot(),
+        NotificationPublisherModule,
         HttpClientModule.register({
             timeout: 5000,
         }),

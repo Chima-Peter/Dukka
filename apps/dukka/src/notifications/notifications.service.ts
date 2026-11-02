@@ -7,9 +7,9 @@ import {
     type MessageEvent,
 } from '@nestjs/common';
 import {
+    NotificationPublisher,
     RedisService,
     type Notification,
-    type NotificationType,
     type RedisStreamEntry,
     type StreamConnectionHandle,
 } from '@app/common';
@@ -28,6 +28,7 @@ export class NotificationsService {
 
     constructor(
         private readonly notificationsRepository: NotificationsRepository,
+        private readonly notificationPublisher: NotificationPublisher,
         private readonly redisService: RedisService,
     ) {}
 
@@ -35,52 +36,32 @@ export class NotificationsService {
         customerId: string,
         input: CreateNotificationInput,
     ): Promise<Notification> {
-        return this.createAndPublish({
-            ...input,
-            customer_id: customerId,
-        });
+        const created = await this.notificationPublisher.notifyCustomer(
+            customerId,
+            input,
+        );
+        if (!created) {
+            throw new InternalServerErrorException(
+                'Failed to create notification',
+            );
+        }
+        return created;
     }
 
     async notifyStaff(
         staffId: string,
         input: CreateNotificationInput,
     ): Promise<Notification> {
-        return this.createAndPublish({
-            ...input,
-            staff_id: staffId,
-        });
-    }
-
-    private async createAndPublish(data: {
-        title: string;
-        type: NotificationType;
-        text: string;
-        customer_id?: string;
-        staff_id?: string;
-    }): Promise<Notification> {
-        try {
-            const recipientId = data.customer_id ?? data.staff_id;
-            if (!recipientId) {
-                throw new BadRequestException(
-                    'Notification requires a customer_id or staff_id',
-                );
-            }
-
-            const created = await this.notificationsRepository.create(data);
-            const payload = this.toNotificationData(created);
-            const streamId = await this.redisService.addToStream(
-                recipientId,
-                created.type,
-                payload,
+        const created = await this.notificationPublisher.notifyStaff(
+            staffId,
+            input,
+        );
+        if (!created) {
+            throw new InternalServerErrorException(
+                'Failed to create notification',
             );
-
-            return await this.notificationsRepository.setStreamId(
-                created.id,
-                streamId,
-            );
-        } catch (error) {
-            this.handleError(error);
         }
+        return created;
     }
 
     streamForCustomer(

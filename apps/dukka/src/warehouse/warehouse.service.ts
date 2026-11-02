@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    NotificationPublisher,
+    NotificationType,
     ServiceCountryStatus,
     MarketStatus,
     WarehouseStatus,
@@ -36,6 +38,7 @@ export class WarehouseService {
         private readonly warehouseRepository: WarehouseRepository,
         private readonly staffService: StaffService,
         private readonly serviceCountryService: ServiceCountryService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async create(
@@ -125,11 +128,29 @@ export class WarehouseService {
                 );
             }
             await this.assertManagerValid(data.manager_id, marketId);
+            const previousManagerId = existing.manager_id;
             const warehouse = await this.warehouseRepository.updateManager(
                 id,
                 data.manager_id,
             );
             this.logger.log(`Warehouse manager updated ${id}`);
+
+            if (previousManagerId !== data.manager_id) {
+                await this.notificationPublisher.notifyStaff(
+                    previousManagerId,
+                    {
+                        title: 'Warehouse manager changed',
+                        type: NotificationType.SYSTEM,
+                        text: `You are no longer the manager of ${warehouse.name}.`,
+                    },
+                );
+            }
+            await this.notificationPublisher.notifyStaff(data.manager_id, {
+                title: 'Warehouse assigned',
+                type: NotificationType.SYSTEM,
+                text: `You are now the manager of ${warehouse.name}.`,
+            });
+
             return warehouse;
         } catch (error) {
             this.handleError(error);
@@ -146,6 +167,13 @@ export class WarehouseService {
             }
             const warehouse = await this.warehouseRepository.close(id);
             this.logger.log(`Warehouse closed ${id}`);
+
+            await this.notificationPublisher.notifyStaff(warehouse.manager_id, {
+                title: 'Warehouse closed',
+                type: NotificationType.SYSTEM,
+                text: `${warehouse.name} has been closed.`,
+            });
+
             return warehouse;
         } catch (error) {
             this.handleError(error);
@@ -162,6 +190,13 @@ export class WarehouseService {
             }
             const warehouse = await this.warehouseRepository.open(id);
             this.logger.log(`Warehouse opened ${id}`);
+
+            await this.notificationPublisher.notifyStaff(warehouse.manager_id, {
+                title: 'Warehouse opened',
+                type: NotificationType.SYSTEM,
+                text: `${warehouse.name} has been opened.`,
+            });
+
             return warehouse;
         } catch (error) {
             this.handleError(error);

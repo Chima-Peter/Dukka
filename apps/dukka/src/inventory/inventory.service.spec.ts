@@ -6,6 +6,13 @@ import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import { InventoryRepository } from './inventory.repository.js';
 import { InventoryService } from './inventory.service.js';
 
+vi.mock('../../../../libs/queues/src/index.ts', () => ({
+    MailQueueService: class MailQueueService {},
+    GeneralQueueService: class GeneralQueueService {},
+    MAIL_TEMPLATES: {},
+    GENERAL_JOBS: {},
+}));
+
 describe('InventoryService', () => {
     let service: InventoryService;
 
@@ -23,8 +30,6 @@ describe('InventoryService', () => {
                         findByProductId: vi.fn(),
                         findByWarehouseId: vi.fn(),
                         findByMarketVariantId: vi.fn(),
-                        findOrderInventoryById: vi.fn(),
-                        completeOrderInventory: vi.fn(),
                         reserveItems: vi.fn(),
                     },
                 },

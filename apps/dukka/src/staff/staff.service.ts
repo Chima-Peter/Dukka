@@ -16,6 +16,8 @@ import {
     AVATAR_BUCKET,
     MAX_AVATAR_BYTES,
     MAX_QUALIFICATION_BYTES,
+    NotificationPublisher,
+    NotificationType,
     QUALIFICATIONS_BUCKET,
     SupabaseService,
     type Qualification,
@@ -74,6 +76,7 @@ export class StaffService {
         private readonly supabaseService: SupabaseService,
         private readonly mailQueueService: MailQueueService,
         private readonly generalQueueService: GeneralQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async findAll(
@@ -351,6 +354,14 @@ export class StaffService {
                 },
             });
 
+            await this.notificationPublisher.notifyStaff(id, {
+                title: 'Role updated',
+                type: NotificationType.SYSTEM,
+                text: staff.role?.name
+                    ? `Your role was updated to ${staff.role.name}.`
+                    : 'Your role was updated.',
+            });
+
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -380,6 +391,12 @@ export class StaffService {
                     previousRoleId: previous_role.id,
                     previousRoleName: previous_role.name,
                 },
+            });
+
+            await this.notificationPublisher.notifyStaff(id, {
+                title: 'Role revoked',
+                type: NotificationType.SYSTEM,
+                text: `Your role (${previous_role.name}) was revoked.`,
             });
 
             return this.toStaffResponse(staff);
@@ -420,6 +437,12 @@ export class StaffService {
                 },
             });
 
+            await this.notificationPublisher.notifyStaff(id, {
+                title: 'Markets updated',
+                type: NotificationType.SYSTEM,
+                text: `${data.market_ids.length} market(s) were assigned to your account.`,
+            });
+
             return this.toStaffResponse(staff);
         } catch (error) {
             this.handleError(error);
@@ -457,6 +480,12 @@ export class StaffService {
                     action: 'removed',
                     marketIds: data.market_ids,
                 },
+            });
+
+            await this.notificationPublisher.notifyStaff(id, {
+                title: 'Markets updated',
+                type: NotificationType.SYSTEM,
+                text: `${removed} market(s) were removed from your account.`,
             });
 
             return this.toStaffResponse(staff);

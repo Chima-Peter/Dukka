@@ -123,7 +123,7 @@ export class MarketsRepository {
 
     async findStaffContactsByMarketId(
         market_id: string,
-    ): Promise<{ email: string; name: string }[]> {
+    ): Promise<{ id: string; email: string; name: string }[]> {
         return await this.prisma.staff.findMany({
             where: {
                 is_active: true,
@@ -132,6 +132,7 @@ export class MarketsRepository {
                 },
             },
             select: {
+                id: true,
                 email: true,
                 name: true,
             },

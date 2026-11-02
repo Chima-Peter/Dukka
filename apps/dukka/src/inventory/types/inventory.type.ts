@@ -1,7 +1,4 @@
-import type {
-    OrderInventoryStatus,
-    Prisma,
-} from '@app/common';
+import type { Prisma } from '@app/common';
 
 export type CreateInventoryRecord = {
     market_variant_id: string;
@@ -23,17 +20,6 @@ export type ReserveInventoryResult = {
 };
 
 export type StockUpdateType = 'increment' | 'decrement';
-
-export type OrderInventoryItem = {
-    id: string;
-    order_id: string;
-    warehouse_id: string;
-    market_id: string;
-    status: OrderInventoryStatus;
-    expires_at: Date;
-    created_at: Date;
-    updated_at: Date;
-};
 
 export type InventoryItem = {
     id: string;

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+    NotificationPublisher,
+    NotificationType,
     PrismaService,
     RedisService,
     STAFF_ACCESS_TOKEN_TTL_SECONDS,
@@ -21,6 +23,7 @@ export class StaffDeactivatedService {
         private readonly prisma: PrismaService,
         private readonly redisService: RedisService,
         private readonly mailQueueService: MailQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async process(payload: StaffDeactivatedJobPayload): Promise<void> {
@@ -68,6 +71,12 @@ export class StaffDeactivatedService {
             }
             performed_by_staff_name = actor.name;
         }
+
+        await this.notificationPublisher.notifyStaff(staff_id, {
+            title: 'Account deactivated',
+            type: NotificationType.SYSTEM,
+            text: 'Your staff account has been deactivated.',
+        });
 
         await this.revokeTokens(staff_id);
 
