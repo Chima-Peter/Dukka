@@ -16,7 +16,6 @@ import {
     VariantPendingUpdateStatus,
     VariantStatus,
 } from '@app/common';
-import { CategoryService } from '../category/category.service.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
@@ -30,7 +29,6 @@ import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
-import { ProductRepository } from './product.repository.js';
 import { ProductVariantRepository } from './product-variant.repository.js';
 
 @Injectable()
@@ -39,8 +37,6 @@ export class ProductVariantService {
 
     constructor(
         private readonly productVariantRepository: ProductVariantRepository,
-        private readonly productRepository: ProductRepository,
-        private readonly categoryService: CategoryService,
         private readonly supabaseService: SupabaseService,
         private readonly marketsService: MarketsService,
     ) {}
@@ -110,24 +106,28 @@ export class ProductVariantService {
                 );
             }
 
-            const pending =
-                await this.productVariantRepository.findPendingUpdateForVariant(
+            const pendingPromise =
+                this.productVariantRepository.findPendingUpdateForVariant(
                     variantId,
                 );
+            const imagePromise = image_path
+                ? assertValidImage(this.supabaseService, image_path, {
+                      logger: this.logger,
+                  }).then(() =>
+                      this.supabaseService.getPublicURL(
+                          image_path,
+                          PRODUCT_BUCKET,
+                      ),
+                  )
+                : Promise.resolve(undefined);
+
+            const [pending, image_url] = await Promise.all([
+                pendingPromise,
+                imagePromise,
+            ]);
             if (pending) {
                 throw new ConflictException(
                     'Variant already has a pending update',
-                );
-            }
-
-            let image_url: string | undefined;
-            if (image_path) {
-                await assertValidImage(this.supabaseService, image_path, {
-                    logger: this.logger,
-                });
-                image_url = this.supabaseService.getPublicURL(
-                    image_path,
-                    PRODUCT_BUCKET,
                 );
             }
 
@@ -294,20 +294,25 @@ export class ProductVariantService {
             this.logger.log(
                 `Adding variant ${variantId} to market ${data.market_id}`,
             );
-            const product = await this.productRepository.findById(productId);
-            if (!product) {
+            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            const [listing, market] = await Promise.all([
+                this.productVariantRepository.findProductVariantForMarketListing(
+                    productId,
+                    variantId,
+                    data.market_id,
+                ),
+                this.marketsService.findOne(data.market_id, staffMarketIds),
+            ]);
+            if (!listing) {
                 throw new NotFoundException('Product not found');
             }
-            if (product.status !== ProductStatus.ACTIVE) {
+            if (listing.status !== ProductStatus.ACTIVE) {
                 throw new BadRequestException(
                     'Only approved products can have variants added to a market',
                 );
             }
 
-            const variant = await this.productVariantRepository.findVariantInProduct(
-                productId,
-                variantId,
-            );
+            const variant = listing.variants[0];
             if (!variant) {
                 throw new NotFoundException('Variant not found');
             }
@@ -317,20 +322,11 @@ export class ProductVariantService {
                 );
             }
 
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
-            const market = await this.marketsService.findOne(
-                data.market_id,
-                staffMarketIds,
-            );
             if (market.status !== MarketStatus.OPEN) {
                 throw new BadRequestException('Market is not open');
             }
 
-            const categoryInMarket = await this.categoryService.existsInMarket(
-                product.category_id,
-                data.market_id,
-            );
-            if (!categoryInMarket) {
+            if (listing.category.market_categories.length === 0) {
                 throw new BadRequestException(
                     'Product category is not available in this market',
                 );

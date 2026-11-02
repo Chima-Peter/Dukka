@@ -1,16 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProductRepository } from './product.repository.js';
 import { ProductVariantRepository } from './product-variant.repository.js';
 import { ProductVariantService } from './product-variant.service.js';
 
 vi.mock('@app/queues', () => ({
     MAIL_TEMPLATES: {},
     MailQueueService: class MailQueueService {},
-}));
-
-vi.mock('../category/category.service.js', () => ({
-    CategoryService: class CategoryService {},
 }));
 
 vi.mock('../markets/markets.service.js', () => ({
@@ -27,6 +22,32 @@ vi.mock('../../../../libs/common/src/index.ts', () => ({
         'image/gif',
     ]),
     SupabaseService: class SupabaseService {},
+    PrismaService: class PrismaService {},
+    MarketVariantStatus: {
+        ACTIVE: 'ACTIVE',
+        CLOSED: 'CLOSED',
+    },
+    ProductStatus: {
+        PENDING_REVIEW: 'PENDING_REVIEW',
+        ACTIVE: 'ACTIVE',
+        REJECTED: 'REJECTED',
+        ARCHIVED: 'ARCHIVED',
+    },
+    VariantPendingUpdateStatus: {
+        PENDING: 'PENDING',
+        APPROVED: 'APPROVED',
+        REJECTED: 'REJECTED',
+    },
+    VariantStatus: {
+        PENDING_REVIEW: 'PENDING_REVIEW',
+        ACTIVE: 'ACTIVE',
+        REJECTED: 'REJECTED',
+        ARCHIVED: 'ARCHIVED',
+    },
+    MarketStatus: {
+        OPEN: 'OPEN',
+        CLOSED: 'CLOSED',
+    },
 }));
 
 describe('ProductVariantService', () => {
@@ -35,9 +56,6 @@ describe('ProductVariantService', () => {
     beforeEach(async () => {
         const { SupabaseService } = await import(
             '../../../../libs/common/src/index.ts'
-        );
-        const { CategoryService } = await import(
-            '../category/category.service.js'
         );
         const { MarketsService } = await import(
             '../markets/markets.service.js'
@@ -52,6 +70,7 @@ describe('ProductVariantService', () => {
                         findMarketVariants: vi.fn(),
                         createVariant: vi.fn(),
                         findVariantInProduct: vi.fn(),
+                        findProductVariantForMarketListing: vi.fn(),
                         findVariantsInProduct: vi.fn(),
                         findPendingUpdateForVariant: vi.fn(),
                         createPendingUpdate: vi.fn(),
@@ -63,18 +82,6 @@ describe('ProductVariantService', () => {
                         rejectPendingUpdates: vi.fn(),
                         updateVariantsStatus: vi.fn(),
                         archiveVariants: vi.fn(),
-                    },
-                },
-                {
-                    provide: ProductRepository,
-                    useValue: {
-                        findById: vi.fn(),
-                    },
-                },
-                {
-                    provide: CategoryService,
-                    useValue: {
-                        existsInMarket: vi.fn(),
                     },
                 },
                 {

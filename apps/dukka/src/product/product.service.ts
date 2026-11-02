@@ -493,18 +493,16 @@ export class ProductService {
                 `Proposing image update for product ${productId}`,
             );
 
-            const desired = await this.resolveProductImages(data.images);
+            const [desired, pending] = await Promise.all([
+                this.resolveProductImages(data.images),
+                this.productRepository.findPendingUpdateForProduct(productId),
+            ]);
             const desiredUrls = new Set(desired.map((image) => image.image_url));
             if (desiredUrls.size !== desired.length) {
                 throw new BadRequestException(
                     'Duplicate image URLs are not allowed',
                 );
             }
-
-            const pending =
-                await this.productRepository.findPendingUpdateForProduct(
-                    productId,
-                );
             if (pending) {
                 throw new ConflictException(
                     'Product already has a pending update',

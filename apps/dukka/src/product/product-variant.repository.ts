@@ -507,6 +507,34 @@ export class ProductVariantRepository {
         });
     }
 
+    async findProductVariantForMarketListing(
+        productId: string,
+        variantId: string,
+        marketId: string,
+    ) {
+        return await this.prisma.product.findFirst({
+            where: { id: productId },
+            select: {
+                id: true,
+                status: true,
+                category_id: true,
+                category: {
+                    select: {
+                        market_categories: {
+                            where: { market_id: marketId },
+                            select: { market_id: true },
+                            take: 1,
+                        },
+                    },
+                },
+                variants: {
+                    where: { id: variantId },
+                    select: { id: true, status: true },
+                },
+            },
+        });
+    }
+
     async findVariantsInProduct(productId: string, variantIds: string[]) {
         return await this.prisma.variant.findMany({
             where: {

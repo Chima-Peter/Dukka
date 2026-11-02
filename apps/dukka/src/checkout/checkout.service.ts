@@ -196,27 +196,25 @@ export class CheckoutService {
         idempotencyKey: string;
     }): Promise<CheckoutResult> {
         const marketId = input.cart.market_id!;
-        const warehouse =
-            await this.serviceStateService.findWarehouseCoveringState(
+        const [warehouse, paymentMethod, bill] = await Promise.all([
+            this.serviceStateService.findWarehouseCoveringState(
                 input.addresses.shipping.state,
-            );
+            ),
+            this.paymentsService.findMarketPaymentMethod(
+                input.paymentMethodId,
+                marketId,
+            ),
+            this.buildBill(
+                input.cart,
+                input.pointsRequested,
+                input.customerId,
+            ),
+        ]);
         if (warehouse.country.market_id !== marketId) {
             throw new BadRequestException(
                 'Warehouse covering this state does not belong to the cart market',
             );
         }
-
-        const paymentMethod =
-            await this.paymentsService.findMarketPaymentMethod(
-                input.paymentMethodId,
-                marketId,
-            );
-
-        const bill = await this.buildBill(
-            input.cart,
-            input.pointsRequested,
-            input.customerId,
-        );
 
         const methodName = paymentMethod.payment_method.name.toLowerCase();
         const isCash = methodName === 'cash';
@@ -520,19 +518,18 @@ export class CheckoutService {
         shippingAddressId: string,
         billingAddressId: string | null | undefined,
     ): Promise<ResolvedAddresses> {
-        const shipping = await this.shippingAddressService.findOne(
-            customerId,
-            shippingAddressId,
-        );
-
         if (billingAddressId === null || billingAddressId === undefined) {
+            const shipping = await this.shippingAddressService.findOne(
+                customerId,
+                shippingAddressId,
+            );
             return { shipping, billing: shipping };
         }
 
-        const billing = await this.billingAddressService.findOne(
-            customerId,
-            billingAddressId,
-        );
+        const [shipping, billing] = await Promise.all([
+            this.shippingAddressService.findOne(customerId, shippingAddressId),
+            this.billingAddressService.findOne(customerId, billingAddressId),
+        ]);
         return { shipping, billing };
     }
 
