@@ -9,6 +9,9 @@ export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 5 * 60;
 export const PASSWORD_RESET_VERIFIED_TTL_SECONDS = 1 * 60;
 export const ACCOUNT_DELETION_TOKEN_TTL_SECONDS = 5 * 60;
 export const STAFF_PERMISSIONS_TTL_SECONDS = 60 * 60; // 1 hour
+export const ORDER_IDEMPOTENCY_PROCESSING_TTL_SECONDS = 15 * 60;
+export const ORDER_IDEMPOTENCY_COMPLETED_TTL_SECONDS = 24 * 60 * 60;
+export const ORDER_IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
 export const RedisKeys = {
     passwordResetToken: (email: string) => `password_reset:token:${email}`,
@@ -23,4 +26,6 @@ export const RedisKeys = {
     blacklistedToken: (token: string) => `blacklisted:token:${token}`,
     customerActiveMarket: (customerId: string) =>
         `customer:active_market:${customerId}`,
+    orderIdempotency: (key: string) => `order:idempotency:${key}`,
+    orderIdempotencyLock: (key: string) => `order:idempotency:lock:${key}`,
 } as const;

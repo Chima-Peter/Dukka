@@ -12,6 +12,7 @@ import {
     type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,
     type InventoryStockReminderJobPayload,
+    type OrderProcessingJobPayload,
     type StaffDeactivatedJobPayload,
 } from '@app/queues';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
@@ -21,6 +22,7 @@ import { ExpireCouponService } from './handlers/expire-coupon.service.js';
 import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
+import { OrderProcessingService } from './handlers/order-processing.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
 @Processor(GENERAL_QUEUE, { concurrency: 20 })
@@ -30,6 +32,7 @@ export class GeneralProcessor extends WorkerHost {
     constructor(
         private readonly expiredReservationsService: ExpiredReservationsService,
         private readonly cancelOrderService: CancelOrderService,
+        private readonly orderProcessingService: OrderProcessingService,
         private readonly customerRegisteredService: CustomerRegisteredService,
         private readonly inventoryStockReminderService: InventoryStockReminderService,
         private readonly customerAccountDeletedService: CustomerAccountDeletedService,
@@ -54,6 +57,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.CANCEL_ORDER:
                 await this.cancelOrderService.process(
                     job.data as CancelOrderJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.ORDER_PROCESSING:
+                await this.orderProcessingService.process(
+                    job.data as OrderProcessingJobPayload,
                 );
                 return;
             case GENERAL_JOBS.CUSTOMER_REGISTERED:

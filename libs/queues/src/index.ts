@@ -25,6 +25,7 @@ export {
     type InventoryStockReminderJobPayload,
     type InventoryStockReminderKind,
     type CustomerRegisteredJobPayload,
+    type OrderProcessingJobPayload,
     type StaffDeactivatedJobPayload,
 } from './general/index.js';
 export {

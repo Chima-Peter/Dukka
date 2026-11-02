@@ -11,6 +11,7 @@ import { ExpireCouponService } from './handlers/expire-coupon.service.js';
 import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
+import { OrderProcessingService } from './handlers/order-processing.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
 @Module({
@@ -24,6 +25,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
         RestCountriesIpService,
         ExpiredReservationsService,
         CancelOrderService,
+        OrderProcessingService,
         CustomerRegisteredService,
         InventoryStockReminderService,
         CustomerAccountDeletedService,

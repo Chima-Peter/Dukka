@@ -6,6 +6,10 @@ export type CancelOrderJobPayload = {
     order_id: string;
 };
 
+export type OrderProcessingJobPayload = {
+    order_id: string;
+};
+
 export type CustomerRegisteredJobPayload = {
     customer_id: string;
     email: string;
