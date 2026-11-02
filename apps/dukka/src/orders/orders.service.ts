@@ -1,5 +1,6 @@
 import {
     BadRequestException,
+    ConflictException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -9,9 +10,13 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     OrderStatus,
+    Prisma,
     type Order,
 } from '@app/common';
-import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+} from '@app/queues';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -22,8 +27,13 @@ import type { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
 import { OrdersRepository } from './orders.repository.js';
 import type {
     CreateGuestOrderInput,
+    CreateOrderBase,
     CreateOrderInput,
 } from './types/create-order.type.js';
+import {
+    IDEMPOTENCY_KEY_CONFLICT,
+    IDEMPOTENCY_KEY_CONFLICT_MESSAGE,
+} from './constants/order.constants.js';
 import type {
     CustomerOrderDetail,
     OrderSummaryPage,
@@ -68,6 +78,43 @@ export class OrdersService {
             const order = await this.ordersRepository.createForGuest(data);
             this.logger.log(`Guest order ${order.id} created`);
             return order;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async createOrder(
+        data: CreateOrderBase,
+        options?: {
+            status?: OrderStatus;
+            tx?: Prisma.TransactionClient;
+        },
+    ): Promise<Order> {
+        try {
+            this.logger.log(
+                data.customer_id
+                    ? `Creating order for customer ${data.customer_id}`
+                    : `Creating guest order for ${data.guest_email}`,
+            );
+            this.assertHasItems(data.items);
+            const order = await this.ordersRepository.createOrder(
+                data,
+                options,
+            );
+            this.logger.log(`Order ${order.id} created`);
+            return order;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findByIdempotencyKey(
+        idempotencyKey: string,
+    ): Promise<Order | null> {
+        try {
+            return await this.ordersRepository.findByIdempotencyKey(
+                idempotencyKey,
+            );
         } catch (error) {
             this.handleError(error);
         }
@@ -184,6 +231,13 @@ export class OrdersService {
                 );
             }
 
+            if (data.to_status === OrderStatus.PROCESSING) {
+                await this.generalQueueService.enqueue(
+                    GENERAL_JOBS.ORDER_PROCESSING,
+                    { order_id: result.order.id },
+                );
+            }
+
             this.logger.log(
                 `Order ${result.order.id} transitioned to ${result.order.status}`,
             );
@@ -245,6 +299,18 @@ export class OrdersService {
         }
 
         if (error instanceof PrismaClientKnownRequestError) {
+            if (error.code === 'P2002') {
+                const target = Array.isArray(error.meta?.target)
+                    ? error.meta.target.join(',')
+                    : String(error.meta?.target ?? '');
+                if (target.includes('idempotency_key')) {
+                    throw new ConflictException({
+                        code: IDEMPOTENCY_KEY_CONFLICT,
+                        message: IDEMPOTENCY_KEY_CONFLICT_MESSAGE,
+                    });
+                }
+            }
+
             if (error.code === 'P2025') {
                 const model = prismaMissingRecordModel(error);
                 if (model === 'customer') {

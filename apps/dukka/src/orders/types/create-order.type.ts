@@ -41,6 +41,7 @@ export type CreateOrderMoneyInput = {
     total_amount: number;
     market_id: string;
     warehouse_id: string;
+    idempotency_key: string;
     items: CreateOrderItemInput[];
     coupon_usage_id?: string;
 };

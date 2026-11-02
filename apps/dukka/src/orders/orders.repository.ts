@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Order, PrismaService } from '@app/common';
+import {
+    OrderStatus,
+    Prisma,
+    type Order,
+    PrismaService,
+} from '@app/common';
 import type { FindOrdersDto } from './dto/find-orders.dto.js';
 import type { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
 import {
@@ -24,6 +29,8 @@ import type {
     TransitionOrderStatusResult,
 } from './types/order.type.js';
 
+type DbClient = Prisma.TransactionClient | PrismaService;
+
 @Injectable()
 export class OrdersRepository {
     constructor(private readonly prisma: PrismaService) {}
@@ -31,37 +38,68 @@ export class OrdersRepository {
     async createForCustomer(
         customerId: string,
         data: CreateOrderInput,
+        tx?: Prisma.TransactionClient,
     ): Promise<Order> {
-        return await this.create({
-            ...data,
-            customer_id: customerId,
-        });
+        return await this.create(
+            {
+                ...data,
+                customer_id: customerId,
+            },
+            undefined,
+            tx,
+        );
     }
 
-    async createForGuest(data: CreateGuestOrderInput): Promise<Order> {
-        return await this.create({
-            currency: data.currency,
-            subtotal: data.subtotal,
-            shipping_fee: data.shipping_fee,
-            discount_amount: data.discount_amount,
-            points_discount: data.points_discount,
-            coupon_discount: data.coupon_discount,
-            total_amount: data.total_amount,
-            market_id: data.market_id,
-            warehouse_id: data.warehouse_id,
-            items: data.items,
-            coupon_usage_id: data.coupon_usage_id,
-            shipping_address: this.guestAddressSnapshot(
-                data.shipping_address,
-                data.market_id,
-            ),
-            billing_address: this.guestAddressSnapshot(
-                data.billing_address,
-                data.market_id,
-            ),
-            guest_email: data.guest_email,
-            guest_name: data.guest_name,
-            guest_phone_number: data.guest_phone_number,
+    async createForGuest(
+        data: CreateGuestOrderInput,
+        tx?: Prisma.TransactionClient,
+    ): Promise<Order> {
+        return await this.create(
+            {
+                currency: data.currency,
+                subtotal: data.subtotal,
+                shipping_fee: data.shipping_fee,
+                discount_amount: data.discount_amount,
+                points_discount: data.points_discount,
+                coupon_discount: data.coupon_discount,
+                total_amount: data.total_amount,
+                market_id: data.market_id,
+                warehouse_id: data.warehouse_id,
+                idempotency_key: data.idempotency_key,
+                items: data.items,
+                coupon_usage_id: data.coupon_usage_id,
+                shipping_address: this.guestAddressSnapshot(
+                    data.shipping_address,
+                    data.market_id,
+                ),
+                billing_address: this.guestAddressSnapshot(
+                    data.billing_address,
+                    data.market_id,
+                ),
+                guest_email: data.guest_email,
+                guest_name: data.guest_name,
+                guest_phone_number: data.guest_phone_number,
+            },
+            undefined,
+            tx,
+        );
+    }
+
+    async createOrder(
+        data: CreateOrderBase,
+        options?: {
+            status?: OrderStatus;
+            tx?: Prisma.TransactionClient;
+        },
+    ): Promise<Order> {
+        return await this.create(data, options?.status, options?.tx);
+    }
+
+    async findByIdempotencyKey(
+        idempotencyKey: string,
+    ): Promise<Order | null> {
+        return await this.prisma.order.findUnique({
+            where: { idempotency_key: idempotencyKey },
         });
     }
 
@@ -214,14 +252,21 @@ export class OrdersRepository {
         };
     }
 
-    private async create(data: CreateOrderBase): Promise<Order> {
+    private async create(
+        data: CreateOrderBase,
+        status?: OrderStatus,
+        tx?: Prisma.TransactionClient,
+    ): Promise<Order> {
+        const db: DbClient = tx ?? this.prisma;
         const promotionUsageIds = data.items
             .map((item) => item.promotion_usage_id)
             .filter((id): id is string => id !== undefined);
 
-        return await this.prisma.order.create({
+        return await db.order.create({
             data: {
                 order_number: this.generateOrderNumber(),
+                idempotency_key: data.idempotency_key,
+                ...(status !== undefined && { status }),
                 currency: data.currency,
                 subtotal: data.subtotal,
                 shipping_fee: data.shipping_fee,
