@@ -84,10 +84,11 @@ model ShippingAddress {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  customer_id String
-  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  customer_id String?
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   @@index([customer_id])
+  @@index([email])
   @@index([market_id])
   @@index([state])
 }
@@ -111,10 +112,11 @@ model BillingAddress {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  customer_id String
-  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  customer_id String?
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   @@index([customer_id])
+  @@index([email])
   @@index([market_id])
   @@index([state])
 }
@@ -739,6 +741,7 @@ enum OrderStatus {
 model Order {
   id         String   @id @default(uuid())
   order_number String @unique
+  idempotency_key String @unique
   status OrderStatus @default(PENDING)
 
   currency String
@@ -784,6 +787,12 @@ model OrderItems {
   quantity   Int
   price      Decimal @db.Decimal(12, 2)
   total Decimal @db.Decimal(12, 2)
+
+  discount_type         DiscountType?
+  discount_value        Decimal?     @db.Decimal(12, 2)
+  max_discount_amount   Decimal?     @db.Decimal(12, 2)
+  discount_amount       Decimal      @db.Decimal(12, 2) @default(0)
+  promotion_market_id   String?
 
   product_name String
   product_image String
