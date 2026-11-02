@@ -21,4 +21,5 @@ export interface ConfigType {
     REST_COUNTRIES_API_KEY: string;
     PAYSTACK_SECRET_KEY: string;
     PAYSTACK_PUBLIC_KEY: string;
+    PAYSTACK_BASE_URL: string;
 }

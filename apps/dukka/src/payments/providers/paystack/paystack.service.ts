@@ -25,8 +25,6 @@ import type {
     VerifyTransactionResult,
 } from './types/index.js';
 
-const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-
 @Injectable()
 export class PaystackService {
     private readonly logger = new Logger(PaystackService.name);
@@ -202,7 +200,10 @@ export class PaystackService {
         const secretKey = this.configService.getOrThrow('PAYSTACK_SECRET_KEY', {
             infer: true,
         });
-        const url = `${PAYSTACK_BASE_URL}${path}`;
+        const baseUrl = this.configService.getOrThrow('PAYSTACK_BASE_URL', {
+            infer: true,
+        });
+        const url = `${baseUrl.replace(/\/$/, '')}${path}`;
         const headers = {
             Authorization: `Bearer ${secretKey}`,
         };

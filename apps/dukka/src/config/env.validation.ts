@@ -25,4 +25,7 @@ export const envValidationSchema = Joi.object({
     REST_COUNTRIES_API_KEY: Joi.string().required(),
     PAYSTACK_SECRET_KEY: Joi.string().required(),
     PAYSTACK_PUBLIC_KEY: Joi.string().required(),
+    PAYSTACK_BASE_URL: Joi.string()
+        .uri()
+        .default('https://api.paystack.co'),
 });

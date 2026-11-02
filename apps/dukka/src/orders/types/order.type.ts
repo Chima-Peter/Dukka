@@ -1,8 +1,10 @@
-import type { OrderStatus, Prisma } from '@app/common';
+import type { OrderStatus, Prisma, PrismaService } from '@app/common';
 import type {
     customerOrderDetailSelect,
     staffOrderDetailSelect,
 } from '../mappers/order.mapper.js';
+
+export type DbClient = Prisma.TransactionClient | PrismaService;
 
 export type TransitionOrderStatusInput = {
     order_id: string;

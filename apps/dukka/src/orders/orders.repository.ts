@@ -23,13 +23,12 @@ import type {
 } from './types/create-order.type.js';
 import type {
     CustomerOrderDetail,
+    DbClient,
     OrderSummaryPage,
     StaffOrderDetail,
     TransitionOrderStatusInput,
     TransitionOrderStatusResult,
 } from './types/order.type.js';
-
-type DbClient = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
 export class OrdersRepository {
