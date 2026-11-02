@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import {
     CurrentCustomer,
     OptionalCustomerAuth,
@@ -7,6 +7,7 @@ import {
     type CustomerJwtPayload,
 } from '@app/common';
 import { CheckoutService } from './checkout.service.js';
+import { CheckoutDto } from './dto/checkout.dto.js';
 import { PrecheckoutQueryDto } from './dto/precheckout-query.dto.js';
 
 @Controller('checkout')
@@ -24,5 +25,19 @@ export class CheckoutController {
         @Query() query: PrecheckoutQueryDto,
     ) {
         return this.checkoutService.getPrecheckout(customer, query.cart_id);
+    }
+
+    @Post()
+    @Public()
+    @OptionalCustomerAuth()
+    @ResponseMessage('Checkout completed successfully')
+    checkout(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Body() data: CheckoutDto,
+        @Headers('idempotency-key') idempotencyKey?: string,
+    ) {
+        return this.checkoutService.checkout(customer, data, idempotencyKey);
     }
 }
