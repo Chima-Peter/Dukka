@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
     BadGatewayException,
     BadRequestException,
@@ -34,6 +35,27 @@ export class PaystackService {
         private readonly http: HttpClient,
         private readonly configService: ConfigService<ConfigType, true>,
     ) {}
+
+    verifyWebhookSignature(
+        rawBody: Buffer | string,
+        signature: string,
+    ): boolean {
+        const secretKey = this.configService.getOrThrow('PAYSTACK_SECRET_KEY', {
+            infer: true,
+        });
+        const hash = createHmac('sha512', secretKey)
+            .update(rawBody)
+            .digest('hex');
+
+        try {
+            return timingSafeEqual(
+                Buffer.from(hash, 'utf8'),
+                Buffer.from(signature, 'utf8'),
+            );
+        } catch {
+            return false;
+        }
+    }
 
     async initializeTransaction(
         input: InitializeTransactionInput,

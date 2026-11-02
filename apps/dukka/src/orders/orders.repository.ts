@@ -157,8 +157,10 @@ export class OrdersRepository {
 
     async transitionStatus(
         data: TransitionOrderStatusInput,
+        tx?: Prisma.TransactionClient,
     ): Promise<TransitionOrderStatusResult> {
-        const updated = await this.prisma.order.updateMany({
+        const db: DbClient = tx ?? this.prisma;
+        const updated = await db.order.updateMany({
             where: {
                 id: data.order_id,
                 ...(data.customer_id !== undefined && {
@@ -186,7 +188,7 @@ export class OrdersRepository {
             };
         }
 
-        const order = await this.prisma.order.findFirst({
+        const order = await db.order.findFirst({
             where: {
                 id: data.order_id,
                 ...(data.customer_id !== undefined && {

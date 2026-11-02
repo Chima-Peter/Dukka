@@ -11,6 +11,8 @@ export type {
     ListTransactionsInput,
     ListTransactionsResult,
     PaystackApiResponse,
+    PaystackWebhookChargeData,
+    PaystackWebhookEvent,
     RetryRefundAccountDetails,
     RetryRefundInput,
     RetryRefundResult,

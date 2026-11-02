@@ -7,6 +7,7 @@ import type { ConfigType } from './config/env.interface.js';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule, {
+        rawBody: true,
         instrument: ObserveInstrument,
         logger: new ConsoleLogger({
             json: true,
@@ -32,6 +33,7 @@ async function bootstrap() {
             'Authorization',
             'Last-Event-ID',
             'X-Request-ID',
+            'X-Idempotency-Key',
         ],
         origin: ['http://localhost:3000'],
         exposedHeaders: ['X-Request-ID'],

@@ -3,19 +3,24 @@ import {
     Controller,
     Delete,
     Get,
+    Headers,
     HttpCode,
     HttpStatus,
     Param,
     ParseUUIDPipe,
     Post,
     Query,
+    Req,
+    type RawBodyRequest,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import {
     Auth,
     CurrentStaff,
     Public,
     RequirePermission,
     ResponseMessage,
+    SkipTransform,
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
@@ -30,6 +35,21 @@ import { PaymentsService } from './payments.service.js';
 @Controller('payments')
 export class PaymentsController {
     constructor(private readonly paymentsService: PaymentsService) {}
+
+    @Post('webhooks/paystack')
+    @Public()
+    @SkipTransform()
+    @HttpCode(HttpStatus.OK)
+    handlePaystackWebhook(
+        @Req() req: RawBodyRequest<Request>,
+        @Headers('x-paystack-signature') signature: string | undefined,
+    ) {
+        return this.paymentsService.handlePaystackWebhook({
+            rawBody: req.rawBody,
+            signature,
+            body: req.body,
+        });
+    }
 
     @Post('methods')
     @RequirePermission(StaffPermission.PaymentsCreate)

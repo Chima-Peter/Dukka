@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
     OrderPaymentAttemptStatus,
+    OrderStatus,
     type PaymentMethod,
     type Prisma,
     PrismaService,
 } from '@app/common';
+import { OrdersRepository } from '../orders/orders.repository.js';
+import type { TransitionOrderStatusResult } from '../orders/types/order.type.js';
 import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
@@ -25,7 +28,10 @@ import type {
 
 @Injectable()
 export class PaymentsRepository {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly ordersRepository: OrdersRepository,
+    ) {}
 
     async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethod> {
         return await this.prisma.paymentMethod.create({ data });
@@ -185,10 +191,49 @@ export class PaymentsRepository {
         });
     }
 
-    async markAttemptSuccess(id: string): Promise<PaymentAttemptDetail> {
-        return await this.prisma.orderPaymentAttempt.update({
+    async markAttemptSuccess(
+        id: string,
+        tx?: Prisma.TransactionClient,
+    ): Promise<PaymentAttemptDetail> {
+        const db = tx ?? this.prisma;
+        return await db.orderPaymentAttempt.update({
             where: { id },
             data: { status: OrderPaymentAttemptStatus.SUCCESS },
+            select: paymentAttemptDetailSelect,
+        });
+    }
+
+    async completeSuccessfulPayment(
+        paymentAttemptId: string,
+        orderId: string,
+    ): Promise<TransitionOrderStatusResult> {
+        return await this.prisma.$transaction(async (tx) => {
+            await this.markAttemptSuccess(paymentAttemptId, tx);
+            return await this.ordersRepository.transitionStatus(
+                {
+                    order_id: orderId,
+                    from_statuses: [OrderStatus.PENDING],
+                    to_status: OrderStatus.PROCESSING,
+                },
+                tx,
+            );
+        });
+    }
+
+    async findAttemptDetailById(
+        id: string,
+    ): Promise<PaymentAttemptDetail | null> {
+        return await this.prisma.orderPaymentAttempt.findUnique({
+            where: { id },
+            select: paymentAttemptDetailSelect,
+        });
+    }
+
+    async findAttemptByPaymentIntentId(
+        paymentIntentId: string,
+    ): Promise<PaymentAttemptDetail | null> {
+        return await this.prisma.orderPaymentAttempt.findFirst({
+            where: { payment_intent_id: paymentIntentId },
             select: paymentAttemptDetailSelect,
         });
     }

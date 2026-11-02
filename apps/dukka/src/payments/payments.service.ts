@@ -6,9 +6,16 @@ import {
     InternalServerErrorException,
     Logger,
     NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { Prisma, type PaymentMethod } from '@app/common';
+import {
+    OrderPaymentAttemptStatus,
+    OrderStatus,
+    Prisma,
+    type PaymentMethod,
+} from '@app/common';
+import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
@@ -20,6 +27,10 @@ import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js'
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import { PaymentsRepository } from './payments.repository.js';
+import {
+    PaystackService,
+    type PaystackWebhookEvent,
+} from './providers/index.js';
 import type {
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
@@ -41,6 +52,8 @@ export class PaymentsService {
     constructor(
         private readonly paymentsRepository: PaymentsRepository,
         private readonly marketsService: MarketsService,
+        private readonly paystackService: PaystackService,
+        private readonly generalQueueService: GeneralQueueService,
     ) {}
 
     async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethod> {
@@ -256,6 +269,155 @@ export class PaymentsService {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
             });
+        }
+    }
+
+    async handlePaystackWebhook(input: {
+        rawBody: Buffer | undefined;
+        signature: string | undefined;
+        body: unknown;
+    }): Promise<{ received: true }> {
+        try {
+            if (!input.rawBody || !input.signature) {
+                throw new UnauthorizedException('Invalid Paystack signature');
+            }
+
+            const valid = this.paystackService.verifyWebhookSignature(
+                input.rawBody,
+                input.signature,
+            );
+            if (!valid) {
+                throw new UnauthorizedException('Invalid Paystack signature');
+            }
+
+            const event = this.parseWebhookEvent(input.body);
+            if (!event || event.event !== 'charge.success') {
+                this.logger.log(
+                    `Ignoring Paystack webhook event=${event?.event ?? 'unknown'}`,
+                );
+                return { received: true };
+            }
+
+            const attempt = await this.resolvePaymentAttempt(event);
+            if (!attempt) {
+                this.logger.warn(
+                    `No payment attempt for Paystack reference=${event.data.reference ?? 'missing'}`,
+                );
+                return { received: true };
+            }
+
+            if (attempt.status === OrderPaymentAttemptStatus.SUCCESS) {
+                this.logger.log(
+                    `Payment attempt ${attempt.id} already success; acknowledging webhook`,
+                );
+                return { received: true };
+            }
+
+            const transition =
+                await this.paymentsRepository.completeSuccessfulPayment(
+                    attempt.id,
+                    attempt.order_id,
+                );
+            if (!transition.ok) {
+                if (transition.reason === 'not_found') {
+                    throw new NotFoundException('Order not found');
+                }
+                throw new BadRequestException(
+                    `Cannot transition order from ${transition.current_status} to ${OrderStatus.PROCESSING}`,
+                );
+            }
+
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.ORDER_PROCESSING,
+                { order_id: attempt.order_id },
+            );
+
+            this.logger.log(
+                `Paystack charge.success processed for payment attempt ${attempt.id} order ${attempt.order_id}`,
+            );
+            return { received: true };
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Payment attempt not found',
+            });
+        }
+    }
+
+    private parseWebhookEvent(body: unknown): PaystackWebhookEvent | null {
+        if (!body || typeof body !== 'object') {
+            return null;
+        }
+
+        const event = body as Partial<PaystackWebhookEvent>;
+        if (typeof event.event !== 'string') {
+            return null;
+        }
+
+        return {
+            event: event.event,
+            data:
+                event.data && typeof event.data === 'object'
+                    ? event.data
+                    : {},
+        };
+    }
+
+    private async resolvePaymentAttempt(
+        event: PaystackWebhookEvent,
+    ): Promise<PaymentAttemptDetail | null> {
+        const reference = event.data.reference?.trim();
+        if (reference) {
+            const byReference =
+                await this.paymentsRepository.findAttemptByPaymentIntentId(
+                    reference,
+                );
+            if (byReference) {
+                return byReference;
+            }
+        }
+
+        const paymentAttemptId = this.extractPaymentAttemptId(
+            event.data.metadata,
+        );
+        if (!paymentAttemptId) {
+            return null;
+        }
+
+        return await this.paymentsRepository.findAttemptDetailById(
+            paymentAttemptId,
+        );
+    }
+
+    private extractPaymentAttemptId(
+        metadata: PaystackWebhookEvent['data']['metadata'],
+    ): string | null {
+        if (!metadata) {
+            return null;
+        }
+
+        const parsed =
+            typeof metadata === 'string'
+                ? this.tryParseMetadata(metadata)
+                : metadata;
+        if (!parsed) {
+            return null;
+        }
+
+        const value = parsed.payment_attempt_id;
+        return typeof value === 'string' && value.length > 0 ? value : null;
+    }
+
+    private tryParseMetadata(
+        metadata: string,
+    ): Record<string, unknown> | null {
+        try {
+            const parsed: unknown = JSON.parse(metadata);
+            if (parsed && typeof parsed === 'object') {
+                return parsed as Record<string, unknown>;
+            }
+            return null;
+        } catch {
+            return null;
         }
     }
 

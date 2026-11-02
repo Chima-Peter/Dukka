@@ -36,7 +36,7 @@ export class CheckoutController {
             | CustomerJwtPayload
             | undefined,
         @Body() data: CheckoutDto,
-        @Headers('idempotency-key') idempotencyKey?: string,
+        @Headers('x-idempotency-key') idempotencyKey?: string,
     ) {
         return this.checkoutService.checkout(customer, data, idempotencyKey);
     }
