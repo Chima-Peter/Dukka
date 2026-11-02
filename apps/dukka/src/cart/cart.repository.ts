@@ -33,29 +33,6 @@ export class CartRepository {
         }
     }
 
-    private async isValidPromotionForVariant(
-        tx: Prisma.TransactionClient,
-        marketVariantId: string,
-        promotionMarketId: string,
-    ): Promise<boolean> {
-        const now = new Date();
-        const link = await tx.promotionMarketVariant.findFirst({
-            where: {
-                variant_id: marketVariantId,
-                promotion_market_id: promotionMarketId,
-                promotion_market: {
-                    status: PromotionMarketStatus.ACTIVE,
-                    start_date: { lte: now },
-                    end_date: { gte: now },
-                    promotion: { status: PromotionStatus.ACTIVE },
-                },
-            },
-            select: { id: true },
-        });
-
-        return link !== null;
-    }
-
     private async findPromotionMarketIdForVariant(
         tx: Prisma.TransactionClient,
         marketVariantId: string,
@@ -111,24 +88,55 @@ export class CartRepository {
             }
 
             const removedItemIds = new Set<string>();
+            const itemsWithPromo = cart.items.filter(
+                (item) => item.promotion_market_id !== null,
+            );
 
-            for (const item of cart.items) {
-                if (item.promotion_market_id === null) {
-                    continue;
-                }
+            if (itemsWithPromo.length > 0) {
+                const now = new Date();
+                const validLinks = await tx.promotionMarketVariant.findMany({
+                    where: {
+                        OR: itemsWithPromo.map((item) => ({
+                            variant_id: item.market_variant_id,
+                            promotion_market_id: item.promotion_market_id!,
+                        })),
+                        promotion_market: {
+                            status: PromotionMarketStatus.ACTIVE,
+                            start_date: { lte: now },
+                            end_date: { gte: now },
+                            promotion: { status: PromotionStatus.ACTIVE },
+                        },
+                    },
+                    select: {
+                        variant_id: true,
+                        promotion_market_id: true,
+                    },
+                });
 
-                const valid = await this.isValidPromotionForVariant(
-                    tx,
-                    item.market_variant_id,
-                    item.promotion_market_id,
+                const validKeys = new Set(
+                    validLinks.map(
+                        (link) =>
+                            `${link.variant_id}:${link.promotion_market_id}`,
+                    ),
                 );
 
-                if (!valid) {
-                    await tx.cartItems.update({
-                        where: { id: item.id },
+                const invalidItemIds = itemsWithPromo
+                    .filter(
+                        (item) =>
+                            !validKeys.has(
+                                `${item.market_variant_id}:${item.promotion_market_id}`,
+                            ),
+                    )
+                    .map((item) => item.id);
+
+                if (invalidItemIds.length > 0) {
+                    await tx.cartItems.updateMany({
+                        where: { id: { in: invalidItemIds } },
                         data: { promotion_market_id: null },
                     });
-                    removedItemIds.add(item.id);
+                    for (const id of invalidItemIds) {
+                        removedItemIds.add(id);
+                    }
                 }
             }
 
@@ -374,25 +382,40 @@ export class CartRepository {
         });
     }
 
-    async clearCart(cartId: string): Promise<void> {
-        await this.prisma.$transaction(async (tx) => {
-            const cart = await tx.cart.findUnique({
-                where: { id: cartId },
-                select: { id: true },
-            });
+    async clearCart(
+        cartId: string,
+        tx?: Prisma.TransactionClient,
+    ): Promise<void> {
+        if (tx) {
+            await this.clearCartWithClient(tx, cartId);
+            return;
+        }
 
-            if (!cart) {
-                throw new NotFoundException('Cart not found');
-            }
+        await this.prisma.$transaction(async (innerTx) => {
+            await this.clearCartWithClient(innerTx, cartId);
+        });
+    }
 
-            await tx.cartItems.deleteMany({
-                where: { cart_id: cartId },
-            });
+    private async clearCartWithClient(
+        tx: Prisma.TransactionClient,
+        cartId: string,
+    ): Promise<void> {
+        const cart = await tx.cart.findUnique({
+            where: { id: cartId },
+            select: { id: true },
+        });
 
-            await tx.cart.update({
-                where: { id: cartId },
-                data: { total: 0 },
-            });
+        if (!cart) {
+            throw new NotFoundException('Cart not found');
+        }
+
+        await tx.cartItems.deleteMany({
+            where: { cart_id: cartId },
+        });
+
+        await tx.cart.update({
+            where: { id: cartId },
+            data: { total: 0 },
         });
     }
 }

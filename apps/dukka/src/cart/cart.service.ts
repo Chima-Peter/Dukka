@@ -247,10 +247,13 @@ export class CartService {
         }
     }
 
-    async clearCart(cartId: string): Promise<void> {
+    async clearCart(
+        cartId: string,
+        tx?: Prisma.TransactionClient,
+    ): Promise<void> {
         try {
             this.logger.log(`Clearing cart ${cartId}`);
-            await this.cartRepository.clearCart(cartId);
+            await this.cartRepository.clearCart(cartId, tx);
             this.logger.log(`Cart ${cartId} cleared`);
         } catch (error) {
             this.handleError(error);

@@ -19,6 +19,27 @@ export const cartItemSelect = {
             currency: true,
             sold_out: true,
             market_id: true,
+            variant: {
+                select: {
+                    color: true,
+                    size: true,
+                    variant_info: true,
+                    image: {
+                        select: { image_url: true },
+                    },
+                    product: {
+                        select: {
+                            name: true,
+                            specs: true,
+                            images: {
+                                select: { image_url: true },
+                                orderBy: { sort_order: 'asc' },
+                                take: 1,
+                            },
+                        },
+                    },
+                },
+            },
         },
     },
     promotion_market: {
@@ -83,6 +104,29 @@ function toActiveDiscount(row: CartItemRow): CartItemView['discount'] {
     };
 }
 
+function toProductSpecs(row: CartItemRow): Record<string, unknown> {
+    const { variant } = row.market_variant;
+    const productSpecs =
+        typeof variant.product.specs === 'object' &&
+        variant.product.specs !== null &&
+        !Array.isArray(variant.product.specs)
+            ? (variant.product.specs as Record<string, unknown>)
+            : {};
+    const variantInfo =
+        typeof variant.variant_info === 'object' &&
+        variant.variant_info !== null &&
+        !Array.isArray(variant.variant_info)
+            ? (variant.variant_info as Record<string, unknown>)
+            : {};
+
+    return {
+        ...productSpecs,
+        ...(variant.color !== null && { color: variant.color }),
+        ...(variant.size !== null && { size: variant.size }),
+        ...variantInfo,
+    };
+}
+
 export function toCartItemView(row: CartItemRow): CartItemView {
     const discount = toActiveDiscount(row);
     const discount_amount =
@@ -94,6 +138,7 @@ export function toCartItemView(row: CartItemRow): CartItemView {
                   discount.max_discount_amount,
                   row.market_variant.price,
               );
+    const { variant } = row.market_variant;
 
     return {
         id: row.id,
@@ -106,6 +151,12 @@ export function toCartItemView(row: CartItemRow): CartItemView {
         currency: row.market_variant.currency,
         sold_out: row.market_variant.sold_out,
         promotion_warning: null,
+        product_name: variant.product.name,
+        product_image:
+            variant.image?.image_url ??
+            variant.product.images[0]?.image_url ??
+            '',
+        product_specs: toProductSpecs(row),
         created_at: row.created_at,
         updated_at: row.updated_at,
     };

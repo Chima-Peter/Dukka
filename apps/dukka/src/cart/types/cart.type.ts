@@ -17,6 +17,9 @@ export type CartItemView = {
     currency: string;
     sold_out: boolean;
     promotion_warning: string | null;
+    product_name: string;
+    product_image: string;
+    product_specs: Record<string, unknown>;
     created_at: Date;
     updated_at: Date;
 };
