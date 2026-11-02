@@ -6,6 +6,6 @@ import { PointsService } from './points.service.js';
 @Module({
     controllers: [PointsController],
     providers: [PointsService, PointsRepository],
-    exports: [PointsService],
+    exports: [PointsService, PointsRepository],
 })
 export class PointsModule {}

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
     POINT_STATUS,
+    Prisma,
     type Points,
     type PointsHistory,
     PrismaService,
@@ -63,49 +64,54 @@ export class PointsRepository {
     async redeem(
         customer_id: string,
         data: CreatePointsHistoryDto,
+        tx?: Prisma.TransactionClient,
     ): Promise<PointsChangeResult> {
-        return await this.prisma.$transaction(async (tx) => {
-            let points = await tx.points.findUnique({
-                where: { customer_id },
-            });
+        if (tx) {
+            return await this.redeemWithClient(tx, customer_id, data);
+        }
 
-            if (!points) {
-                points = await tx.points.create({
-                    data: {
-                        customer: { connect: { id: customer_id } },
-                        balance: 0,
-                    },
-                });
-            }
-
-            const newBalance = points.balance - data.count;
-            if (newBalance < 0) {
-                throw new Error('INSUFFICIENT_POINTS');
-            }
-
-            const { points_history, ...updatedPoints } =
-                await tx.points.update({
-                    where: { id: points.id },
-                    data: {
-                        balance: newBalance,
-                        points_history: {
-                            create: {
-                                status: POINT_STATUS.REDEEMED,
-                                description: data.description,
-                                count: data.count,
-                            },
-                        },
-                    },
-                    include: {
-                        points_history: {
-                            orderBy: { created_at: 'desc' },
-                            take: 1,
-                        },
-                    },
-                });
-
-            return { history: points_history[0], points: updatedPoints };
+        return await this.prisma.$transaction(async (innerTx) => {
+            return await this.redeemWithClient(innerTx, customer_id, data);
         });
+    }
+
+    private async redeemWithClient(
+        tx: Prisma.TransactionClient,
+        customer_id: string,
+        data: CreatePointsHistoryDto,
+    ): Promise<PointsChangeResult> {
+        const updated = await tx.points.updateManyAndReturn({
+            where: {
+                customer_id,
+                balance: { gte: data.count },
+            },
+            data: {
+                balance: { decrement: data.count },
+            },
+        });
+
+        if (updated.length === 0) {
+            await tx.points.upsert({
+                where: { customer_id },
+                create: {
+                    customer: { connect: { id: customer_id } },
+                    balance: 0,
+                },
+                update: {},
+            });
+            throw new Error('INSUFFICIENT_POINTS');
+        }
+
+        const history = await tx.pointsHistory.create({
+            data: {
+                status: POINT_STATUS.REDEEMED,
+                description: data.description,
+                count: data.count,
+                points: { connect: { id: updated[0].id } },
+            },
+        });
+
+        return { history, points: updated[0] };
     }
 
     async findBalance(customer_id: string): Promise<number> {

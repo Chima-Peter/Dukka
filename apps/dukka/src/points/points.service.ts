@@ -7,6 +7,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
+import { Prisma } from '@app/common';
 import type { CreatePointsHistoryDto } from './dto/create-points-history.dto.js';
 import type { FindPointsHistoryDto } from './dto/find-points-history.dto.js';
 import {
@@ -82,6 +83,7 @@ export class PointsService {
     async redeem(
         customer_id: string,
         data: CreatePointsHistoryDto,
+        tx?: Prisma.TransactionClient,
     ): Promise<PointsChangeResult> {
         try {
             this.logger.log(
@@ -91,6 +93,7 @@ export class PointsService {
             const result = await this.pointsRepository.redeem(
                 customer_id,
                 data,
+                tx,
             );
 
             this.logger.log(
