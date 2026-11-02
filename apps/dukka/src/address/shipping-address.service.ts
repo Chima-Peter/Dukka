@@ -25,21 +25,19 @@ export class ShippingAddressService {
     ) {}
 
     async create(
-        customer_id: string,
+        customer_id: string | undefined,
         data: CreateAddressDto,
     ): Promise<ShippingAddress> {
         try {
+            const market_id = await this.resolveMarketId(customer_id, data);
             this.logger.log(
-                `Creating shipping address for customer ${customer_id}`,
+                customer_id
+                    ? `Creating shipping address for customer ${customer_id}`
+                    : `Creating guest shipping address for ${data.email}`,
             );
-            const market_id =
-                await this.customerService.getActiveMarketId(customer_id);
-            if (!market_id) {
-                throw new BadRequestException('Active market is not set');
-            }
 
             const address = await this.shippingAddressRepository.create(
-                customer_id,
+                customer_id ?? null,
                 market_id,
                 data,
             );
@@ -90,6 +88,37 @@ export class ShippingAddressService {
         }
     }
 
+    async findById(id: string): Promise<ShippingAddress> {
+        try {
+            const address = await this.shippingAddressRepository.findById(id);
+            if (!address) {
+                throw new NotFoundException('Shipping address not found');
+            }
+            return address;
+        } catch (error) {
+            this.handleReadError(error);
+        }
+    }
+
+    async findGuestByIdAndEmail(
+        id: string,
+        email: string,
+    ): Promise<ShippingAddress> {
+        try {
+            const address =
+                await this.shippingAddressRepository.findByIdAndEmail(
+                    id,
+                    email,
+                );
+            if (!address) {
+                throw new NotFoundException('Shipping address not found');
+            }
+            return address;
+        } catch (error) {
+            this.handleReadError(error);
+        }
+    }
+
     async update(
         customer_id: string,
         id: string,
@@ -99,6 +128,15 @@ export class ShippingAddressService {
             this.logger.log(
                 `Updating shipping address ${id} for customer ${customer_id}`,
             );
+
+            const existing =
+                await this.shippingAddressRepository.findByIdAndCustomerId(
+                    id,
+                    customer_id,
+                );
+            if (!existing) {
+                throw new NotFoundException('Shipping address not found');
+            }
 
             const address = await this.shippingAddressRepository.update(
                 id,
@@ -117,12 +155,42 @@ export class ShippingAddressService {
                 `Deleting shipping address ${id} for customer ${customer_id}`,
             );
 
+            const existing =
+                await this.shippingAddressRepository.findByIdAndCustomerId(
+                    id,
+                    customer_id,
+                );
+            if (!existing) {
+                throw new NotFoundException('Shipping address not found');
+            }
+
             await this.shippingAddressRepository.delete(id);
             this.logger.log(`Shipping address deleted ${id}`);
             return { data: null };
         } catch (error) {
             this.handleWriteError(error, 'Shipping address not found');
         }
+    }
+
+    private async resolveMarketId(
+        customer_id: string | undefined,
+        data: CreateAddressDto,
+    ): Promise<string> {
+        if (customer_id) {
+            const market_id =
+                await this.customerService.getActiveMarketId(customer_id);
+            if (!market_id) {
+                throw new BadRequestException('Active market is not set');
+            }
+            return market_id;
+        }
+
+        if (!data.market_id) {
+            throw new BadRequestException(
+                'market_id is required for guest addresses',
+            );
+        }
+        return data.market_id;
     }
 
     private handleReadError(error: unknown): never {

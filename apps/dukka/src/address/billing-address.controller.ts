@@ -13,6 +13,8 @@ import {
 import {
     Auth,
     CurrentCustomer,
+    OptionalCustomerAuth,
+    Public,
     ResponseMessage,
     type CustomerJwtPayload,
 } from '@app/common';
@@ -20,7 +22,6 @@ import { CreateAddressDto } from './dto/create-address.dto.js';
 import { UpdateAddressDto } from './dto/update-address.dto.js';
 import { BillingAddressService } from './billing-address.service.js';
 
-@Auth('customer')
 @Controller('address/billing')
 export class BillingAddressController {
     constructor(
@@ -28,21 +29,27 @@ export class BillingAddressController {
     ) {}
 
     @Post()
+    @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Billing address created successfully')
     create(
-        @CurrentCustomer() customer: CustomerJwtPayload,
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
         @Body() data: CreateAddressDto,
     ) {
-        return this.billingAddressService.create(customer.sub, data);
+        return this.billingAddressService.create(customer?.sub, data);
     }
 
     @Get()
+    @Auth('customer')
     @ResponseMessage('Billing addresses retrieved successfully')
     findAll(@CurrentCustomer() customer: CustomerJwtPayload) {
         return this.billingAddressService.findAll(customer.sub);
     }
 
     @Get(':id')
+    @Auth('customer')
     @ResponseMessage('Billing address retrieved successfully')
     findOne(
         @CurrentCustomer() customer: CustomerJwtPayload,
@@ -52,6 +59,7 @@ export class BillingAddressController {
     }
 
     @Patch(':id')
+    @Auth('customer')
     @ResponseMessage('Billing address updated successfully')
     update(
         @CurrentCustomer() customer: CustomerJwtPayload,
@@ -62,6 +70,7 @@ export class BillingAddressController {
     }
 
     @Delete(':id')
+    @Auth('customer')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Billing address deleted successfully')
     delete(

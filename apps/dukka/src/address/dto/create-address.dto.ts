@@ -44,4 +44,8 @@ export class CreateAddressDto {
     @MinLength(1)
     @MaxLength(512)
     street_address!: string;
+
+    @IsOptional()
+    @IsUUID()
+    market_id?: string;
 }

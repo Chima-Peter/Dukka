@@ -8,13 +8,14 @@ export class BillingAddressRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(
-        customer_id: string,
+        customer_id: string | null,
         market_id: string,
         data: CreateAddressDto,
     ): Promise<BillingAddress> {
+        const { market_id: _ignored, ...addressFields } = data;
         return await this.prisma.billingAddress.create({
             data: {
-                ...data,
+                ...addressFields,
                 market_id,
                 customer_id,
             },
@@ -28,12 +29,27 @@ export class BillingAddressRepository {
         });
     }
 
+    async findById(id: string): Promise<BillingAddress | null> {
+        return await this.prisma.billingAddress.findUnique({
+            where: { id },
+        });
+    }
+
     async findByIdAndCustomerId(
         id: string,
         customer_id: string,
     ): Promise<BillingAddress | null> {
         return await this.prisma.billingAddress.findFirst({
             where: { id, customer_id },
+        });
+    }
+
+    async findByIdAndEmail(
+        id: string,
+        email: string,
+    ): Promise<BillingAddress | null> {
+        return await this.prisma.billingAddress.findFirst({
+            where: { id, email, customer_id: null },
         });
     }
 

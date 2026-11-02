@@ -25,21 +25,19 @@ export class BillingAddressService {
     ) {}
 
     async create(
-        customer_id: string,
+        customer_id: string | undefined,
         data: CreateAddressDto,
     ): Promise<BillingAddress> {
         try {
+            const market_id = await this.resolveMarketId(customer_id, data);
             this.logger.log(
-                `Creating billing address for customer ${customer_id}`,
+                customer_id
+                    ? `Creating billing address for customer ${customer_id}`
+                    : `Creating guest billing address for ${data.email}`,
             );
-            const market_id =
-                await this.customerService.getActiveMarketId(customer_id);
-            if (!market_id) {
-                throw new BadRequestException('Active market is not set');
-            }
 
             const address = await this.billingAddressRepository.create(
-                customer_id,
+                customer_id ?? null,
                 market_id,
                 data,
             );
@@ -90,6 +88,37 @@ export class BillingAddressService {
         }
     }
 
+    async findById(id: string): Promise<BillingAddress> {
+        try {
+            const address = await this.billingAddressRepository.findById(id);
+            if (!address) {
+                throw new NotFoundException('Billing address not found');
+            }
+            return address;
+        } catch (error) {
+            this.handleReadError(error);
+        }
+    }
+
+    async findGuestByIdAndEmail(
+        id: string,
+        email: string,
+    ): Promise<BillingAddress> {
+        try {
+            const address =
+                await this.billingAddressRepository.findByIdAndEmail(
+                    id,
+                    email,
+                );
+            if (!address) {
+                throw new NotFoundException('Billing address not found');
+            }
+            return address;
+        } catch (error) {
+            this.handleReadError(error);
+        }
+    }
+
     async update(
         customer_id: string,
         id: string,
@@ -99,6 +128,15 @@ export class BillingAddressService {
             this.logger.log(
                 `Updating billing address ${id} for customer ${customer_id}`,
             );
+
+            const existing =
+                await this.billingAddressRepository.findByIdAndCustomerId(
+                    id,
+                    customer_id,
+                );
+            if (!existing) {
+                throw new NotFoundException('Billing address not found');
+            }
 
             const address = await this.billingAddressRepository.update(
                 id,
@@ -117,12 +155,42 @@ export class BillingAddressService {
                 `Deleting billing address ${id} for customer ${customer_id}`,
             );
 
+            const existing =
+                await this.billingAddressRepository.findByIdAndCustomerId(
+                    id,
+                    customer_id,
+                );
+            if (!existing) {
+                throw new NotFoundException('Billing address not found');
+            }
+
             await this.billingAddressRepository.delete(id);
             this.logger.log(`Billing address deleted ${id}`);
             return { data: null };
         } catch (error) {
             this.handleWriteError(error, 'Billing address not found');
         }
+    }
+
+    private async resolveMarketId(
+        customer_id: string | undefined,
+        data: CreateAddressDto,
+    ): Promise<string> {
+        if (customer_id) {
+            const market_id =
+                await this.customerService.getActiveMarketId(customer_id);
+            if (!market_id) {
+                throw new BadRequestException('Active market is not set');
+            }
+            return market_id;
+        }
+
+        if (!data.market_id) {
+            throw new BadRequestException(
+                'market_id is required for guest addresses',
+            );
+        }
+        return data.market_id;
     }
 
     private handleReadError(error: unknown): never {

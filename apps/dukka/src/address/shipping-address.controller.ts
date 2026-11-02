@@ -13,6 +13,8 @@ import {
 import {
     Auth,
     CurrentCustomer,
+    OptionalCustomerAuth,
+    Public,
     ResponseMessage,
     type CustomerJwtPayload,
 } from '@app/common';
@@ -20,7 +22,6 @@ import { CreateAddressDto } from './dto/create-address.dto.js';
 import { UpdateAddressDto } from './dto/update-address.dto.js';
 import { ShippingAddressService } from './shipping-address.service.js';
 
-@Auth('customer')
 @Controller('address/shipping')
 export class ShippingAddressController {
     constructor(
@@ -28,21 +29,27 @@ export class ShippingAddressController {
     ) {}
 
     @Post()
+    @Public()
+    @OptionalCustomerAuth()
     @ResponseMessage('Shipping address created successfully')
     create(
-        @CurrentCustomer() customer: CustomerJwtPayload,
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
         @Body() data: CreateAddressDto,
     ) {
-        return this.shippingAddressService.create(customer.sub, data);
+        return this.shippingAddressService.create(customer?.sub, data);
     }
 
     @Get()
+    @Auth('customer')
     @ResponseMessage('Shipping addresses retrieved successfully')
     findAll(@CurrentCustomer() customer: CustomerJwtPayload) {
         return this.shippingAddressService.findAll(customer.sub);
     }
 
     @Get(':id')
+    @Auth('customer')
     @ResponseMessage('Shipping address retrieved successfully')
     findOne(
         @CurrentCustomer() customer: CustomerJwtPayload,
@@ -52,6 +59,7 @@ export class ShippingAddressController {
     }
 
     @Patch(':id')
+    @Auth('customer')
     @ResponseMessage('Shipping address updated successfully')
     update(
         @CurrentCustomer() customer: CustomerJwtPayload,
@@ -62,6 +70,7 @@ export class ShippingAddressController {
     }
 
     @Delete(':id')
+    @Auth('customer')
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Shipping address deleted successfully')
     delete(
