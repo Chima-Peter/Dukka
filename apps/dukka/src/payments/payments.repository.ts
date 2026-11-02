@@ -164,6 +164,12 @@ export class PaymentsRepository {
         return await db.orderPaymentAttempt.create({
             data: {
                 ...(data.status !== undefined && { status: data.status }),
+                ...(data.payment_intent_id !== undefined && {
+                    payment_intent_id: data.payment_intent_id,
+                }),
+                ...(data.payment_intent_url !== undefined && {
+                    payment_intent_url: data.payment_intent_url,
+                }),
                 payment_method_name: data.payment_method_name,
                 expires_at: new Date(Date.now() + 60 * 60 * 1000),
                 order: { connect: { id: data.order_id } },

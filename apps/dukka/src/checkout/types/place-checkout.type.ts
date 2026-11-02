@@ -19,6 +19,8 @@ export type PlaceCheckoutInput = {
     payment_method_name: string;
     payment_attempt_status: OrderPaymentAttemptStatus;
     order_status_processing: boolean;
+    payment_intent_id?: string;
+    payment_intent_url?: string;
 };
 
 export type PlaceCheckoutResult = {

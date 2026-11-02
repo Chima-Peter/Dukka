@@ -32,6 +32,8 @@ export type CreatePaymentAttemptInput = {
     market_payment_method_id: string;
     payment_method_name: string;
     status?: OrderPaymentAttemptStatus;
+    payment_intent_id?: string;
+    payment_intent_url?: string;
 };
 
 export type UpdatePaymentIntentInput = {

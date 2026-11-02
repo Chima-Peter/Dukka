@@ -67,6 +67,12 @@ export class CheckoutRepository {
                     market_payment_method_id: input.market_payment_method_id,
                     payment_method_name: input.payment_method_name,
                     status: input.payment_attempt_status,
+                    ...(input.payment_intent_id !== undefined && {
+                        payment_intent_id: input.payment_intent_id,
+                    }),
+                    ...(input.payment_intent_url !== undefined && {
+                        payment_intent_url: input.payment_intent_url,
+                    }),
                 },
                 tx,
             );

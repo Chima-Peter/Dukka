@@ -1,4 +1,5 @@
 import {
+    BadGatewayException,
     BadRequestException,
     ConflictException,
     HttpException,
@@ -30,7 +31,6 @@ import type {
 } from '../orders/types/create-order.type.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { PaystackService } from '../payments/providers/index.js';
-import type { PaymentAttemptDetail } from '../payments/types/payment.type.js';
 import { PointsService } from '../points/points.service.js';
 import { computeDiscountAmount } from '../promotions/utils/compute-discount-amount.js';
 import { ServiceStateService } from '../service/service-state.service.js';
@@ -232,6 +232,49 @@ export class CheckoutService {
             warehouse.id,
         );
 
+        let authorizationUrl: string | null = null;
+        let paymentIntentId: string | undefined;
+        let paymentIntentUrl: string | undefined;
+
+        if (isPaystack) {
+            let init;
+            try {
+                init = await this.paystackService.initializeTransaction({
+                    email: input.addresses.shipping.email,
+                    amount: Math.round(bill.total_amount * 100),
+                    currency: bill.currency,
+                    metadata: {
+                        market_id: marketId,
+                        cart_id: input.cartId,
+                        points_redeemed: bill.points_to_redeem,
+                        idempotency_key: input.idempotencyKey,
+                        ...(input.customerId
+                            ? { customer_id: input.customerId }
+                            : {
+                                  guest_email: input.addresses.shipping.email,
+                              }),
+                    },
+                });
+            } catch (error) {
+                this.logger.error(
+                    `Paystack initialize failed for cart ${input.cartId}: ${error}`,
+                );
+                throw new InternalServerErrorException(
+                    'Paystack initialization failed. Try again later',
+                );
+            }
+
+            if (!init.authorization_url || !init.reference) {
+                throw new BadGatewayException(
+                    'Paystack initialization returned an incomplete response. Try again later',
+                );
+            }
+
+            authorizationUrl = init.authorization_url;
+            paymentIntentId = init.reference;
+            paymentIntentUrl = init.authorization_url;
+        }
+
         let placed;
         try {
             placed = await this.checkoutRepository.place({
@@ -251,6 +294,12 @@ export class CheckoutService {
                     ? OrderPaymentAttemptStatus.SUCCESS
                     : OrderPaymentAttemptStatus.PENDING,
                 order_status_processing: isCash,
+                ...(paymentIntentId !== undefined && {
+                    payment_intent_id: paymentIntentId,
+                }),
+                ...(paymentIntentUrl !== undefined && {
+                    payment_intent_url: paymentIntentUrl,
+                }),
             });
         } catch (error) {
             if (this.isIdempotencyKeyConflict(error)) {
@@ -261,49 +310,18 @@ export class CheckoutService {
             throw error;
         }
 
-        let paymentAttempt: PaymentAttemptDetail = placed.payment_attempt;
-        let authorizationUrl: string | null = null;
-
         if (isCash) {
             await this.generalQueueService.enqueue(
                 GENERAL_JOBS.ORDER_PROCESSING,
                 { order_id: placed.order.id },
             );
-        } else {
-            const init = await this.paystackService.initializeTransaction({
-                email: input.addresses.shipping.email,
-                amount: Math.round(bill.total_amount * 100),
-                currency: bill.currency,
-                metadata: {
-                    order_id: placed.order.id,
-                    order_number: placed.order.order_number,
-                    payment_attempt_id: paymentAttempt.id,
-                    market_id: marketId,
-                    cart_id: input.cartId,
-                    points_redeemed: bill.points_to_redeem,
-                    ...(input.customerId
-                        ? { customer_id: input.customerId }
-                        : {
-                              guest_email: input.addresses.shipping.email,
-                          }),
-                },
-            });
-
-            paymentAttempt = await this.paymentsService.updatePaymentIntent(
-                paymentAttempt.id,
-                {
-                    payment_intent_id: init.reference,
-                    payment_intent_url: init.authorization_url,
-                },
-            );
-            authorizationUrl = init.authorization_url;
         }
 
         this.logger.log(`Checkout completed for order ${placed.order.id}`);
 
         return {
             order: placed.order,
-            payment_attempt: paymentAttempt,
+            payment_attempt: placed.payment_attempt,
             authorization_url: authorizationUrl,
         };
     }
