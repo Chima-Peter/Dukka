@@ -128,6 +128,15 @@ export class PaymentsRepository {
         });
     }
 
+    async findAttemptByOrderId(
+        orderId: string,
+    ): Promise<PaymentAttemptDetail | null> {
+        return await this.prisma.orderPaymentAttempt.findUnique({
+            where: { order_id: orderId },
+            select: paymentAttemptDetailSelect,
+        });
+    }
+
     async hasPendingAttemptsForCustomer(
         customerId: string,
     ): Promise<boolean> {
@@ -143,9 +152,12 @@ export class PaymentsRepository {
 
     async createAttempt(
         data: CreatePaymentAttemptInput,
+        tx?: Prisma.TransactionClient,
     ): Promise<PaymentAttemptDetail> {
-        return await this.prisma.orderPaymentAttempt.create({
+        const db = tx ?? this.prisma;
+        return await db.orderPaymentAttempt.create({
             data: {
+                ...(data.status !== undefined && { status: data.status }),
                 payment_method_name: data.payment_method_name,
                 expires_at: new Date(Date.now() + 60 * 60 * 1000),
                 order: { connect: { id: data.order_id } },
@@ -169,6 +181,14 @@ export class PaymentsRepository {
                     payment_intent_url: data.payment_intent_url,
                 }),
             },
+            select: paymentAttemptDetailSelect,
+        });
+    }
+
+    async markAttemptSuccess(id: string): Promise<PaymentAttemptDetail> {
+        return await this.prisma.orderPaymentAttempt.update({
+            where: { id },
+            data: { status: OrderPaymentAttemptStatus.SUCCESS },
             select: paymentAttemptDetailSelect,
         });
     }

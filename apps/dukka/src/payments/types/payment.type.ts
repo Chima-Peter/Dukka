@@ -1,4 +1,4 @@
-import type { Prisma } from '@app/common';
+import type { OrderPaymentAttemptStatus, Prisma } from '@app/common';
 import type {
     marketPaymentMethodSelect,
     paymentAttemptDetailSelect,
@@ -31,6 +31,7 @@ export type CreatePaymentAttemptInput = {
     order_id: string;
     market_payment_method_id: string;
     payment_method_name: string;
+    status?: OrderPaymentAttemptStatus;
 };
 
 export type UpdatePaymentIntentInput = {

@@ -13,6 +13,6 @@ import { PaystackService } from './providers/index.js';
     ],
     controllers: [PaymentsController],
     providers: [PaymentsService, PaymentsRepository, PaystackService],
-    exports: [PaymentsService, PaystackService],
+    exports: [PaymentsService, PaymentsRepository, PaystackService],
 })
 export class PaymentsModule {}

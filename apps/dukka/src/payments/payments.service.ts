@@ -8,7 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { PaymentMethod } from '@app/common';
+import { Prisma, type PaymentMethod } from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
@@ -181,14 +181,41 @@ export class PaymentsService {
         }
     }
 
+    async findMarketPaymentMethod(
+        paymentMethodId: string,
+        marketId: string,
+    ): Promise<MarketPaymentMethodDetail> {
+        try {
+            const method =
+                await this.paymentsRepository.findMarketPaymentMethod(
+                    paymentMethodId,
+                    marketId,
+                );
+            if (!method) {
+                throw new NotFoundException(
+                    'Payment method is not approved for this market',
+                );
+            }
+            return method;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Payment method is not approved for this market',
+            });
+        }
+    }
+
     async createAttempt(
         data: CreatePaymentAttemptInput,
+        tx?: Prisma.TransactionClient,
     ): Promise<PaymentAttemptDetail> {
         try {
             this.logger.log(
                 `Creating payment attempt for order ${data.order_id}`,
             );
-            const attempt = await this.paymentsRepository.createAttempt(data);
+            const attempt = await this.paymentsRepository.createAttempt(
+                data,
+                tx,
+            );
             this.logger.log(`Payment attempt created ${attempt.id}`);
             return attempt;
         } catch (error) {
@@ -218,6 +245,20 @@ export class PaymentsService {
         }
     }
 
+    async markAttemptSuccess(id: string): Promise<PaymentAttemptDetail> {
+        try {
+            this.logger.log(`Marking payment attempt ${id} as success`);
+            const attempt =
+                await this.paymentsRepository.markAttemptSuccess(id);
+            this.logger.log(`Payment attempt ${id} marked success`);
+            return attempt;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Payment attempt not found',
+            });
+        }
+    }
+
     async findAttempts(
         query: FindPaymentAttemptsDto,
         staffMarketIds: string[],
@@ -234,6 +275,18 @@ export class PaymentsService {
                 `Fetched payment attempts for market ${query.market_id}`,
             );
             return page;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Payment attempt not found',
+            });
+        }
+    }
+
+    async findAttemptByOrderId(
+        orderId: string,
+    ): Promise<PaymentAttemptDetail | null> {
+        try {
+            return await this.paymentsRepository.findAttemptByOrderId(orderId);
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
