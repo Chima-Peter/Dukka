@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     Injectable,
+    InternalServerErrorException,
     NotFoundException,
 } from '@nestjs/common';
 import {
@@ -290,78 +291,106 @@ export class InventoryRepository {
 
     async reserveItems(
         orderId: string,
-        customerId: string,
+        marketId: string,
+        warehouseId: string,
+        items: ReserveInventoryItem[],
+        expiresAt: Date,
+        tx?: Prisma.TransactionClient,
+    ): Promise<ReserveInventoryResult> {
+        if (tx) {
+            return await this.reserveItemsWithClient(
+                tx,
+                orderId,
+                marketId,
+                warehouseId,
+                items,
+                expiresAt,
+            );
+        }
+
+        return await this.prisma.$transaction(async (innerTx) => {
+            return await this.reserveItemsWithClient(
+                innerTx,
+                orderId,
+                marketId,
+                warehouseId,
+                items,
+                expiresAt,
+            );
+        });
+    }
+
+    private async reserveItemsWithClient(
+        tx: Prisma.TransactionClient,
+        orderId: string,
         marketId: string,
         warehouseId: string,
         items: ReserveInventoryItem[],
         expiresAt: Date,
     ): Promise<ReserveInventoryResult> {
-        return await this.prisma.$transaction(async (tx) => {
-            const orderInventory = await tx.orderInventory.create({
-                data: {
-                    order: {
-                        connect: { id: orderId, customer_id: customerId },
-                    },
-                    warehouse: { connect: { id: warehouseId } },
-                    expires_at: expiresAt,
+        const orderInventory = await tx.orderInventory.create({
+            data: {
+                order: {
+                    connect: { id: orderId },
                 },
-            });
+                warehouse: { connect: { id: warehouseId } },
+                expires_at: expiresAt,
+            },
+        });
 
-            for (const item of items) {
-                const scope = {
-                    warehouse_id: warehouseId,
-                    market_variant: {
-                        id: item.market_variant_id,
-                        market_id: marketId,
-                        status: MarketVariantStatus.ACTIVE,
-                    },
-                };
+        if (items.length > 0) {
+            const values = Prisma.join(
+                items.map(
+                    (item) =>
+                        Prisma.sql`(${item.market_variant_id}, ${item.quantity})`,
+                ),
+            );
 
-                const updated = await tx.inventory.updateManyAndReturn({
-                    where: {
-                        ...scope,
-                        available_quantity: { gte: item.quantity },
-                    },
-                    data: {
-                        available_quantity: { decrement: item.quantity },
-                        reserved_quantity: { increment: item.quantity },
-                    },
-                    select: { available_quantity: true, reserved_quantity: true },
-                });
+            const updated = await tx.$queryRaw<{ market_variant_id: string }[]>`
+                UPDATE "Inventory" AS i
+                SET
+                    available_quantity = i.available_quantity - v.quantity,
+                    reserved_quantity = i.reserved_quantity + v.quantity,
+                    updated_at = NOW()
+                FROM (VALUES ${values}) AS v(market_variant_id, quantity)
+                INNER JOIN "MarketVariant" AS mv
+                    ON mv.id = v.market_variant_id
+                    AND mv.market_id = ${marketId}
+                    AND mv.status = ${MarketVariantStatus.ACTIVE}::"MarketVariantStatus"
+                WHERE i.warehouse_id = ${warehouseId}
+                    AND i.market_variant_id = v.market_variant_id
+                    AND i.available_quantity >= v.quantity
+                RETURNING i.market_variant_id
+            `;
 
-                if (updated.length === 0) {
-                    const existing = await tx.inventory.findFirst({
-                        where: scope,
-                        select: { id: true },
-                    });
-                    throw new BadRequestException(
-                        existing
-                            ? `Insufficient available quantity for market variant ${item.market_variant_id}`
-                            : `No inventory for market variant ${item.market_variant_id} in warehouse ${warehouseId}`,
-                    );
-                }
-
-                await tx.inventoryLineItem.create({
-                    data: {
-                        order_inventory: {
-                            connect: { id: orderInventory.id },
-                        },
-                        market_variant: {
-                            connect: { id: item.market_variant_id },
-                        },
-                        quantity: item.quantity,
-                    },
-                });
+            if (updated.length !== items.length) {
+                const updatedIds = new Set(
+                    updated.map((row) => row.market_variant_id),
+                );
+                const failed = items.find(
+                    (item) => !updatedIds.has(item.market_variant_id),
+                )!;
+                throw new InternalServerErrorException(
+                    `Insufficient available quantity for market variant ${failed.market_variant_id}. Try again later`,
+                );
             }
 
-            return {
-                order_id: orderId,
-                order_inventory_id: orderInventory.id,
-                warehouse_id: warehouseId,
-                expires_at: expiresAt,
-                items,
-            };
-        });
+            await tx.inventoryLineItem.createMany({
+                data: items.map((item) => ({
+                    order_inventory_id: orderInventory.id,
+                    market_variant_id: item.market_variant_id,
+                    quantity: item.quantity,
+                })),
+            });
+        }
+
+        return {
+            order_id: orderId,
+            order_inventory_id: orderInventory.id,
+            warehouse_id: warehouseId,
+            expires_at: expiresAt,
+            items,
+        };
     }
 
     async findOrderInventoryById(

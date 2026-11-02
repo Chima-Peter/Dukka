@@ -26,7 +26,7 @@ export class ReserveInventoryDto {
     market_id!: string;
 
     @IsUUID()
-    service_state_id!: string;
+    warehouse_id!: string;
 
     @IsArray()
     @ArrayMinSize(1)

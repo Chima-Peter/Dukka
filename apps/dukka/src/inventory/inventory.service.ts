@@ -8,7 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { WarehouseStatus } from '@app/common';
+import { Prisma, WarehouseStatus } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { ProductVariantRepository } from '../product/product-variant.repository.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
@@ -17,7 +17,6 @@ import {
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
 import { resolveMarketId } from '../shared/resolve-market-id.js';
-import { ServiceStateService } from '../service/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import type { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import type { CreateInventoryDto } from './dto/create-inventory.dto.js';
@@ -39,7 +38,6 @@ export class InventoryService {
         private readonly inventoryRepository: InventoryRepository,
         private readonly productVariantRepository: ProductVariantRepository,
         private readonly warehouseRepository: WarehouseRepository,
-        private readonly serviceStateService: ServiceStateService,
         private readonly customerService: CustomerService,
     ) {}
 
@@ -170,55 +168,55 @@ export class InventoryService {
         }
     }
 
-    async reserve(customerId: string, data: ReserveInventoryDto) {
+    async reserve(
+        data: ReserveInventoryDto & { expires_at?: Date },
+        tx?: Prisma.TransactionClient,
+    ) {
         try {
-            const mergedItems = [
-                ...data.items
-                    .reduce((byVariant, item) => {
-                        const current = byVariant.get(item.market_variant_id);
-                        if (current) {
-                            current.quantity += item.quantity;
-                        } else {
-                            byVariant.set(item.market_variant_id, {
-                                market_variant_id: item.market_variant_id,
-                                quantity: item.quantity,
-                            });
-                        }
-                        return byVariant;
-                    }, new Map<string, { market_variant_id: string; quantity: number }>())
-                    .values(),
-            ];
+            const mergedItems = this.mergeReserveItems(data.items);
+            const expiresAt =
+                data.expires_at ?? new Date(Date.now() + 15 * 60 * 1000);
 
             this.logger.log(
-                `Reserving inventory for ${mergedItems.length} item(s) in market ${data.market_id} for service state ${data.service_state_id}`,
+                `Reserving inventory for ${mergedItems.length} item(s) in market ${data.market_id} at warehouse ${data.warehouse_id}`,
             );
 
-            const warehouse =
-                await this.serviceStateService.findWarehouseCoveringState(
-                    data.service_state_id,
-                );
-            if (warehouse.country.market_id !== data.market_id) {
-                throw new BadRequestException(
-                    'Warehouse covering this state does not belong to the specified market',
-                );
-            }
-
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
             const result = await this.inventoryRepository.reserveItems(
                 data.order_id,
-                customerId,
                 data.market_id,
-                warehouse.id,
+                data.warehouse_id,
                 mergedItems,
                 expiresAt,
+                tx,
             );
             this.logger.log(
-                `Reserved inventory order ${result.order_id} at warehouse ${warehouse.id}`,
+                `Reserved inventory order ${result.order_id} at warehouse ${result.warehouse_id}`,
             );
             return this.toReserveResponse(result);
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private mergeReserveItems(
+        items: ReserveInventoryDto['items'],
+    ): ReserveInventoryDto['items'] {
+        return [
+            ...items
+                .reduce((byVariant, item) => {
+                    const current = byVariant.get(item.market_variant_id);
+                    if (current) {
+                        current.quantity += item.quantity;
+                    } else {
+                        byVariant.set(item.market_variant_id, {
+                            market_variant_id: item.market_variant_id,
+                            quantity: item.quantity,
+                        });
+                    }
+                    return byVariant;
+                }, new Map<string, { market_variant_id: string; quantity: number }>())
+                .values(),
+        ];
     }
 
     private toReserveResponse(result: ReserveInventoryResult) {

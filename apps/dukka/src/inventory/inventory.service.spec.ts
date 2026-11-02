@@ -2,14 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomerService } from '../customer/customer.service.js';
 import { ProductVariantRepository } from '../product/product-variant.repository.js';
-import { ServiceStateService } from '../service/service-state.service.js';
 import { WarehouseRepository } from '../warehouse/warehouse.repository.js';
 import { InventoryRepository } from './inventory.repository.js';
 import { InventoryService } from './inventory.service.js';
-
-vi.mock('../warehouse/service-state.service.js', () => ({
-    ServiceStateService: class ServiceStateService {},
-}));
 
 describe('InventoryService', () => {
     let service: InventoryService;
@@ -43,12 +38,6 @@ describe('InventoryService', () => {
                     provide: WarehouseRepository,
                     useValue: {
                         findByIdOrThrow: vi.fn(),
-                    },
-                },
-                {
-                    provide: ServiceStateService,
-                    useValue: {
-                        findWarehouseCoveringState: vi.fn(),
                     },
                 },
                 {
