@@ -36,14 +36,10 @@ import type {
     MarketPaymentMethodDetail,
     PaymentAttemptDetail,
     PaymentAttemptPage,
+    PaymentErrorMessages,
     PaymentMethodDetail,
     UpdatePaymentIntentInput,
 } from './types/payment.type.js';
-
-type PaymentErrorMessages = {
-    conflict?: string;
-    notFound?: string;
-};
 
 @Injectable()
 export class PaymentsService {

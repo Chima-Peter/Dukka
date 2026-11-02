@@ -40,3 +40,8 @@ export type UpdatePaymentIntentInput = {
     payment_intent_id: string;
     payment_intent_url?: string;
 };
+
+export type PaymentErrorMessages = {
+    conflict?: string;
+    notFound?: string;
+};

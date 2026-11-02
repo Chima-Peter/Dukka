@@ -1,8 +1,12 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum } from 'class-validator';
+
+
+enum PaymentMethodType {
+    CASH = 'CASH',
+    PAYSTACK = 'PAYSTACK',
+}
 
 export class CreatePaymentMethodDto {
-    @IsString()
-    @MinLength(1)
-    @MaxLength(128)
-    name!: string;
+    @IsEnum(PaymentMethodType)
+    name!: PaymentMethodType;
 }
