@@ -10,7 +10,11 @@ import {
     PromotionMarketStatus,
     PromotionStatus,
 } from '@app/common';
-import { cartSelect, toCartView } from './mappers/cart.mapper.js';
+import {
+    cartSelect,
+    toCartView,
+    type CartMapOptions,
+} from './mappers/cart.mapper.js';
 import type { CartView } from './types/cart.type.js';
 
 @Injectable()
@@ -54,7 +58,10 @@ export class CartRepository {
         return link?.promotion_market_id ?? null;
     }
 
-    async findByCartId(cartId: string): Promise<CartView> {
+    async findByCartId(
+        cartId: string,
+        options?: CartMapOptions,
+    ): Promise<CartView> {
         const cart = await this.prisma.cart.findUnique({
             where: { id: cartId },
             select: cartSelect,
@@ -64,10 +71,13 @@ export class CartRepository {
             throw new NotFoundException('Cart not found');
         }
 
-        return toCartView(cart);
+        return toCartView(cart, options);
     }
 
-    async syncPromotions(cartId: string): Promise<CartView> {
+    async syncPromotions(
+        cartId: string,
+        options?: CartMapOptions,
+    ): Promise<CartView> {
         return await this.prisma.$transaction(async (tx) => {
             const cart = await tx.cart.findUnique({
                 where: { id: cartId },
@@ -94,6 +104,8 @@ export class CartRepository {
 
             if (itemsWithPromo.length > 0) {
                 const now = new Date();
+                const graceMs = options?.endDateGraceMs ?? 0;
+                const earliestValidEnd = new Date(now.getTime() - graceMs);
                 const validLinks = await tx.promotionMarketVariant.findMany({
                     where: {
                         OR: itemsWithPromo.map((item) => ({
@@ -103,7 +115,7 @@ export class CartRepository {
                         promotion_market: {
                             status: PromotionMarketStatus.ACTIVE,
                             start_date: { lte: now },
-                            end_date: { gte: now },
+                            end_date: { gte: earliestValidEnd },
                             promotion: { status: PromotionStatus.ACTIVE },
                         },
                     },
@@ -149,7 +161,7 @@ export class CartRepository {
                 throw new NotFoundException('Cart not found');
             }
 
-            const view = toCartView(updated);
+            const view = toCartView(updated, options);
 
             if (removedItemIds.size === 0) {
                 return view;

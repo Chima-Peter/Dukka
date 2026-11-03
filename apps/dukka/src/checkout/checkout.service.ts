@@ -41,6 +41,7 @@ import {
     RedisKeys,
 } from '../shared/index.js';
 import { CheckoutRepository } from './checkout.repository.js';
+import { DISCOUNT_CHECKOUT_GRACE_MS } from './constants/checkout.constants.js';
 import type { CheckoutDto } from './dto/checkout.dto.js';
 import type {
     BillBreakdown,
@@ -138,6 +139,7 @@ export class CheckoutService {
 
         const cart = await this.cartService.getForCustomerWithSyncedTotal(
             customer.cart_id,
+            { endDateGraceMs: DISCOUNT_CHECKOUT_GRACE_MS },
         );
         this.assertCartReady(cart);
 
@@ -166,8 +168,10 @@ export class CheckoutService {
         const cartId = data.cart_id!;
         this.logger.log(`Starting checkout for guest cart ${cartId}`);
 
-        const cart =
-            await this.cartService.getForGuestWithSyncedTotal(cartId);
+        const cart = await this.cartService.getForGuestWithSyncedTotal(
+            cartId,
+            { endDateGraceMs: DISCOUNT_CHECKOUT_GRACE_MS },
+        );
         this.assertCartReady(cart);
 
         const addresses = await this.resolveGuestAddresses(

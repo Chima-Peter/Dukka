@@ -20,6 +20,7 @@ import type { DeleteCartItemsDto } from './dto/delete-cart-items.dto.js';
 import type { DeleteGuestCartItemsDto } from './dto/delete-guest-cart-items.dto.js';
 import type { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto.js';
 import type { UpdateGuestCartItemQuantityDto } from './dto/update-guest-cart-item-quantity.dto.js';
+import type { CartMapOptions } from './mappers/cart.mapper.js';
 import type {
     CartItemView,
     CartTotalView,
@@ -73,12 +74,15 @@ export class CartService {
         }
     }
 
-    async getForCustomerWithSyncedTotal(cartId: string): Promise<CartView> {
+    async getForCustomerWithSyncedTotal(
+        cartId: string,
+        options?: CartMapOptions,
+    ): Promise<CartView> {
         try {
             this.logger.log(
                 `Fetching cart ${cartId} with promotions checked and total synced`,
             );
-            const cart = await this.syncPromotionsAndTotal(cartId);
+            const cart = await this.syncPromotionsAndTotal(cartId, options);
             this.logger.log(
                 `Cart ${cartId} promotions checked and total synced`,
             );
@@ -88,12 +92,15 @@ export class CartService {
         }
     }
 
-    async getForGuestWithSyncedTotal(cartId: string): Promise<CartView> {
+    async getForGuestWithSyncedTotal(
+        cartId: string,
+        options?: CartMapOptions,
+    ): Promise<CartView> {
         try {
             this.logger.log(
                 `Fetching guest cart ${cartId} with promotions checked and total synced`,
             );
-            const cart = await this.syncPromotionsAndTotal(cartId);
+            const cart = await this.syncPromotionsAndTotal(cartId, options);
 
             if (cart.customer_id !== null) {
                 throw new BadRequestException(
@@ -110,8 +117,11 @@ export class CartService {
         }
     }
 
-    private async syncPromotionsAndTotal(cartId: string): Promise<CartView> {
-        const cart = await this.cartRepository.syncPromotions(cartId);
+    private async syncPromotionsAndTotal(
+        cartId: string,
+        options?: CartMapOptions,
+    ): Promise<CartView> {
+        const cart = await this.cartRepository.syncPromotions(cartId, options);
         const total = this.calculateTotal(cart.items);
         await this.cartRepository.setTotal(cart.id, total);
         return { ...cart, total };

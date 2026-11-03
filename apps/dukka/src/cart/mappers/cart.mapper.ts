@@ -80,18 +80,27 @@ type CartItemRow = Prisma.CartItemsGetPayload<{
     select: typeof cartItemSelect;
 }>;
 
-function toActiveDiscount(row: CartItemRow): CartItemView['discount'] {
+export type CartMapOptions = {
+    endDateGraceMs?: number;
+};
+
+function toActiveDiscount(
+    row: CartItemRow,
+    options?: CartMapOptions,
+): CartItemView['discount'] {
     const promotionMarket = row.promotion_market;
     if (promotionMarket === null) {
         return null;
     }
 
     const now = new Date();
+    const graceMs = options?.endDateGraceMs ?? 0;
+    const expiredBefore = new Date(now.getTime() - graceMs);
     if (
         promotionMarket.status !== PromotionMarketStatus.ACTIVE ||
         promotionMarket.promotion.status !== PromotionStatus.ACTIVE ||
         promotionMarket.start_date > now ||
-        promotionMarket.end_date < now
+        promotionMarket.end_date < expiredBefore
     ) {
         return null;
     }
@@ -127,8 +136,11 @@ function toProductSpecs(row: CartItemRow): Record<string, unknown> {
     };
 }
 
-export function toCartItemView(row: CartItemRow): CartItemView {
-    const discount = toActiveDiscount(row);
+export function toCartItemView(
+    row: CartItemRow,
+    options?: CartMapOptions,
+): CartItemView {
+    const discount = toActiveDiscount(row, options);
     const discount_amount =
         discount === null
             ? new Prisma.Decimal(0)
@@ -162,13 +174,16 @@ export function toCartItemView(row: CartItemRow): CartItemView {
     };
 }
 
-export function toCartView(row: CartRow): CartView {
+export function toCartView(
+    row: CartRow,
+    options?: CartMapOptions,
+): CartView {
     return {
         id: row.id,
         total: row.total,
         customer_id: row.customer_id,
         market_id: row.items[0]?.market_variant.market_id ?? null,
-        items: row.items.map(toCartItemView),
+        items: row.items.map((item) => toCartItemView(item, options)),
         created_at: row.created_at,
         updated_at: row.updated_at,
     };
