@@ -733,22 +733,24 @@ export class CheckoutService {
                 billing_addresses,
                 points_balance,
                 cart,
+                activeMarketId,
             ] = await Promise.all([
                 this.shippingAddressService.findAll(customerId),
                 this.billingAddressService.findAll(customerId),
                 this.pointsService.getBalance(customerId),
                 this.cartService.getForCustomerWithSyncedTotal(cartId),
+                this.customerService.getActiveMarketId(customerId),
             ]);
 
-            const marketId =
-                cart.market_id ??
-                (await this.customerService.getActiveMarketId(customerId));
+            const marketId = cart.market_id ?? activeMarketId;
             if (!marketId) {
                 throw new BadRequestException('Active market is not set');
             }
 
-            const payment_methods =
-                await this.paymentsService.findAvailableForMarket(marketId);
+            const [payment_methods, cash_limit] = await Promise.all([
+                this.paymentsService.findAvailableForMarket(marketId),
+                this.marketsService.getCashLimit(marketId),
+            ]);
 
             this.logger.log(
                 `Fetched precheckout data for customer ${customerId}`,
@@ -759,6 +761,7 @@ export class CheckoutService {
                 billing_addresses: billing_addresses ?? [],
                 points_balance,
                 payment_methods,
+                cash_limit,
                 cart,
             };
         } catch (error) {
@@ -781,10 +784,10 @@ export class CheckoutService {
                 );
             }
 
-            const payment_methods =
-                await this.paymentsService.findAvailableForMarket(
-                    cart.market_id,
-                );
+            const [payment_methods, cash_limit] = await Promise.all([
+                this.paymentsService.findAvailableForMarket(cart.market_id),
+                this.marketsService.getCashLimit(cart.market_id),
+            ]);
 
             this.logger.log(`Fetched precheckout data for guest cart ${cartId}`);
 
@@ -793,6 +796,7 @@ export class CheckoutService {
                 billing_addresses: [],
                 points_balance: 0,
                 payment_methods,
+                cash_limit,
                 cart,
             };
         } catch (error) {

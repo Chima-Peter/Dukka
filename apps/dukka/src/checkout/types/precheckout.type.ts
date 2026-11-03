@@ -7,5 +7,6 @@ export type PrecheckoutView = {
     billing_addresses: BillingAddress[];
     points_balance: number;
     payment_methods: MarketPaymentMethodDetail[];
+    cash_limit: number;
     cart: CartView;
 };
