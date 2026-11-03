@@ -49,6 +49,7 @@ model Customer {
   notifications Notification[]
   promotion_usages PromotionUsage[]
   coupon_usages CouponUsage[]
+  logistics_locations LogisticsLocation[]
 
   @@index([active_market_id])
 }
@@ -315,6 +316,7 @@ model Market {
   orders              Order[]
   customers           Customer[]
   promotion_markets   PromotionMarket[]
+  distribution_points DistributionPoint[]
 
   @@index([status])
   @@index([id, status])
@@ -663,6 +665,7 @@ model Warehouse {
   order_inventories        OrderInventory[]
   orders                   Order[]
   warehouse_service_states WarehouseServiceState[]
+  logistics_locations      LogisticsLocation[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -689,6 +692,7 @@ model ServiceState {
   warehouse_service_states WarehouseServiceState[]
   shipping_addresses       ShippingAddress[]
   billing_addresses        BillingAddress[]
+  distribution_points      DistributionPoint[]
 
   @@unique([country_id, state_name])
   @@index([country_id])
@@ -774,6 +778,7 @@ model Order {
   review_reminder_sent_at DateTime?
 
   order_inventory OrderInventory?
+  shipment Shipment?
   order_payment_attempt OrderPaymentAttempt?
   order_items OrderItems[]
   promotion_usages PromotionUsage[]
@@ -1173,4 +1178,207 @@ model CouponUsage {
   @@index([coupon_id])
   @@index([customer_id])
   @@index([order_id])
+}
+
+model DistributionPoint {
+  id String @id @default(uuid())
+  name String
+  address String
+  city String
+  zip String
+  contact_phone String
+  is_active Boolean @default(true)
+
+  market_id String
+  market Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  state_id String
+  state ServiceState @relation(fields: [state_id], references: [id], onDelete: Restrict)
+
+  logistics_locations LogisticsLocation[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([market_id])
+  @@index([state_id])
+  @@index([is_active])
+  @@index([name])
+}
+
+enum ShipmentStatus {
+  PENDING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Shipment {
+  id String @id @default(uuid())
+  tracking_number String @unique
+  carrier String
+  status ShipmentStatus @default(PENDING)
+  estimated_delivery_date DateTime?
+  actual_delivery_date DateTime?
+
+  origin_location_id String
+  origin_location LogisticsLocation @relation("ShipmentOrigin", fields: [origin_location_id], references: [id], onDelete: Restrict)
+
+  destination_location_id String
+  destination_location LogisticsLocation @relation("ShipmentDestination", fields: [destination_location_id], references: [id], onDelete: Restrict)
+
+  current_location_id String
+  current_location LogisticsLocation @relation("ShipmentCurrent", fields: [current_location_id], references: [id], onDelete: Restrict)
+
+  order_id String @unique
+  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  shipment_legs ShipmentLeg[]
+  shipment_movements ShipmentMovement[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tracking_number])
+  @@index([order_id])
+}
+
+model ShipmentLeg {
+  id String @id @default(uuid())
+
+  origin_location_id String
+  origin_location LogisticsLocation @relation("ShipmentLegOrigin", fields: [origin_location_id], references: [id], onDelete: Restrict)
+
+  destination_location_id String
+  destination_location LogisticsLocation @relation("ShipmentLegDestination", fields: [destination_location_id], references: [id], onDelete: Restrict)
+
+  logistics_partner_id String
+  logistics_partner LogisticsPartner @relation(fields: [logistics_partner_id], references: [id], onDelete: Restrict)
+
+  expected_departure_date DateTime
+  actual_departure_date DateTime?
+  expected_arrival_date DateTime
+  actual_arrival_date DateTime?
+
+  shipment_id String
+  shipment Shipment @relation(fields: [shipment_id], references: [id], onDelete: Cascade)
+
+  shipment_movements ShipmentMovement[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([origin_location_id])
+  @@index([destination_location_id])
+  @@index([shipment_id])
+  @@index([logistics_partner_id])
+}
+
+enum ShipmentMovementType {
+  DISPATCH
+  RECEIVED
+  DELIVERED
+  CANCELLED
+}
+
+model ShipmentMovement {
+  id String @id @default(uuid())
+  movement_type ShipmentMovementType
+
+  performed_by String
+  occurred_at DateTime
+  recorded_at DateTime
+  metadata Json?
+
+  from_location_id String
+  from_location LogisticsLocation @relation("MovementFrom", fields: [from_location_id], references: [id], onDelete: Restrict)
+
+  to_location_id String
+  to_location LogisticsLocation @relation("MovementTo", fields: [to_location_id], references: [id], onDelete: Restrict)
+
+  shipment_leg_id String
+  shipment_leg ShipmentLeg @relation(fields: [shipment_leg_id], references: [id], onDelete: Restrict)
+
+  shipment_id String
+  shipment Shipment @relation(fields: [shipment_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([shipment_leg_id])
+  @@index([from_location_id])
+  @@index([to_location_id])
+  @@index([shipment_id])
+}
+
+enum LogisticsPartnerType {
+  EXTERNAL
+  INTERNAL
+}
+
+model LogisticsPartner {
+  id String @id @default(uuid())
+  name String
+  partner_type LogisticsPartnerType
+  contact_email String
+  contact_phone String
+  code String @unique
+  is_active Boolean @default(true)
+
+  shipment_legs ShipmentLeg[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([partner_type])
+  @@index([code])
+  @@index([is_active])
+}
+
+enum LogisticsLocationType {
+  WAREHOUSE
+  CUSTOMER
+  DISTRIBUTION_POINT
+}
+
+model LogisticsLocation {
+  id String @id @default(uuid())
+  type LogisticsLocationType
+
+  warehouse_id String?
+  warehouse Warehouse? @relation(fields: [warehouse_id], references: [id], onDelete: SetNull)
+
+  distribution_point_id String?
+  distribution_point DistributionPoint? @relation(fields: [distribution_point_id], references: [id], onDelete: SetNull)
+
+  customer_id String?
+  customer Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  name String
+  email String?
+  phone String?
+  address String?
+  city String?
+  zip String?
+  state String?
+  country String?
+
+  shipment_origins Shipment[] @relation("ShipmentOrigin")
+  shipment_destinations Shipment[] @relation("ShipmentDestination")
+  shipment_currents Shipment[] @relation("ShipmentCurrent")
+
+  shipment_leg_origins ShipmentLeg[] @relation("ShipmentLegOrigin")
+  shipment_leg_destinations ShipmentLeg[] @relation("ShipmentLegDestination")
+
+  movement_froms ShipmentMovement[] @relation("MovementFrom")
+  movement_tos ShipmentMovement[] @relation("MovementTo")
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([warehouse_id])
+  @@index([distribution_point_id])
+  @@index([customer_id])
+  @@index([email])
+  @@index([type])
 }
