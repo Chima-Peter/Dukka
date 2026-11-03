@@ -15,6 +15,7 @@ import {
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
 import { safeDeleteImages } from '../shared/safe-delete-images.js';
+import { OrdersService } from '../orders/orders.service.js';
 import type { CreateReviewDto } from './dto/create-review.dto.js';
 import type { FindReviewsDto } from './dto/find-reviews.dto.js';
 import type { UploadReviewImagesDto } from './dto/upload-review-images.dto.js';
@@ -29,6 +30,7 @@ export class ReviewsService {
 
     constructor(
         private readonly reviewsRepository: ReviewsRepository,
+        private readonly ordersService: OrdersService,
         private readonly supabaseService: SupabaseService,
     ) {}
 
@@ -66,6 +68,16 @@ export class ReviewsService {
             this.logger.log(
                 `Creating review for market variant ${data.market_variant_id} by customer ${customerId}`,
             );
+
+            const eligible = await this.ordersService.hasCompletedPurchase(
+                customerId,
+                data.market_variant_id,
+            );
+            if (!eligible) {
+                throw new ForbiddenException(
+                    'You can only review products from completed orders',
+                );
+            }
 
             if (data.image_paths !== undefined && data.image_paths.length > 0) {
                 await Promise.all(

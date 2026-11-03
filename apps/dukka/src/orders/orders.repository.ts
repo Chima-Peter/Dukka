@@ -141,6 +141,25 @@ export class OrdersRepository {
         });
     }
 
+    async hasCompletedPurchase(
+        customerId: string,
+        marketVariantId: string,
+    ): Promise<boolean> {
+        const order = await this.prisma.order.findFirst({
+            where: {
+                customer_id: customerId,
+                status: OrderStatus.DELIVERED,
+                order_items: {
+                    some: {
+                        market_variant_id: marketVariantId,
+                    },
+                },
+            },
+            select: { id: true },
+        });
+        return order !== null;
+    }
+
     async findOneForStaff(
         orderId: string,
         marketId: string,

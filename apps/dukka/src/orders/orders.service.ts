@@ -180,6 +180,20 @@ export class OrdersService {
         }
     }
 
+    async hasCompletedPurchase(
+        customerId: string,
+        marketVariantId: string,
+    ): Promise<boolean> {
+        try {
+            return await this.ordersRepository.hasCompletedPurchase(
+                customerId,
+                marketVariantId,
+            );
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async findOneForStaff(
         orderId: string,
         marketId: string,

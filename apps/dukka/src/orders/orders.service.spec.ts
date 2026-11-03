@@ -36,6 +36,7 @@ describe('OrdersService', () => {
                         findForCustomer: vi.fn(),
                         findForStaff: vi.fn(),
                         findOneForCustomer: vi.fn(),
+                        hasCompletedPurchase: vi.fn(),
                         transitionStatus: vi.fn(),
                     },
                 },

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OrdersService } from '../orders/orders.service.js';
 import { ReviewsRepository } from './reviews.repository.js';
 import { ReviewsService } from './reviews.service.js';
 
@@ -36,6 +37,12 @@ describe('ReviewsService', () => {
                         incrementLikes: vi.fn(),
                         incrementDislikes: vi.fn(),
                         delete: vi.fn(),
+                    },
+                },
+                {
+                    provide: OrdersService,
+                    useValue: {
+                        hasCompletedPurchase: vi.fn(),
                     },
                 },
                 {
