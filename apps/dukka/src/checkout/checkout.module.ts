@@ -3,6 +3,7 @@ import { AddressModule } from '../address/address.module.js';
 import { CartModule } from '../cart/cart.module.js';
 import { CustomerModule } from '../customer/customer.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
+import { MarketsModule } from '../markets/markets.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { PointsModule } from '../points/points.module.js';
@@ -21,6 +22,7 @@ import { CheckoutService } from './checkout.service.js';
         OrdersModule,
         InventoryModule,
         ServiceModule,
+        MarketsModule,
     ],
     controllers: [CheckoutController],
     providers: [CheckoutService, CheckoutRepository],

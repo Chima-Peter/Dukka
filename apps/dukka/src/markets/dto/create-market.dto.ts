@@ -1,8 +1,11 @@
+import { Type } from 'class-transformer';
 import {
+    IsNumber,
     IsString,
     IsUUID,
     Matches,
     MaxLength,
+    Min,
     MinLength,
 } from 'class-validator';
 
@@ -23,4 +26,9 @@ export class CreateMarketDto {
 
     @IsUUID()
     currency_id!: string;
+
+    @Type(() => Number)
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0)
+    cash_limit!: number;
 }

@@ -22,6 +22,7 @@ import { ShippingAddressService } from '../address/shipping-address.service.js';
 import { CartService } from '../cart/cart.service.js';
 import type { CartItemView, CartView } from '../cart/types/cart.type.js';
 import { CustomerService } from '../customer/customer.service.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { IDEMPOTENCY_KEY_CONFLICT } from '../orders/constants/order.constants.js';
 import { OrdersService } from '../orders/orders.service.js';
 import type {
@@ -67,6 +68,7 @@ export class CheckoutService {
         private readonly generalQueueService: GeneralQueueService,
         private readonly redisService: RedisService,
         private readonly ordersService: OrdersService,
+        private readonly marketsService: MarketsService,
     ) {}
 
     async getPrecheckout(
@@ -200,7 +202,7 @@ export class CheckoutService {
         idempotencyKey: string;
     }): Promise<CheckoutResult> {
         const marketId = input.cart.market_id!;
-        const [warehouse, paymentMethod, bill] = await Promise.all([
+        const [warehouse, paymentMethod, bill, cashLimit] = await Promise.all([
             this.serviceStateService.findWarehouseCoveringState(
                 input.addresses.shipping.state,
             ),
@@ -213,6 +215,7 @@ export class CheckoutService {
                 input.pointsRequested,
                 input.customerId,
             ),
+            this.marketsService.getCashLimit(marketId),
         ]);
         if (warehouse.country.market_id !== marketId) {
             throw new BadRequestException(
@@ -226,6 +229,12 @@ export class CheckoutService {
         if (!isCash && !isPaystack) {
             throw new BadRequestException(
                 `Unsupported payment method: ${paymentMethod.payment_method.name}`,
+            );
+        }
+
+        if (isCash && bill.total_amount > cashLimit) {
+            throw new BadRequestException(
+                `Cash payment exceeds this market's limit of ${cashLimit}`,
             );
         }
 

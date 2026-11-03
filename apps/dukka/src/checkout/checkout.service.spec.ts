@@ -5,6 +5,7 @@ import { BillingAddressService } from '../address/billing-address.service.js';
 import { ShippingAddressService } from '../address/shipping-address.service.js';
 import { CartService } from '../cart/cart.service.js';
 import { CustomerService } from '../customer/customer.service.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { PaystackService } from '../payments/providers/index.js';
@@ -111,6 +112,12 @@ describe('CheckoutService', () => {
                     provide: OrdersService,
                     useValue: {
                         findByIdempotencyKey: vi.fn(),
+                    },
+                },
+                {
+                    provide: MarketsService,
+                    useValue: {
+                        getCashLimit: vi.fn(),
                     },
                 },
             ],

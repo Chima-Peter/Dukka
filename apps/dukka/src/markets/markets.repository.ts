@@ -19,6 +19,7 @@ const marketWithCurrency = {
             id: true,
             code: true,
             name: true,
+            cash_limit: true,
         },
     },
 } as const;
@@ -32,6 +33,7 @@ export class MarketsRepository {
             data: {
                 name: data.name,
                 code: data.code,
+                cash_limit: data.cash_limit,
                 currency: { connect: { id: data.currency_id } },
             },
             include: marketWithCurrency,
@@ -92,11 +94,23 @@ export class MarketsRepository {
             data: {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.code !== undefined && { code: data.code }),
+                ...(data.cash_limit !== undefined && {
+                    cash_limit: data.cash_limit,
+                }),
                 ...(data.currency_id !== undefined && {
                     currency: { connect: { id: data.currency_id } },
                 }),
             },
             include: marketWithCurrency,
+        });
+    }
+
+    async findCashLimitById(
+        id: string,
+    ): Promise<{ cash_limit: Market['cash_limit'] } | null> {
+        return await this.prisma.market.findUnique({
+            where: { id },
+            select: { cash_limit: true },
         });
     }
 

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Market" ADD COLUMN "cash_limit" DECIMAL(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE "Market" ALTER COLUMN "cash_limit" DROP DEFAULT;

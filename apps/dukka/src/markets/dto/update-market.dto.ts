@@ -1,10 +1,13 @@
+import { Type } from 'class-transformer';
 import {
     IsBoolean,
+    IsNumber,
     IsOptional,
     IsString,
     IsUUID,
     Matches,
     MaxLength,
+    Min,
     MinLength,
 } from 'class-validator';
 
@@ -28,6 +31,12 @@ export class UpdateMarketDto {
     @IsOptional()
     @IsUUID()
     currency_id?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0)
+    cash_limit?: number;
 
     @IsOptional()
     @IsBoolean()

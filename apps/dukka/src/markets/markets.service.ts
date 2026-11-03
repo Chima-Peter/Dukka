@@ -81,6 +81,19 @@ export class MarketsService {
         }
     }
 
+    async getCashLimit(marketId: string): Promise<number> {
+        try {
+            const market =
+                await this.marketsRepository.findCashLimitById(marketId);
+            if (!market) {
+                throw new NotFoundException('Market not found');
+            }
+            return Number(market.cash_limit.toString());
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async validateIds(data: ValidateMarketsDto): Promise<{
         valid: boolean;
         invalid_ids: string[];

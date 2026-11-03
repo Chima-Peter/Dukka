@@ -297,6 +297,7 @@ model Market {
   name        String
   code        String       @unique
   currency_id String       @unique
+  cash_limit  Decimal      @db.Decimal(12, 2)
   status      MarketStatus @default(PENDING)
   created_at  DateTime     @default(now())
   updated_at  DateTime     @updatedAt

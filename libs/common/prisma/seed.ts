@@ -43,8 +43,18 @@ const DEFAULT_CURRENCIES = [
 ] as const;
 
 const DEFAULT_MARKETS = [
-    { name: 'Nigeria', code: 'NG', currency_code: 'NGN' as const },
-    { name: 'Ghana', code: 'GH', currency_code: 'GHS' as const },
+    {
+        name: 'Nigeria',
+        code: 'NG',
+        currency_code: 'NGN' as const,
+        cash_limit: 100_000,
+    },
+    {
+        name: 'Ghana',
+        code: 'GH',
+        currency_code: 'GHS' as const,
+        cash_limit: 10_000,
+    },
 ] as const;
 
 const DEFAULT_CATEGORIES = [
@@ -160,11 +170,13 @@ async function seedMarkets() {
                 name: market.name,
                 code: market.code,
                 currency_id: currency.id,
+                cash_limit: market.cash_limit,
                 status: 'OPEN',
             },
             update: {
                 name: market.name,
                 currency_id: currency.id,
+                cash_limit: market.cash_limit,
                 status: 'OPEN',
             },
         });
