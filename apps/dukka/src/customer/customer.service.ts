@@ -11,7 +11,6 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import {
-    ServiceCountryStatus,
     MarketStatus,
     type Customer,
     ALLOWED_AVATAR_CONTENT_TYPES,
@@ -36,7 +35,7 @@ import {
     MAIL_TEMPLATES,
     MailQueueService,
 } from '@app/queues';
-import { ServiceCountryService } from '../service/service-country.service.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
 
 @Injectable()
@@ -44,7 +43,7 @@ export class CustomerService {
     private readonly logger = new Logger(CustomerService.name);
     constructor(
         private readonly customerRepository: CustomerRepository,
-        private readonly serviceCountryService: ServiceCountryService,
+        private readonly marketsService: MarketsService,
         private readonly supabaseService: SupabaseService,
         private readonly passwordHasher: PasswordHasher,
         private readonly redisService: RedisService,
@@ -141,33 +140,24 @@ export class CustomerService {
 
     async setActiveMarket(
         customerId: string,
-        country_id: string,
+        market_id: string,
     ): Promise<{ active_market_id: string }> {
         try {
             this.logger.log(
-                `Setting active market ${country_id} for customer ${customerId}`,
+                `Setting active market ${market_id} for customer ${customerId}`,
             );
 
-            const country =
-                await this.serviceCountryService.findByIDOrThrow(country_id);
-            if (country.status !== ServiceCountryStatus.OPEN) {
+            const market = await this.marketsService.findByIdOrThrow(market_id);
+            if (market.status !== MarketStatus.OPEN) {
                 throw new BadRequestException(
-                    'Cannot set country as active country as it is currently not open!',
-                );
-            }
-            if (
-                country.market === null ||
-                country.market.status !== MarketStatus.OPEN
-            ) {
-                throw new BadRequestException(
-                    'Cannot set country as active country as its market is currently not open!',
+                    'Cannot set market as active market as it is currently not open!',
                 );
             }
 
             const { active_market_id } =
                 await this.customerRepository.updateActiveMarketId(
                     customerId,
-                    country.market.id,
+                    market.id,
                 );
             if (active_market_id === null) {
                 throw new InternalServerErrorException('Failed to set active market')

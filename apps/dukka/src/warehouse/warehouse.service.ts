@@ -11,11 +11,9 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     NotificationPublisher,
     NotificationType,
-    ServiceCountryStatus,
-    MarketStatus,
     WarehouseStatus,
 } from '@app/common';
-import { ServiceCountryService } from '../service/service-country.service.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import {
     prismaHintIncludes,
@@ -37,7 +35,7 @@ export class WarehouseService {
     constructor(
         private readonly warehouseRepository: WarehouseRepository,
         private readonly staffService: StaffService,
-        private readonly serviceCountryService: ServiceCountryService,
+        private readonly marketsService: MarketsService,
         private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
@@ -47,10 +45,10 @@ export class WarehouseService {
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
-                `Creating warehouse ${data.name} in service country ${data.country_id}`,
+                `Creating warehouse ${data.name} in market ${data.market_id}`,
             );
-            const marketId = await this.requireServiceCountryMarket(
-                data.country_id,
+            const marketId = await this.requireOpenMarket(
+                data.market_id,
                 staffMarketIds,
             );
             await this.assertManagerValid(data.manager_id, marketId);
@@ -207,40 +205,16 @@ export class WarehouseService {
         warehouse: WarehouseRecord,
         staffMarketIds: string[],
     ): string {
-        const marketId = warehouse.country.market_id;
-        if (!marketId) {
-            throw new BadRequestException(
-                'Warehouse country is not assigned to a market',
-            );
-        }
-        assertStaffHasMarkets(staffMarketIds, [marketId]);
-        return marketId;
+        assertStaffHasMarkets(staffMarketIds, [warehouse.market_id]);
+        return warehouse.market_id;
     }
 
-    private async requireServiceCountryMarket(
-        countryId: string,
+    private async requireOpenMarket(
+        marketId: string,
         staffMarketIds: string[],
     ): Promise<string> {
-        const country =
-            await this.serviceCountryService.findWithMarketStatus(countryId);
-        if (!country) {
-            throw new NotFoundException('Service country not found');
-        }
-        if (country.status !== ServiceCountryStatus.OPEN) {
-            throw new BadRequestException(
-                'Only open service countries can have warehouses',
-            );
-        }
-        if (!country.market_id || !country.market) {
-            throw new BadRequestException(
-                'Service country must be assigned to a market before managing warehouses',
-            );
-        }
-        if (country.market.status !== MarketStatus.OPEN) {
-            throw new BadRequestException('Market is not open');
-        }
-        assertStaffHasMarkets(staffMarketIds, [country.market_id]);
-        return country.market_id;
+        await this.marketsService.requireOpenMarket(marketId, staffMarketIds);
+        return marketId;
     }
 
     private async assertManagerValid(
@@ -310,8 +284,8 @@ export class WarehouseService {
         error: PrismaClientKnownRequestError,
     ): NotFoundException {
         switch (prismaMissingRecordModel(error)) {
-            case 'country':
-                return new NotFoundException('Service country not found');
+            case 'market':
+                return new NotFoundException('Market not found');
             case 'staff':
                 return new NotFoundException('Manager not found');
             case 'warehouse':
@@ -320,8 +294,8 @@ export class WarehouseService {
                 break;
         }
 
-        if (prismaHintIncludes(error, 'country_id', "'country'")) {
-            return new NotFoundException('Service country not found');
+        if (prismaHintIncludes(error, 'market_id', "'market'")) {
+            return new NotFoundException('Market not found');
         }
         if (prismaHintIncludes(error, 'manager', 'staff')) {
             return new NotFoundException('Manager not found');

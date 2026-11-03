@@ -14,10 +14,6 @@ export class FindServiceStatesDto {
 
     @IsOptional()
     @IsUUID()
-    country_id?: string;
-
-    @IsOptional()
-    @IsUUID()
     cursor?: string;
 
     @IsOptional()

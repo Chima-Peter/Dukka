@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketStatus } from '../../../../libs/common/generated/prisma/enums.js';
 import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
+import { RestCountriesIpService } from '../../../../libs/common/src/rest-countries/rest-countries-ip.service.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
 
@@ -51,7 +52,8 @@ describe('MarketsService', () => {
         update: ReturnType<typeof vi.fn>;
         setStatus: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
-        countServiceCountries: ReturnType<typeof vi.fn>;
+        countServiceStates: ReturnType<typeof vi.fn>;
+        countWarehouses: ReturnType<typeof vi.fn>;
         findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
     };
 
@@ -68,7 +70,8 @@ describe('MarketsService', () => {
             update: vi.fn(),
             setStatus: vi.fn(),
             delete: vi.fn(),
-            countServiceCountries: vi.fn().mockResolvedValue(0),
+            countServiceStates: vi.fn().mockResolvedValue(0),
+            countWarehouses: vi.fn().mockResolvedValue(0),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
         };
         mailQueue = {
@@ -93,6 +96,10 @@ describe('MarketsService', () => {
                         notifyCustomer: vi.fn(),
                         notifyStaff: vi.fn(),
                     },
+                },
+                {
+                    provide: RestCountriesIpService,
+                    useValue: { resolveIso2: vi.fn() },
                 },
             ],
         }).compile();
@@ -201,7 +208,8 @@ describe('MarketsService', () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
             { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
-        marketsRepository.countServiceCountries.mockResolvedValue(0);
+        marketsRepository.countServiceStates.mockResolvedValue(0);
+        marketsRepository.countWarehouses.mockResolvedValue(0);
         marketsRepository.delete.mockResolvedValue({
             id: 'market-1',
             name: 'Lagos',
@@ -213,11 +221,12 @@ describe('MarketsService', () => {
         expect(marketsRepository.delete).toHaveBeenCalledWith('market-1');
     });
 
-    it('rejects delete when market still has service countries', async () => {
+    it('rejects delete when market still has service states', async () => {
         marketsRepository.findExistingByIds.mockResolvedValue([
             { id: 'market-1', status: MarketStatus.CLOSED },
         ]);
-        marketsRepository.countServiceCountries.mockResolvedValue(2);
+        marketsRepository.countServiceStates.mockResolvedValue(2);
+        marketsRepository.countWarehouses.mockResolvedValue(0);
 
         await expect(service.delete('market-1')).rejects.toBeInstanceOf(
             ConflictException,

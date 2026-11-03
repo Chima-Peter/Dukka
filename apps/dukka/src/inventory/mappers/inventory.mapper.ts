@@ -12,11 +12,7 @@ export const inventoryRowSelect = {
     warehouse: {
         select: {
             name: true,
-            country: {
-                select: {
-                    market_id: true,
-                },
-            },
+            market_id: true,
         },
     },
     market_variant: {
@@ -47,7 +43,7 @@ export function toInventoryItem(row: InventoryRow): InventoryItem {
         market_variant_id: row.market_variant_id,
         warehouse_id: row.warehouse_id,
         warehouse_name: row.warehouse.name,
-        market_id: row.warehouse.country.market_id!,
+        market_id: row.warehouse.market_id,
         variant_id: row.market_variant.variant_id,
         variant_code: row.market_variant.variant.variant_code,
         product_id: row.market_variant.variant.product_id,

@@ -2,10 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, WarehouseStatus, PrismaService } from '@app/common';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
-import {
-    warehouseWithCountry,
-    type CreateWarehouseRecord,
-    type WarehouseRecord,
+import type {
+    CreateWarehouseRecord,
+    WarehouseRecord,
 } from './types/warehouse.type.js';
 
 @Injectable()
@@ -17,21 +16,17 @@ export class WarehouseRepository {
             data: {
                 name: data.name,
                 address: data.address,
-                country: { connect: { id: data.country_id } },
+                market: { connect: { id: data.market_id } },
                 manager: { connect: { id: data.manager_id } },
             },
-            include: warehouseWithCountry,
         });
     }
 
     async findAll(query: FindWarehousesDto) {
         const limit = query.limit ?? 50;
         const where: Prisma.WarehouseWhereInput = {
-            ...(query.country_id !== undefined && {
-                country_id: query.country_id,
-            }),
             ...(query.market_id !== undefined && {
-                country: { market_id: query.market_id },
+                market_id: query.market_id,
             }),
             ...(query.manager_id !== undefined && {
                 manager_id: query.manager_id,
@@ -47,7 +42,6 @@ export class WarehouseRepository {
 
         const records = await this.prisma.warehouse.findMany({
             where,
-            include: warehouseWithCountry,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -68,7 +62,6 @@ export class WarehouseRepository {
     async findById(id: string): Promise<WarehouseRecord | null> {
         return await this.prisma.warehouse.findUnique({
             where: { id },
-            include: warehouseWithCountry,
         });
     }
 
@@ -87,7 +80,6 @@ export class WarehouseRepository {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.address !== undefined && { address: data.address }),
             },
-            include: warehouseWithCountry,
         });
     }
 
@@ -97,7 +89,6 @@ export class WarehouseRepository {
             data: {
                 manager: { connect: { id: managerId } },
             },
-            include: warehouseWithCountry,
         });
     }
 
@@ -105,7 +96,6 @@ export class WarehouseRepository {
         return await this.prisma.warehouse.update({
             where: { id },
             data: { status: WarehouseStatus.CLOSED },
-            include: warehouseWithCountry,
         });
     }
 
@@ -113,7 +103,6 @@ export class WarehouseRepository {
         return await this.prisma.warehouse.update({
             where: { id },
             data: { status: WarehouseStatus.OPEN },
-            include: warehouseWithCountry,
         });
     }
 }

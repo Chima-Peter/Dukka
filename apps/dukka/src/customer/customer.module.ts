@@ -12,12 +12,14 @@ import { CustomerController } from './customer.controller.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerService } from './customer.service.js';
 import { TokenRepository } from './token.repository.js';
+import { MarketsModule } from '../markets/markets.module.js';
 import { ServiceModule } from '../service/service.module.js';
 
 @Module({
     imports: [
         forwardRef(() => CartModule),
         forwardRef(() => ServiceModule),
+        MarketsModule,
         PaymentsModule,
         JwtModule.registerAsync({
             global: true,

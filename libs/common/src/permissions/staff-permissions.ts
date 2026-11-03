@@ -105,34 +105,6 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Delete currencies',
     },
     {
-        name: 'service_countries:create',
-        description: 'Create service countries',
-    },
-    {
-        name: 'service_countries:update',
-        description: 'Update service countries',
-    },
-    {
-        name: 'service_countries:delete',
-        description: 'Delete service countries',
-    },
-    {
-        name: 'service_countries:open',
-        description: 'Open service countries',
-    },
-    {
-        name: 'service_countries:close',
-        description: 'Close service countries',
-    },
-    {
-        name: 'service_countries:assign_market',
-        description: 'Assign service countries to markets',
-    },
-    {
-        name: 'service_countries:remove_market',
-        description: 'Remove service countries from markets',
-    },
-    {
         name: 'categories:create',
         description: 'Create product categories and add them to markets',
     },
@@ -298,13 +270,6 @@ export const StaffPermission = {
     CurrenciesCreate: 'currencies:create',
     CurrenciesUpdate: 'currencies:update',
     CurrenciesDelete: 'currencies:delete',
-    ServiceCountriesCreate: 'service_countries:create',
-    ServiceCountriesUpdate: 'service_countries:update',
-    ServiceCountriesDelete: 'service_countries:delete',
-    ServiceCountriesOpen: 'service_countries:open',
-    ServiceCountriesClose: 'service_countries:close',
-    ServiceCountriesAssignMarket: 'service_countries:assign_market',
-    ServiceCountriesRemoveMarket: 'service_countries:remove_market',
     CategoriesCreate: 'categories:create',
     CategoriesUpdate: 'categories:update',
     CategoriesDelete: 'categories:delete',

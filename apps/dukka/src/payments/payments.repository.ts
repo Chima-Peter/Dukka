@@ -292,9 +292,6 @@ export class PaymentsRepository {
             ...(query.warehouse_id !== undefined && {
                 warehouse_id: query.warehouse_id,
             }),
-            ...(query.country_id !== undefined && {
-                warehouse: { country_id: query.country_id },
-            }),
             ...(query.customer_id !== undefined && {
                 customer_id: query.customer_id,
             }),

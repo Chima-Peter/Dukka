@@ -2,7 +2,7 @@ import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class CreateServiceStateDto {
     @IsUUID()
-    country_id!: string;
+    market_id!: string;
 
     @IsString()
     @MinLength(1)

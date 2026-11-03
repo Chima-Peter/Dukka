@@ -13,15 +13,18 @@ import {
     MarketStatus,
     NotificationPublisher,
     NotificationType,
+    RestCountriesIpService,
 } from '@app/common';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
+import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
-import {
-    MarketsRepository,
-    type MarketWithCurrency,
-} from './markets.repository.js';
+import { MarketsRepository } from './markets.repository.js';
+import type {
+    MarketSearchMatch,
+    MarketWithCurrency,
+} from './types/market.type.js';
 
 @Injectable()
 export class MarketsService {
@@ -31,6 +34,7 @@ export class MarketsService {
         private readonly marketsRepository: MarketsRepository,
         private readonly mailQueueService: MailQueueService,
         private readonly notificationPublisher: NotificationPublisher,
+        private readonly restCountriesIpService: RestCountriesIpService,
     ) {}
 
     async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
@@ -67,10 +71,8 @@ export class MarketsService {
     ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Fetching market ${id}`);
-            const market = await this.marketsRepository.findById(
-                id,
-                market_ids,
-            );
+            assertStaffHasMarkets(market_ids, [id]);
+            const market = await this.marketsRepository.findById(id);
             if (!market) {
                 throw new NotFoundException('Market not found');
             }
@@ -79,6 +81,50 @@ export class MarketsService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    async findByIdOrThrow(id: string): Promise<MarketWithCurrency> {
+        const market = await this.marketsRepository.findById(id);
+        if (!market) {
+            throw new NotFoundException('Market not found');
+        }
+        return market;
+    }
+
+    async requireOpenMarket(
+        id: string,
+        staffMarketIds?: string[],
+    ): Promise<MarketWithCurrency> {
+        const market = await this.findByIdOrThrow(id);
+        if (market.status !== MarketStatus.OPEN) {
+            throw new BadRequestException('Market is not open');
+        }
+        if (staffMarketIds !== undefined) {
+            assertStaffHasMarkets(staffMarketIds, [id]);
+        }
+        return market;
+    }
+
+    async searchByIp(clientIp?: string): Promise<MarketSearchMatch | null> {
+        if (!clientIp) {
+            this.logger.warn('No client IP available; skipping market search');
+            return null;
+        }
+
+        this.logger.log(`Searching market by IP: ${clientIp}`);
+        const iso2 = await this.restCountriesIpService.resolveIso2(clientIp);
+        if (!iso2) {
+            return null;
+        }
+
+        const match = await this.marketsRepository.findOpenByIso2(iso2);
+        if (!match) {
+            this.logger.warn(`No open market found for iso2 ${iso2}`);
+            return null;
+        }
+
+        this.logger.log(`Resolved market ${match.iso2} from IP ${clientIp}`);
+        return match;
     }
 
     async getCashLimit(marketId: string): Promise<number> {
@@ -207,11 +253,18 @@ export class MarketsService {
                     'Close the market before deleting it',
                 );
             }
-            const countryCount =
-                await this.marketsRepository.countServiceCountries(id);
-            if (countryCount > 0) {
+            const [stateCount, warehouseCount] = await Promise.all([
+                this.marketsRepository.countServiceStates(id),
+                this.marketsRepository.countWarehouses(id),
+            ]);
+            if (stateCount > 0) {
                 throw new ConflictException(
-                    'Market cannot be deleted while it still has service countries assigned',
+                    'Market cannot be deleted while it still has service states',
+                );
+            }
+            if (warehouseCount > 0) {
+                throw new ConflictException(
+                    'Market cannot be deleted while it still has warehouses',
                 );
             }
             const contacts =
@@ -309,6 +362,16 @@ export class MarketsService {
                 const target = Array.isArray(error.meta?.target)
                     ? error.meta.target.join(',')
                     : String(error.meta?.target ?? '');
+                if (target.includes('iso2')) {
+                    throw new ConflictException(
+                        'A market with this iso2 already exists',
+                    );
+                }
+                if (target.includes('iso3')) {
+                    throw new ConflictException(
+                        'A market with this iso3 already exists',
+                    );
+                }
                 if (target.includes('currency_id')) {
                     throw new ConflictException(
                         'This currency is already assigned to another market',
@@ -325,9 +388,9 @@ export class MarketsService {
                 if (prismaHintIncludes(error, 'currency')) {
                     throw new NotFoundException('Currency not found');
                 }
-                if (prismaHintIncludes(error, 'country')) {
+                if (prismaHintIncludes(error, 'warehouse', 'service_state')) {
                     throw new ConflictException(
-                        'Market cannot be deleted while it still has service countries assigned',
+                        'Market cannot be deleted while related records still exist',
                     );
                 }
                 throw new ConflictException(

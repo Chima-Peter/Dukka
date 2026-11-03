@@ -51,10 +51,6 @@ export class FindPaymentAttemptsDto {
 
     @IsOptional()
     @IsUUID()
-    country_id?: string;
-
-    @IsOptional()
-    @IsUUID()
     customer_id?: string;
 
     @IsOptional()

@@ -46,12 +46,16 @@ const DEFAULT_MARKETS = [
     {
         name: 'Nigeria',
         code: 'NG',
+        iso2: 'NG',
+        iso3: 'NGA',
         currency_code: 'NGN' as const,
         cash_limit: 100_000,
     },
     {
         name: 'Ghana',
         code: 'GH',
+        iso2: 'GH',
+        iso3: 'GHA',
         currency_code: 'GHS' as const,
         cash_limit: 10_000,
     },
@@ -169,12 +173,16 @@ async function seedMarkets() {
             create: {
                 name: market.name,
                 code: market.code,
+                iso2: market.iso2,
+                iso3: market.iso3,
                 currency_id: currency.id,
                 cash_limit: market.cash_limit,
                 status: 'OPEN',
             },
             update: {
                 name: market.name,
+                iso2: market.iso2,
+                iso3: market.iso3,
                 currency_id: currency.id,
                 cash_limit: market.cash_limit,
                 status: 'OPEN',
@@ -183,49 +191,6 @@ async function seedMarkets() {
     }
 
     console.log(`Seeded ${DEFAULT_MARKETS.length} markets`);
-}
-
-const MARKET_COUNTRY_ISO: Record<
-    string,
-    { iso2: string; iso3: string }
-> = {
-    NG: { iso2: 'NG', iso3: 'NGA' },
-    GH: { iso2: 'GH', iso3: 'GHA' },
-    US: { iso2: 'US', iso3: 'USA' },
-};
-
-async function seedServiceCountries() {
-    const markets = await prisma.market.findMany({
-        select: { id: true, code: true, name: true },
-    });
-
-    for (const market of markets) {
-        const iso = MARKET_COUNTRY_ISO[market.code];
-        if (!iso) {
-            throw new Error(
-                `Missing ISO mapping for market code ${market.code}`,
-            );
-        }
-
-        await prisma.serviceCountry.upsert({
-            where: { iso2: iso.iso2 },
-            create: {
-                name: market.name,
-                iso2: iso.iso2,
-                iso3: iso.iso3,
-                status: 'OPEN',
-                market_id: market.id,
-            },
-            update: {
-                name: market.name,
-                iso3: iso.iso3,
-                status: 'OPEN',
-                market_id: market.id,
-            },
-        });
-    }
-
-    console.log(`Seeded ${markets.length} service countries`);
 }
 
 async function seedSuperAdminRole() {
@@ -811,20 +776,10 @@ async function seedShippingAddresses(
             continue;
         }
 
-        const country = await prisma.serviceCountry.findUnique({
-            where: { iso2: shipping.market_code },
-            select: { id: true },
-        });
-        if (!country) {
-            throw new Error(
-                `Missing service country ${shipping.market_code} for shipping address seed`,
-            );
-        }
-
         const serviceState = await prisma.serviceState.findUnique({
             where: {
-                country_id_state_name: {
-                    country_id: country.id,
+                market_id_state_name: {
+                    market_id: market.id,
                     state_name: shipping.state_name,
                 },
             },
@@ -832,7 +787,7 @@ async function seedShippingAddresses(
         });
         if (!serviceState) {
             throw new Error(
-                `Missing service state ${shipping.state_name} for service country ${shipping.market_code}`,
+                `Missing service state ${shipping.state_name} for market ${shipping.market_code}`,
             );
         }
 
@@ -908,20 +863,10 @@ async function seedBillingAddresses(
             continue;
         }
 
-        const country = await prisma.serviceCountry.findUnique({
-            where: { iso2: billing.market_code },
-            select: { id: true },
-        });
-        if (!country) {
-            throw new Error(
-                `Missing service country ${billing.market_code} for billing address seed`,
-            );
-        }
-
         const serviceState = await prisma.serviceState.findUnique({
             where: {
-                country_id_state_name: {
-                    country_id: country.id,
+                market_id_state_name: {
+                    market_id: market.id,
                     state_name: billing.state_name,
                 },
             },
@@ -929,7 +874,7 @@ async function seedBillingAddresses(
         });
         if (!serviceState) {
             throw new Error(
-                `Missing service state ${billing.state_name} for service country ${billing.market_code}`,
+                `Missing service state ${billing.state_name} for market ${billing.market_code}`,
             );
         }
 
@@ -1258,44 +1203,33 @@ async function seedWarehousesAndInventory(
     }
 
     const serviceStatesDef = [
-        { country_code: 'NG', state_name: 'Lagos' },
-        { country_code: 'NG', state_name: 'Abuja' },
-        { country_code: 'GH', state_name: 'Greater Accra' },
-        { country_code: 'GH', state_name: 'Ashanti' },
+        { market_code: 'NG', state_name: 'Lagos' },
+        { market_code: 'NG', state_name: 'Abuja' },
+        { market_code: 'GH', state_name: 'Greater Accra' },
+        { market_code: 'GH', state_name: 'Ashanti' },
     ] as const;
-
-    const countries = await prisma.serviceCountry.findMany({
-        select: { id: true, iso2: true, market_id: true },
-    });
 
     const serviceStates: {
         id: string;
-        country_code: string;
         market_code: string;
         state_name: string;
     }[] = [];
 
     for (const stateDef of serviceStatesDef) {
-        const country = countries.find(
-            (row) => row.iso2 === stateDef.country_code,
-        );
-        if (!country?.market_id) {
-            continue;
-        }
-        const market = markets.find((row) => row.id === country.market_id);
+        const market = markets.find((row) => row.code === stateDef.market_code);
         if (!market) {
             continue;
         }
 
         const serviceState = await prisma.serviceState.upsert({
             where: {
-                country_id_state_name: {
-                    country_id: country.id,
+                market_id_state_name: {
+                    market_id: market.id,
                     state_name: stateDef.state_name,
                 },
             },
             create: {
-                country_id: country.id,
+                market_id: market.id,
                 state_name: stateDef.state_name,
                 status: 'OPEN',
             },
@@ -1306,22 +1240,15 @@ async function seedWarehousesAndInventory(
 
         serviceStates.push({
             id: serviceState.id,
-            country_code: stateDef.country_code,
             market_code: market.code,
             state_name: stateDef.state_name,
         });
     }
 
-    const ngCountry = countries.find((row) => row.iso2 === 'NG');
-    const ghCountry = countries.find((row) => row.iso2 === 'GH');
-    if (!ngCountry || !ghCountry) {
-        throw new Error('Missing service countries for warehouse seed');
-    }
-
     const warehousesDef = [
         {
             name: 'Lagos Central Warehouse',
-            country_id: ngCountry.id,
+            market_id: ngMarket.id,
             market_code: 'NG',
             manager_id: ngManager.id,
             address: 'Plot 8, Kudirat Abiola Way, Oregun, Lagos',
@@ -1330,7 +1257,7 @@ async function seedWarehousesAndInventory(
         },
         {
             name: 'Accra Fulfillment Hub',
-            country_id: ghCountry.id,
+            market_id: ghMarket.id,
             market_code: 'GH',
             manager_id: ghManager.id,
             address: 'Spintex Road, Accra',
@@ -1339,13 +1266,13 @@ async function seedWarehousesAndInventory(
         },
     ] as const;
 
-    const warehouses: { id: string; name: string; country_id: string }[] = [];
+    const warehouses: { id: string; name: string; market_id: string }[] = [];
 
     for (const warehouseDef of warehousesDef) {
         let warehouse = await prisma.warehouse.findFirst({
             where: {
                 name: warehouseDef.name,
-                country_id: warehouseDef.country_id,
+                market_id: warehouseDef.market_id,
             },
         });
 
@@ -1353,7 +1280,7 @@ async function seedWarehousesAndInventory(
             warehouse = await prisma.warehouse.create({
                 data: {
                     name: warehouseDef.name,
-                    country_id: warehouseDef.country_id,
+                    market_id: warehouseDef.market_id,
                     manager_id: warehouseDef.manager_id,
                     address: warehouseDef.address,
                     status: warehouseDef.status,
@@ -1950,7 +1877,6 @@ async function main() {
     await seedPermissions();
     await seedCurrencies();
     await seedMarkets();
-    await seedServiceCountries();
 
     const markets = await prisma.market.findMany({
         select: { id: true, code: true },

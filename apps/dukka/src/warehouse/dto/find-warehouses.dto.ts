@@ -15,10 +15,6 @@ import { WarehouseStatus } from '@app/common';
 export class FindWarehousesDto {
     @IsOptional()
     @IsUUID()
-    country_id?: string;
-
-    @IsOptional()
-    @IsUUID()
     market_id?: string;
 
     @IsOptional()

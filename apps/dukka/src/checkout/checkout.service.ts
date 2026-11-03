@@ -217,7 +217,7 @@ export class CheckoutService {
             ),
             this.marketsService.getCashLimit(marketId),
         ]);
-        if (warehouse.country.market_id !== marketId) {
+        if (warehouse.market_id !== marketId) {
             throw new BadRequestException(
                 'Warehouse covering this state does not belong to the cart market',
             );

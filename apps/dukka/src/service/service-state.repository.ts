@@ -14,7 +14,6 @@ import type {
 import type { WarehouseRecord } from '../warehouse/types/warehouse.type.js';
 
 type ServiceStateWithRelations = ServiceState & {
-    country: { market_id: string | null };
     warehouse_service_states: Array<{ warehouse_id: string }>;
 };
 
@@ -23,18 +22,15 @@ export class ServiceStateRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(
-        countryId: string,
+        marketId: string,
         stateName: string,
     ): Promise<ServiceStateItem> {
         const row = await this.prisma.serviceState.create({
             data: {
                 state_name: stateName,
-                country: { connect: { id: countryId } },
+                market: { connect: { id: marketId } },
             },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -46,7 +42,6 @@ export class ServiceStateRepository {
     async findAll(query: FindServiceStatesDto) {
         return this.findPage({
             market_id: query.market_id,
-            country_id: query.country_id,
             status: ServiceStateStatus.OPEN,
             cursor: query.cursor,
             limit: query.limit,
@@ -54,13 +49,13 @@ export class ServiceStateRepository {
     }
 
     async findAllForStaff(query: {
-        country_id: string;
+        market_id: string;
         status?: ServiceStateStatus;
         cursor?: string;
         limit?: number;
     }) {
         return this.findPage({
-            country_id: query.country_id,
+            market_id: query.market_id,
             status: query.status,
             cursor: query.cursor,
             limit: query.limit,
@@ -69,7 +64,6 @@ export class ServiceStateRepository {
 
     private async findPage(query: {
         market_id?: string;
-        country_id?: string;
         status?: ServiceStateStatus;
         cursor?: string;
         limit?: number;
@@ -78,17 +72,11 @@ export class ServiceStateRepository {
         const rows = await this.prisma.serviceState.findMany({
             where: {
                 ...(query.market_id !== undefined && {
-                    country: { market_id: query.market_id },
-                }),
-                ...(query.country_id !== undefined && {
-                    country_id: query.country_id,
+                    market_id: query.market_id,
                 }),
                 ...(query.status !== undefined && { status: query.status }),
             },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -115,9 +103,6 @@ export class ServiceStateRepository {
         return await this.prisma.serviceState.findUnique({
             where: { id },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -135,16 +120,13 @@ export class ServiceStateRepository {
 
     async update(
         id: string,
-        countryId: string,
+        marketId: string,
         stateName: string,
     ): Promise<ServiceStateItem> {
         const row = await this.prisma.serviceState.update({
-            where: { id, country_id: countryId },
+            where: { id, market_id: marketId },
             data: { state_name: stateName },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -161,9 +143,6 @@ export class ServiceStateRepository {
             where: { id },
             data: { status },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -172,13 +151,10 @@ export class ServiceStateRepository {
         return this.toItem(row);
     }
 
-    async delete(id: string, countryId: string): Promise<ServiceStateItem> {
+    async delete(id: string, marketId: string): Promise<ServiceStateItem> {
         const row = await this.prisma.serviceState.delete({
-            where: { id, country_id: countryId },
+            where: { id, market_id: marketId },
             include: {
-                country: {
-                    select: { market_id: true },
-                },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -201,16 +177,7 @@ export class ServiceStateRepository {
                 },
             },
             include: {
-                warehouse: {
-                    include: {
-                        country: {
-                            select: {
-                                id: true,
-                                market_id: true,
-                            },
-                        },
-                    },
-                },
+                warehouse: true,
                 service_state: true,
             },
             orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
@@ -249,8 +216,7 @@ export class ServiceStateRepository {
     private toItem(row: ServiceStateWithRelations): ServiceStateItem {
         return {
             id: row.id,
-            country_id: row.country_id,
-            market_id: row.country.market_id,
+            market_id: row.market_id,
             state_name: row.state_name,
             status: row.status,
             warehouse_ids: row.warehouse_service_states.map(

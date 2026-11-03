@@ -79,7 +79,7 @@ export const paymentAttemptDetailSelect = {
                 select: {
                     id: true,
                     name: true,
-                    country_id: true,
+                    market_id: true,
                 },
             },
             customer: {

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentsService } from '../payments/payments.service.js';
-import { ServiceCountryService } from '../service/service-country.service.js';
+import { MarketsService } from '../markets/markets.service.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerService } from './customer.service.js';
@@ -73,10 +73,10 @@ describe('CustomerService', () => {
                     },
                 },
                 {
-                    provide: ServiceCountryService,
+                    provide: MarketsService,
                     useValue: {
-                        search: vi.fn(),
-                        findByIDOrThrow: vi.fn(),
+                        findByIdOrThrow: vi.fn(),
+                        requireOpenMarket: vi.fn(),
                     },
                 },
                 {

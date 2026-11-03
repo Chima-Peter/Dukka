@@ -158,12 +158,7 @@ export const staffOrderDetailSelect = {
             name: true,
             address: true,
             status: true,
-            country: {
-                select: {
-                    id: true,
-                    market_id: true,
-                },
-            },
+            market_id: true,
         },
     },
     customer: {

@@ -3,7 +3,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     PrismaService,
     RestCountriesIpService,
-    ServiceCountryStatus,
+    MarketStatus,
 } from '@app/common';
 import type { CustomerRegisteredJobPayload } from '@app/queues';
 
@@ -348,41 +348,32 @@ export class CustomerRegisteredService {
             return;
         }
 
-        const match = await this.prisma.serviceCountry.findFirst({
+        const match = await this.prisma.market.findFirst({
             where: {
-                status: ServiceCountryStatus.OPEN,
+                status: MarketStatus.OPEN,
                 iso2: {
                     equals: iso2,
                     mode: 'insensitive',
                 },
             },
             select: {
+                id: true,
                 iso2: true,
-                market_id: true,
             },
         });
 
         if (!match) {
-            this.logger.warn(
-                `No open service country found for iso2 ${iso2}`,
-            );
-            return;
-        }
-
-        if (!match.market_id) {
-            this.logger.warn(
-                `No market assigned for service country ${match.iso2}`,
-            );
+            this.logger.warn(`No open market found for iso2 ${iso2}`);
             return;
         }
 
         await this.prisma.customer.update({
             where: { id: customerId },
-            data: { active_market_id: match.market_id },
+            data: { active_market_id: match.id },
         });
 
         this.logger.log(
-            `Assigned market ${match.market_id} to customer ${customerId} from IP ${clientIp}`,
+            `Assigned market ${match.id} to customer ${customerId} from IP ${clientIp}`,
         );
     }
 }

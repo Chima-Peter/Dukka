@@ -5,6 +5,7 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Ip,
     Param,
     ParseUUIDPipe,
     Patch,
@@ -14,6 +15,7 @@ import {
 import {
     Auth,
     CurrentStaff,
+    Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
@@ -52,6 +54,13 @@ export class MarketsController {
         @Query() query: FindMarketsDto,
     ) {
         return this.marketsService.findAll(staff.market_ids, query.status);
+    }
+
+    @Get('search')
+    @Public()
+    @ResponseMessage('Market retrieved successfully')
+    search(@Ip() clientIp: string) {
+        return this.marketsService.searchByIp(clientIp);
     }
 
     @Get(':id')

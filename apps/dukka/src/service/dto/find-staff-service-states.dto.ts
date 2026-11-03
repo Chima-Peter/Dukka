@@ -11,7 +11,7 @@ import { ServiceStateStatus } from '@app/common';
 
 export class FindStaffServiceStatesDto {
     @IsUUID()
-    country_id!: string;
+    market_id!: string;
 
     @IsOptional()
     @IsEnum(ServiceStateStatus)
