@@ -171,7 +171,7 @@ export class PaymentsRepository {
                     payment_intent_url: data.payment_intent_url,
                 }),
                 payment_method_name: data.payment_method_name,
-                expires_at: new Date(Date.now() + 60 * 60 * 1000),
+                expires_at: new Date(Date.now() + 14 * 60 * 1000),
                 order: { connect: { id: data.order_id } },
                 market_payment_method: {
                     connect: { id: data.market_payment_method_id },
