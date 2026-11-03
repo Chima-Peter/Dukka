@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import {
     CouponStatus,
     OrderInventoryStatus,
+    OrderStatus,
     Prisma,
     PrismaService,
     PromotionMarketStatus,
@@ -14,6 +15,8 @@ import {
 } from '@app/queues';
 
 const EXPIRY_BATCH_SIZE = 20;
+const REVIEW_REMINDER_LIMIT = 200;
+const REVIEW_REMINDER_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
 
 const quantityFilter = (
     kind: InventoryStockReminderKind,
@@ -140,6 +143,38 @@ export class GeneralScheduler {
         this.logger.log(
             `Enqueued ${reservations.length} expired-reservations job(s)`,
         );
+    }
+
+    @Cron(CronExpression.EVERY_3_HOURS)
+    async reviewReminders(): Promise<void> {
+        this.logger.log('Scanning for orders due for review reminders');
+
+        const cutoff = new Date(Date.now() - REVIEW_REMINDER_DELAY_MS);
+        const orders = await this.prisma.order.findMany({
+            where: {
+                status: OrderStatus.DELIVERED,
+                customer_id: { not: null },
+                review_reminder_sent: false,
+                delivered_at: { lte: cutoff },
+            },
+            select: { id: true },
+            take: REVIEW_REMINDER_LIMIT,
+            orderBy: { delivered_at: 'asc' },
+        });
+
+        if (orders.length === 0) {
+            this.logger.log('No review reminders to enqueue');
+            return;
+        }
+
+        await this.generalQueueService.enqueueMany(
+            orders.map((order) => ({
+                name: GENERAL_JOBS.REVIEW_REMINDER,
+                payload: { order_id: order.id },
+            })),
+        );
+
+        this.logger.log(`Enqueued ${orders.length} review-reminder job(s)`);
     }
 
     @Cron(CronExpression.EVERY_30_MINUTES)

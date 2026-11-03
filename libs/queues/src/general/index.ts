@@ -9,5 +9,6 @@ export type {
     InventoryStockReminderKind,
     CustomerRegisteredJobPayload,
     OrderProcessingJobPayload,
+    ReviewReminderJobPayload,
     StaffDeactivatedJobPayload,
 } from './general-queue.types.js';

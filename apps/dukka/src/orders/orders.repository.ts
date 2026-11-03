@@ -193,6 +193,9 @@ export class OrdersRepository {
             },
             data: {
                 status: data.to_status,
+                ...(data.to_status === OrderStatus.DELIVERED && {
+                    delivered_at: new Date(),
+                }),
             },
         });
 

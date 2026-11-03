@@ -46,3 +46,7 @@ export type ExpirePromotionMarketJobPayload = {
 export type ExpireCouponJobPayload = {
     coupon_ids: string[];
 };
+
+export type ReviewReminderJobPayload = {
+    order_id: string;
+};

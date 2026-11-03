@@ -768,6 +768,10 @@ model Order {
   customer_id   String?
   customer      Customer?    @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
+  delivered_at DateTime?
+  review_reminder_sent Boolean @default(false)
+  review_reminder_sent_at DateTime?
+
   order_inventory OrderInventory?
   order_payment_attempt OrderPaymentAttempt?
   order_items OrderItems[]
@@ -780,6 +784,7 @@ model Order {
   @@index([market_id])
   @@index([warehouse_id])
   @@index([customer_id])
+  @@index([status, review_reminder_sent, delivered_at])
 }
 
 model OrderItems {

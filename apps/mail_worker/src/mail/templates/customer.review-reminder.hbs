@@ -1,0 +1,29 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  How was {{product_name}}?
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Review reminder
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  Your order <strong>#{{order_number}}</strong> was delivered a few days ago. We would love your thoughts on <strong>{{product_name}}</strong>.
+</p>
+<p style="margin:0 0 16px;">
+  Leaving a short review helps other shoppers and lets sellers know how they did.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Product" value=product_name}}
+{{/details}}
+
+{{#> tip title="It only takes a minute"}}
+  Open the product from your order history and share a rating and a few words about your experience.
+{{/tip}}
+
+<p style="margin:0;">
+  Thanks for shopping with Dukka.
+</p>
