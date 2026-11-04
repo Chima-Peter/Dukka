@@ -89,7 +89,7 @@ export class PaymentsController {
     }
 
     @Delete('methods/:id/markets/:marketId')
-    @RequirePermission(StaffPermission.PaymentsManage)
+    @RequirePermission(StaffPermission.MarketPaymentsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Payment method removed from market successfully')
     removeFromMarket(

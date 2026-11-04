@@ -30,7 +30,7 @@ export class WarehouseController {
     constructor(private readonly warehouseService: WarehouseService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.WarehousesManage)
+    @RequirePermission(StaffPermission.WarehousesCreate)
     @ResponseMessage('Warehouse created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,

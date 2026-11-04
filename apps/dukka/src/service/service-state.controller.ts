@@ -66,7 +66,7 @@ export class ServiceStateController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.ServiceStatesManage)
+    @RequirePermission(StaffPermission.ServiceStatesAssign)
     @ResponseMessage('Service state updated successfully')
     update(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -115,7 +115,7 @@ export class ServiceStateController {
     }
 
     @Post(':id/warehouses')
-    @RequirePermission(StaffPermission.ServiceStatesManage)
+    @RequirePermission(StaffPermission.ServiceStatesAssign)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse assigned to service state successfully')
     assignWarehouse(
@@ -131,7 +131,7 @@ export class ServiceStateController {
     }
 
     @Delete(':id/warehouses/:warehouseId')
-    @RequirePermission(StaffPermission.ServiceStatesManage)
+    @RequirePermission(StaffPermission.ServiceStatesAssign)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse unassigned from service state successfully')
     unassignWarehouse(

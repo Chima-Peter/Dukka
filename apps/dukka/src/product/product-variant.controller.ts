@@ -142,7 +142,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants/:variantId/markets')
-    @RequirePermission(StaffPermission.ProductsManage)
+    @RequirePermission(StaffPermission.MarketVariantsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant added to market successfully')
     addVariantToMarket(
@@ -160,7 +160,7 @@ export class ProductVariantController {
     }
 
     @Patch('variants/:variantId/markets/:marketId')
-    @RequirePermission(StaffPermission.ProductsManage)
+    @RequirePermission(StaffPermission.MarketVariantsManage)
     @ResponseMessage('Market variant updated successfully')
     updateMarketVariant(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -177,7 +177,7 @@ export class ProductVariantController {
     }
 
     @Delete('variants/:variantId/markets/:marketId')
-    @RequirePermission(StaffPermission.ProductsManage)
+    @RequirePermission(StaffPermission.MarketVariantsManage)
     @ResponseMessage('Variant removed from market successfully')
     removeVariantFromMarket(
         @CurrentStaff() staff: StaffJwtPayload,

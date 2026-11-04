@@ -33,7 +33,7 @@ export class MarketsController {
     constructor(private readonly marketsService: MarketsService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.MarketsManage)
+    @RequirePermission(StaffPermission.MarketsProvision)
     @ResponseMessage('Market created successfully')
     create(@Body() data: CreateMarketDto) {
         return this.marketsService.create(data);
@@ -100,7 +100,7 @@ export class MarketsController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.MarketsManage)
+    @RequirePermission(StaffPermission.MarketsProvision)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market deleted successfully')
     delete(@Param('id', ParseUUIDPipe) id: string) {
