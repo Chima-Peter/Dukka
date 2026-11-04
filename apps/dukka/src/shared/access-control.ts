@@ -96,23 +96,6 @@ export function assertOperableScopeFilters(
     }
 }
 
-export function assertCanManageScopeType(
-    actor_scope: ScopeType | null | undefined,
-    ...target_scopes: ScopeType[]
-): void {
-    if (actor_scope == null) {
-        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
-    }
-
-    const allowed = new Set(MANAGEABLE_SCOPE_TYPES[actor_scope]);
-    if (
-        allowed.size === 0 ||
-        target_scopes.some((scope) => !allowed.has(scope))
-    ) {
-        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
-    }
-}
-
 /**
  * Lower hierarchy number = higher privilege.
  * GET visibility: same level, all lower levels, and one step above.
@@ -121,20 +104,41 @@ export function visibleHierarchyFloor(actor_hierarchy: number): number {
     return actor_hierarchy - 1;
 }
 
+export type RoleAccessRef = {
+    hierarchy?: number;
+    scope_type?: ScopeType | null;
+};
+
 /**
- * Lower hierarchy number = higher privilege.
- * Actor may only manage targets strictly below their own level.
+ * Hierarchy is unique per scope_type.
+ * Actor may only manage allowed scopes, and within the same scope
+ * only targets with a strictly lower privilege (higher hierarchy number).
  */
-export function assertCanManageHierarchies(
-    actor_hierarchy: number | undefined,
-    ...managed_hierarchies: Array<number | undefined>
+export function assertCanManageRole(
+    actor: RoleAccessRef,
+    ...targets: RoleAccessRef[]
 ): void {
-    if (actor_hierarchy === undefined) {
-        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY);
+    if (actor.hierarchy === undefined || actor.scope_type == null) {
+        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
     }
 
-    for (const hierarchy of managed_hierarchies) {
-        if (hierarchy !== undefined && hierarchy <= actor_hierarchy) {
+    const allowed = new Set(MANAGEABLE_SCOPE_TYPES[actor.scope_type]);
+    if (allowed.size === 0) {
+        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+    }
+
+    for (const target of targets) {
+        if (target.scope_type != null && !allowed.has(target.scope_type)) {
+            throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+        }
+
+        const sameScope =
+            target.scope_type == null || target.scope_type === actor.scope_type;
+        if (
+            sameScope &&
+            target.hierarchy !== undefined &&
+            target.hierarchy <= actor.hierarchy
+        ) {
             throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY);
         }
     }

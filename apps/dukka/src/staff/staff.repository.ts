@@ -10,8 +10,7 @@ import {
 } from '@app/common';
 import {
     assertActorBelongsToMarkets,
-    assertCanManageHierarchies,
-    assertCanManageScopeType,
+    assertCanManageRole,
     assertCanManageStaffInMarkets,
     hasGlobalScope,
     resolveScopeMarketIds,
@@ -434,12 +433,11 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                existing.role?.hierarchy,
-                newRole.hierarchy,
+            assertCanManageRole(
+                actor.role ?? {},
+                existing.role ?? {},
+                newRole,
             );
-            assertCanManageScopeType(actor.role?.scope_type, newRole.scope_type);
 
             assertCanManageStaffInMarkets(
                 resolveScopeMarketIds(actor.staff_scopes),
@@ -527,14 +525,7 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                existing.role.hierarchy,
-            );
-            assertCanManageScopeType(
-                actor.role?.scope_type,
-                existing.role.scope_type,
-            );
+            assertCanManageRole(actor.role ?? {}, existing.role);
 
             assertCanManageStaffInMarkets(
                 resolveScopeMarketIds(actor.staff_scopes),
@@ -622,11 +613,13 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                existing.role?.hierarchy,
+            assertCanManageRole(
+                actor.role ?? {},
+                {
+                    hierarchy: existing.role?.hierarchy,
+                    scope_type: data.scope_type,
+                },
             );
-            assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
 
             const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
             const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
@@ -813,11 +806,13 @@ export class StaffRepository {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                existing.role?.hierarchy,
+            assertCanManageRole(
+                actor.role ?? {},
+                {
+                    hierarchy: existing.role?.hierarchy,
+                    scope_type: data.scope_type,
+                },
             );
-            assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
             const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
             const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
 
@@ -979,7 +974,14 @@ export class StaffRepository {
         const existing = await this.prisma.staff.findUnique({
             where: { id },
             include: {
-                role: { select: { id: true, name: true, hierarchy: true } },
+                role: {
+                    select: {
+                        id: true,
+                        name: true,
+                        hierarchy: true,
+                        scope_type: true,
+                    },
+                },
                 staff_scopes: { select: staffScopeAccessSelect },
             },
         });
@@ -999,17 +1001,14 @@ export class StaffRepository {
             select: {
                 name: true,
                 staff_scopes: { select: staffScopeAccessSelect },
-                role: { select: { hierarchy: true } },
+                role: { select: { hierarchy: true, scope_type: true } },
             },
         });
         if (!actor) {
             throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
         }
 
-        assertCanManageHierarchies(
-            actor.role?.hierarchy,
-            existing.role?.hierarchy,
-        );
+        assertCanManageRole(actor.role ?? {}, existing.role ?? {});
         assertCanManageStaffInMarkets(
             resolveScopeMarketIds(actor.staff_scopes),
             resolveScopeMarketIds(existing.staff_scopes),

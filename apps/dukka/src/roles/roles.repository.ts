@@ -8,8 +8,7 @@ import {
     PrismaService,
 } from '@app/common';
 import {
-    assertCanManageHierarchies,
-    assertCanManageScopeType,
+    assertCanManageRole,
     resolveQueriedRoleScopeTypes,
     visibleHierarchyFloor,
     visibleRoleScopeTypes,
@@ -47,8 +46,7 @@ export class RolesRepository {
             throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
         }
 
-        assertCanManageHierarchies(actor.role?.hierarchy, data.hierarchy);
-        assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
+        assertCanManageRole(actor.role ?? {}, data);
 
         return await this.prisma.role.create({ data });
     }
@@ -140,15 +138,13 @@ export class RolesRepository {
         }
 
         this.assertNotOwnRole(actor.role_id, existing.id);
-        assertCanManageHierarchies(
-            actor.role?.hierarchy,
-            existing.hierarchy,
-            data.hierarchy,
-        );
-        assertCanManageScopeType(
-            actor.role?.scope_type,
-            existing.scope_type,
-            ...(data.scope_type !== undefined ? [data.scope_type] : []),
+        assertCanManageRole(
+            actor.role ?? {},
+            existing,
+            {
+                hierarchy: data.hierarchy,
+                scope_type: data.scope_type,
+            },
         );
 
         return await this.prisma.role.update({
@@ -192,11 +188,7 @@ export class RolesRepository {
         }
 
         this.assertNotOwnRole(actor.role_id, existing.id);
-        assertCanManageHierarchies(
-            actor.role?.hierarchy,
-            existing.hierarchy,
-        );
-        assertCanManageScopeType(actor.role?.scope_type, existing.scope_type);
+        assertCanManageRole(actor.role ?? {}, existing);
 
         return await this.prisma.role.delete({ where: { id } });
     }
@@ -254,11 +246,7 @@ export class RolesRepository {
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
+            assertCanManageRole(actor.role ?? {}, role);
 
             const permissions = await tx.permission.findMany({
                 where: { id: { in: permission_ids } },
@@ -343,11 +331,7 @@ export class RolesRepository {
             }
 
             this.assertNotOwnRole(actor.role_id, role.id);
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
+            assertCanManageRole(actor.role ?? {}, role);
 
             const existing = await tx.rolePermission.findMany({
                 where: {

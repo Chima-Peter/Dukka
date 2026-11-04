@@ -13,8 +13,7 @@ import {
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
-    assertCanManageHierarchies,
-    assertCanManageScopeType,
+    assertCanManageRole,
     assertOperableScopeFilters,
     hasGlobalScope,
     resolveQueriedRoleScopeTypes,
@@ -90,11 +89,7 @@ export class InvitationsRepository {
                 throw new Error(INVITATION_REPO_ERROR.ROLE_SCOPE_MISMATCH);
             }
 
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
+            assertCanManageRole(actor.role ?? {}, role);
 
             const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
             const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
@@ -368,14 +363,7 @@ export class InvitationsRepository {
             throw new Error(INVITATION_REPO_ERROR.INVITATION_NOT_PENDING);
         }
 
-        assertCanManageHierarchies(
-            actor.role?.hierarchy,
-            invitation.role.hierarchy,
-        );
-        assertCanManageScopeType(
-            actor.role?.scope_type,
-            invitation.role.scope_type,
-        );
+        assertCanManageRole(actor.role ?? {}, invitation.role);
 
         const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
         if (hasGlobalScope(invitation.invitation_scopes)) {

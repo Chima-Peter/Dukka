@@ -1,8 +1,7 @@
 export {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
-    assertCanManageHierarchies,
-    assertCanManageScopeType,
+    assertCanManageRole,
     assertCanManageStaffInMarkets,
     assertOperableScopeFilters,
     hasGlobalScope,
@@ -12,7 +11,7 @@ export {
     visibleHierarchyFloor,
     visibleRoleScopeTypes,
 } from './access-control.js';
-export type { RequiredStaffScope } from './access-control.js';
+export type { RequiredStaffScope, RoleAccessRef } from './access-control.js';
 
 export { assertMarketsActive } from './assert-markets-active.js';
 export { assertValidImage } from './assert-valid-image.js';
