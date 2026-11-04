@@ -14,6 +14,7 @@ import type {
     JwtPayload,
     JwtSubjectType,
 } from '../interfaces/jwt-payload.interface.js';
+import { staffHasRequiredPermission } from '../permissions/staff-permissions.js';
 import { REQUEST_USER_KEY } from './auth.constants.js';
 
 @Injectable()
@@ -39,9 +40,8 @@ export class StaffPermissionsGuard implements CanActivate {
             throw new UnauthorizedException('Missing authentication token');
         }
 
-        const permissions = staff.permissions ?? [];
         const hasPermission = requiredPermissions.every((permission) =>
-            permissions.includes(permission),
+            staffHasRequiredPermission(permission, staff),
         );
 
         if (!hasPermission) {

@@ -40,9 +40,12 @@ export type {
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';
 export {
+    MARKET_SCOPE_ELEVATION_PERMISSIONS,
     STAFF_ACCOUNT_PERMISSIONS,
     StaffPermission,
+    staffHasRequiredPermission,
     type StaffAccountPermissionName,
+    type StaffPermissionScopeType,
 } from './permissions/index.js';
 export {
     REDIS_CLIENT,

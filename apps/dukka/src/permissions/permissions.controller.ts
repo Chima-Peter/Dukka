@@ -11,6 +11,7 @@ import {
     RequirePermission,
     ResponseMessage,
     StaffPermission,
+    staffHasRequiredPermission,
     type StaffJwtPayload,
 } from '@app/common';
 import { PermissionsService } from './permissions.service.js';
@@ -33,14 +34,11 @@ export class PermissionsController {
         @Param('staffId', ParseUUIDPipe) staffId: string,
         @CurrentStaff() staff: StaffJwtPayload,
     ) {
-        if (staff.sub !== staffId) {
-            const callerPermissions =
-                await this.permissionsService.getStaffPermissions(staff.sub);
-            if (
-                !callerPermissions.includes(StaffPermission.PermissionsRead)
-            ) {
-                throw new ForbiddenException('Insufficient permissions');
-            }
+        if (
+            staff.sub !== staffId &&
+            !staffHasRequiredPermission(StaffPermission.PermissionsRead, staff)
+        ) {
+            throw new ForbiddenException('Insufficient permissions');
         }
 
         return this.permissionsService.getStaffPermissions(staffId);
