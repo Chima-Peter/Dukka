@@ -8,7 +8,6 @@ import {
     PrismaService,
 } from '@app/common';
 import {
-    assertActorHasPermissions,
     assertCanManageHierarchies,
     assertCanManageScopeType,
     resolveQueriedRoleScopeTypes,
@@ -233,9 +232,6 @@ export class RolesRepository {
                         select: {
                             hierarchy: true,
                             scope_type: true,
-                            role_permissions: {
-                                select: { permission_id: true },
-                            },
                         },
                     },
                 },
@@ -263,11 +259,6 @@ export class RolesRepository {
                 role.hierarchy,
             );
             assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
-            assertActorHasPermissions(
-                actor.role?.role_permissions.map((rp) => rp.permission_id) ??
-                    [],
-                permission_ids,
-            );
 
             const permissions = await tx.permission.findMany({
                 where: { id: { in: permission_ids } },
@@ -330,9 +321,6 @@ export class RolesRepository {
                         select: {
                             hierarchy: true,
                             scope_type: true,
-                            role_permissions: {
-                                select: { permission_id: true },
-                            },
                         },
                     },
                 },
@@ -360,11 +348,6 @@ export class RolesRepository {
                 role.hierarchy,
             );
             assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
-            assertActorHasPermissions(
-                actor.role?.role_permissions.map((rp) => rp.permission_id) ??
-                    [],
-                permission_ids,
-            );
 
             const existing = await tx.rolePermission.findMany({
                 where: {

@@ -4,7 +4,6 @@ export const ACCESS_CONTROL_ERROR = {
     INSUFFICIENT_HIERARCHY: 'INSUFFICIENT_HIERARCHY',
     INSUFFICIENT_MARKET_ACCESS: 'INSUFFICIENT_MARKET_ACCESS',
     INSUFFICIENT_SCOPE_ACCESS: 'INSUFFICIENT_SCOPE_ACCESS',
-    MISSING_PERMISSION: 'MISSING_PERMISSION',
 } as const;
 
 const ALL_SCOPE_TYPES: ScopeType[] = [
@@ -286,18 +285,3 @@ export function assertCanManageStaffInMarkets(
     }
 }
 
-export function assertActorHasPermissions(
-    actor_permission_ids: string[],
-    permission_ids: string[],
-): void {
-    const actorPermissions = new Set(actor_permission_ids);
-
-    if (
-        actorPermissions.size === 0 ||
-        permission_ids.some(
-            (permission_id) => !actorPermissions.has(permission_id),
-        )
-    ) {
-        throw new Error(ACCESS_CONTROL_ERROR.MISSING_PERMISSION);
-    }
-}

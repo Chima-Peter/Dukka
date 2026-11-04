@@ -295,11 +295,6 @@ export class RolesService {
                 'Cannot access roles outside your scope',
             );
         }
-        if (error.message === ACCESS_CONTROL_ERROR.MISSING_PERMISSION) {
-            throw new ForbiddenException(
-                'Cannot assign or remove a permission you do not have',
-            );
-        }
         return null;
     }
 
