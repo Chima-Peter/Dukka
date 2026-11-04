@@ -9,17 +9,14 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type {
-    Market,
     Permission,
     Role,
-    RoleMarket,
     RolePermission,
+    ScopeType,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
-import type { AssignMarketDto } from './dto/assign-market.dto.js';
 import type { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
-import type { RemoveMarketDto } from './dto/remove-market.dto.js';
 import type { RemovePermissionDto } from './dto/remove-permission.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
@@ -60,14 +57,16 @@ export class RolesService {
     }
 
     async findAll(
-        market_ids: string[],
         hierarchy: number | null,
+        actor_scope_type: ScopeType | null,
+        filter_scope_type?: ScopeType | null,
     ): Promise<Role[]> {
         try {
             this.logger.log('Fetching roles');
             const roles = await this.rolesRepository.findAll(
-                market_ids,
                 hierarchy,
+                actor_scope_type,
+                filter_scope_type,
             );
             this.logger.log('Fetched roles');
             return roles;
@@ -78,14 +77,14 @@ export class RolesService {
 
     async findOne(
         id: string,
-        market_ids: string[],
         hierarchy: number | null,
+        scope_type: ScopeType | null,
     ): Promise<RoleWithDetails> {
         try {
             this.logger.log(`Fetching role ${id}`);
             const role = await this.rolesRepository.findById(id, {
-                market_ids,
                 hierarchy,
+                scope_type,
             });
             if (!role) {
                 throw new NotFoundException('Role not found');
@@ -216,96 +215,16 @@ export class RolesService {
         }
     }
 
-    async assignMarkets(
-        role_id: string,
-        data: AssignMarketDto,
-        performed_by_staff_id: string,
-    ): Promise<(RoleMarket & { market: Market })[]> {
-        try {
-            this.logger.log(
-                `Assigning ${data.market_ids.length} market(s) to role ${role_id}`,
-            );
-            const assignments = await this.rolesRepository.assignMarkets(
-                role_id,
-                data.market_ids,
-                performed_by_staff_id,
-            );
-            this.logger.log(
-                `Assigned ${assignments.length} market(s) to role ${role_id}`,
-            );
-
-            await this.notifyRoleStaff(role_id, {
-                subject: 'Your role markets were updated',
-                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
-                context: {
-                    roleId: role_id,
-                    action: 'assigned',
-                    markets: assignments.map((assignment) => ({
-                        id: assignment.market.id,
-                        name: assignment.market.name,
-                        code: assignment.market.code,
-                    })),
-                },
-            });
-
-            return assignments;
-        } catch (error) {
-            this.handleMarketError(error);
-        }
-    }
-
-    async removeMarkets(
-        role_id: string,
-        data: RemoveMarketDto,
-        performed_by_staff_id: string,
-    ): Promise<object> {
-        try {
-            this.logger.log(
-                `Removing ${data.market_ids.length} market(s) from role ${role_id}`,
-            );
-            const removed = await this.rolesRepository.removeMarkets(
-                role_id,
-                data.market_ids,
-                performed_by_staff_id,
-            );
-            if (removed === 0) {
-                throw new NotFoundException(
-                    'None of the markets are assigned to this role',
-                );
-            }
-            this.logger.log(`Removed ${removed} market(s) from role ${role_id}`);
-
-            await this.notifyRoleStaff(role_id, {
-                subject: 'Your role markets were updated',
-                template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
-                context: {
-                    roleId: role_id,
-                    action: 'removed',
-                    marketIds: data.market_ids,
-                },
-            });
-
-            return { data: null };
-        } catch (error) {
-            this.handleMarketError(error);
-        }
-    }
-
     async hasPermission(
         role_id: string,
         permission_name: string,
-        market_ids: string[],
-        hierarchy: number | null,
     ): Promise<{ has_permission: boolean }> {
         try {
             this.logger.log(
                 `Checking permission ${permission_name} on role ${role_id}`,
             );
 
-            const role = await this.rolesRepository.findById(role_id, {
-                market_ids,
-                hierarchy,
-            });
+            const role = await this.rolesRepository.findById(role_id);
             if (!role) {
                 throw new NotFoundException('Role not found');
             }
@@ -356,8 +275,10 @@ export class RolesService {
         if (error.message === ROLES_REPO_ERROR.PERMISSIONS_NOT_FOUND) {
             throw new NotFoundException('One or more permissions not found');
         }
-        if (error.message === ROLES_REPO_ERROR.MARKETS_NOT_FOUND) {
-            throw new NotFoundException('One or more markets not found');
+        if (error.message === ROLES_REPO_ERROR.PERMISSION_SCOPE_MISMATCH) {
+            throw new ForbiddenException(
+                'Permission scope must match the role scope',
+            );
         }
         if (error.message === ROLES_REPO_ERROR.SELF_ROLE_MODIFICATION) {
             throw new ForbiddenException(
@@ -369,11 +290,9 @@ export class RolesService {
                 'Cannot modify a role with the same or higher hierarchy',
             );
         }
-        if (
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
-        ) {
+        if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS) {
             throw new ForbiddenException(
-                'Cannot assign or remove markets outside your markets',
+                'Cannot access roles outside your scope',
             );
         }
         if (error.message === ACCESS_CONTROL_ERROR.MISSING_PERMISSION) {
@@ -427,49 +346,6 @@ export class RolesService {
         );
     }
 
-    private handleMarketError(error: unknown): never {
-        if (error instanceof HttpException) {
-            this.logger.warn(`HTTP exception: ${error.message}`);
-            throw error;
-        }
-
-        if (error instanceof Error) {
-            this.mapRepoNotFound(error);
-        }
-
-        if (error instanceof PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                this.logger.warn(`Conflict error: ${error.message}`);
-                throw new ConflictException(
-                    'Market is already assigned to this role',
-                );
-            }
-            if (error.code === 'P2003') {
-                this.logger.warn(`Foreign key constraint: ${error.message}`);
-                throw this.marketRelationNotFound(error);
-            }
-            if (error.code === 'P2025') {
-                if (
-                    prismaHintIncludes(
-                        error,
-                        'nested connect',
-                        'inline connect',
-                    )
-                ) {
-                    throw this.marketRelationNotFound(error);
-                }
-                throw new NotFoundException(
-                    'Market is not assigned to this role',
-                );
-            }
-        }
-
-        this.logger.error(`Internal server error: ${error}`);
-        throw new InternalServerErrorException(
-            'An unexpected error occurred. Try again later.',
-        );
-    }
-
     private handleError(error: unknown): never {
         if (error instanceof HttpException) {
             this.logger.warn(`HTTP exception: ${error.message}`);
@@ -492,7 +368,7 @@ export class RolesService {
                     `Foreign key constraint on role delete: ${error.message}`,
                 );
                 throw new ConflictException(
-                    'Role cannot be deleted while it is still assigned to staff or has permissions or markets linked',
+                    'Role cannot be deleted while it is still assigned to staff or has permissions linked',
                 );
             }
             if (error.code === 'P2025') {
@@ -524,27 +400,6 @@ export class RolesService {
                     return new NotFoundException('Role not found');
                 }
                 return new NotFoundException('Permission not found');
-        }
-    }
-
-    private marketRelationNotFound(
-        error: PrismaClientKnownRequestError,
-    ): NotFoundException {
-        switch (prismaMissingRecordModel(error)) {
-            case 'market':
-                return new NotFoundException('Market not found');
-            case 'role':
-                return new NotFoundException('Role not found');
-            case 'staff':
-                return new NotFoundException('Staff not found');
-            default:
-                if (prismaHintIncludes(error, 'market_id')) {
-                    return new NotFoundException('Market not found');
-                }
-                if (prismaHintIncludes(error, 'role_id')) {
-                    return new NotFoundException('Role not found');
-                }
-                return new NotFoundException('Market not found');
         }
     }
 }

@@ -45,6 +45,7 @@ describe('StaffAuthService', () => {
         findByEmail: ReturnType<typeof vi.fn>;
         findOne: ReturnType<typeof vi.fn>;
         toPublicStaff: ReturnType<typeof vi.fn>;
+        resolveJwtMarketIds: ReturnType<typeof vi.fn>;
         updatePassword: ReturnType<typeof vi.fn>;
         changePassword: ReturnType<typeof vi.fn>;
     };
@@ -90,15 +91,25 @@ describe('StaffAuthService', () => {
         role: {
             name: 'Admin',
             hierarchy: 1,
-            role_markets: [],
+            scope_type: 'MARKET',
             role_permissions: [
                 { permission: { name: 'staff:create' } },
                 { permission: { name: 'staff:read' } },
             ],
         },
-        staff_markets: [
-            { market_id: 'market-1' },
-            { market_id: 'market-2' },
+        staff_scopes: [
+            {
+                scope_type: 'MARKET',
+                market_id: 'market-1',
+                warehouse_id: null,
+                distribution_point_id: null,
+            },
+            {
+                scope_type: 'MARKET',
+                market_id: 'market-2',
+                warehouse_id: null,
+                distribution_point_id: null,
+            },
         ],
         phone_number: null,
         avatar: null,
@@ -128,6 +139,7 @@ describe('StaffAuthService', () => {
             findByEmail: vi.fn(),
             findOne: vi.fn(),
             toPublicStaff: vi.fn(),
+            resolveJwtMarketIds: vi.fn(),
             updatePassword: vi.fn(),
             changePassword: vi.fn(),
         };
@@ -199,6 +211,10 @@ describe('StaffAuthService', () => {
             staffService.findByEmail.mockResolvedValue(staffRecord);
             passwordHasher.verify.mockResolvedValue(true);
             staffService.toPublicStaff.mockReturnValue(publicStaff);
+            staffService.resolveJwtMarketIds.mockReturnValue([
+                'market-1',
+                'market-2',
+            ]);
             staffJwtService.signAsync
                 .mockResolvedValueOnce('staff.access.token')
                 .mockResolvedValueOnce('staff.refresh.token');
@@ -230,7 +246,10 @@ describe('StaffAuthService', () => {
                     role_id: 'role-1',
                     role_name: 'Admin',
                     hierarchy: 1,
+                    scope_type: 'MARKET',
+                    scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
+                    permissions: ['staff:create', 'staff:read'],
                     tokenUse: 'access',
                 },
                 { expiresIn: expect.any(Number) },
@@ -244,7 +263,10 @@ describe('StaffAuthService', () => {
                     role_id: 'role-1',
                     role_name: 'Admin',
                     hierarchy: 1,
+                    scope_type: 'MARKET',
+                    scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
+                    permissions: ['staff:create', 'staff:read'],
                     tokenUse: 'refresh',
                 },
                 { expiresIn: expect.any(Number) },
@@ -304,6 +326,7 @@ describe('StaffAuthService', () => {
                 role_id: 'role-1',
                 role_name: 'Admin',
                 hierarchy: 1,
+                scope_type: 'MARKET',
                 market_ids: ['market-1', 'market-2'],
                 tokenUse: 'refresh',
             });
@@ -314,6 +337,13 @@ describe('StaffAuthService', () => {
             });
             tokenRepository.deleteRefreshToken.mockResolvedValue(1);
             staffService.findByEmail.mockResolvedValue(staffRecord);
+            permissionsService.extractPermissionNames.mockReturnValue([
+                'staff:create',
+                'staff:read',
+            ]);
+            permissionsService.cacheStaffPermissions.mockResolvedValue(
+                undefined,
+            );
             staffJwtService.signAsync
                 .mockResolvedValueOnce('new.access')
                 .mockResolvedValueOnce('new.refresh');
@@ -335,6 +365,9 @@ describe('StaffAuthService', () => {
             expect(staffService.findByEmail).toHaveBeenCalledWith(
                 'staff@example.com',
             );
+            expect(
+                permissionsService.cacheStaffPermissions,
+            ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
                 {
                     sub: 'staff-1',
@@ -344,7 +377,10 @@ describe('StaffAuthService', () => {
                     role_id: 'role-1',
                     role_name: 'Admin',
                     hierarchy: 1,
+                    scope_type: 'MARKET',
+                    scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
+                    permissions: ['staff:create', 'staff:read'],
                     tokenUse: 'access',
                 },
                 { expiresIn: expect.any(Number) },

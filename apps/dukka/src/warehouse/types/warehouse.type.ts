@@ -8,3 +8,13 @@ export type CreateWarehouseRecord = {
     manager_id: string;
     address: string;
 };
+
+export type WarehouseAuditActor = {
+    id: string;
+    name: string;
+};
+
+export type WarehouseWithAuditRelations = WarehouseRecord & {
+    market: WarehouseAuditActor;
+    manager: WarehouseAuditActor;
+};

@@ -3,76 +3,34 @@ import { randomBytes } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     MarketStatus,
+    ScopeType,
     StaffAuditAction,
     StaffInvitationStatus,
-    type Market,
-    type Role,
-    type Staff,
-    type StaffInvitation,
-    type StaffInvitationMarket,
+    WarehouseStatus,
+    type Prisma,
     PrismaService,
 } from '@app/common';
 import {
+    ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
     assertCanManageHierarchies,
+    assertCanManageScopeType,
+    assertOperableScopeFilters,
+    hasGlobalScope,
+    resolveQueriedRoleScopeTypes,
+    resolveScopeMarketIds,
 } from '../shared/access-control.js';
 import { STAFF_INVITATION_TTL_SECONDS } from '../shared/invitation.constants.js';
 import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { FindStaffInvitationsDto } from './dto/find-staff-invitations.dto.js';
 import type { InviteStaffDto } from './dto/invite-staff.dto.js';
-
-export const INVITATION_REPO_ERROR = {
-    PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
-    ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
-    MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
-    STAFF_EMAIL_EXISTS: 'STAFF_EMAIL_EXISTS',
-    PENDING_INVITATION_EXISTS: 'PENDING_INVITATION_EXISTS',
-    INVITATION_NOT_FOUND: 'INVITATION_NOT_FOUND',
-    INVITATION_NOT_PENDING: 'INVITATION_NOT_PENDING',
-    INVITATION_ALREADY_ACCEPTED: 'INVITATION_ALREADY_ACCEPTED',
-    INVITATION_CANCELLED: 'INVITATION_CANCELLED',
-    INVITATION_EXPIRED: 'INVITATION_EXPIRED',
-    INVITATION_EMAIL_MISMATCH: 'INVITATION_EMAIL_MISMATCH',
-    INVITATION_ROLE_UNAVAILABLE: 'INVITATION_ROLE_UNAVAILABLE',
-    INVITATION_MARKETS_UNAVAILABLE: 'INVITATION_MARKETS_UNAVAILABLE',
-} as const;
-
-export type InvitationMarketDetails = StaffInvitationMarket & {
-    market: Market;
-};
-
-export type StaffInvitationDetails = StaffInvitation & {
-    role: Pick<Role, 'id' | 'name' | 'hierarchy' | 'description'>;
-    invited_by: Pick<Staff, 'id' | 'name' | 'email'>;
-    invitation_markets: InvitationMarketDetails[];
-};
-
-export type StaffInvitationPage = {
-    items: StaffInvitationDetails[];
-    next_cursor: string | null;
-};
-
-const invitationDetailsInclude = {
-    role: {
-        select: {
-            id: true,
-            name: true,
-            hierarchy: true,
-            description: true,
-        },
-    },
-    invited_by: {
-        select: {
-            id: true,
-            name: true,
-            email: true,
-        },
-    },
-    invitation_markets: {
-        include: { market: true },
-        orderBy: { created_at: 'desc' as const },
-    },
-} as const;
+import {
+    INVITATION_REPO_ERROR,
+    invitationDetailsInclude,
+    invitationScopeAccessSelect,
+    type StaffInvitationDetails,
+    type StaffInvitationPage,
+} from './types/index.js';
 
 @Injectable()
 export class InvitationsRepository {
@@ -88,8 +46,8 @@ export class InvitationsRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
+                    staff_scopes: { select: invitationScopeAccessSelect },
+                    role: { select: { hierarchy: true, scope_type: true } },
                 },
             });
             if (!actor) {
@@ -117,29 +75,106 @@ export class InvitationsRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: data.role_id },
-                select: { id: true, name: true, hierarchy: true },
+                select: {
+                    id: true,
+                    name: true,
+                    hierarchy: true,
+                    scope_type: true,
+                },
             });
             if (!role) {
                 throw new Error(INVITATION_REPO_ERROR.ROLE_NOT_FOUND);
             }
 
-            const markets = await tx.market.findMany({
-                where: { id: { in: data.market_ids } },
-                select: { id: true, status: true },
-            });
-            if (markets.length !== data.market_ids.length) {
-                throw new Error(INVITATION_REPO_ERROR.MARKETS_NOT_FOUND);
+            if (role.scope_type !== data.scope_type) {
+                throw new Error(INVITATION_REPO_ERROR.ROLE_SCOPE_MISMATCH);
             }
-            assertMarketsActive(markets);
 
             assertCanManageHierarchies(
                 actor.role?.hierarchy,
                 role.hierarchy,
             );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                data.market_ids,
-            );
+            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
+
+            const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
+            const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
+
+            let invitationScopes: Array<{
+                scope_type: ScopeType;
+                market?: { connect: { id: string } };
+                warehouse?: { connect: { id: string } };
+                distribution_point?: { connect: { id: string } };
+            }>;
+
+            if (data.scope_type === ScopeType.GLOBAL) {
+                invitationScopes = [{ scope_type: ScopeType.GLOBAL }];
+            } else if (data.scope_type === ScopeType.MARKET) {
+                const market_ids = data.market_ids ?? [];
+                const markets = await tx.market.findMany({
+                    where: { id: { in: market_ids } },
+                    select: { id: true, status: true },
+                });
+                if (markets.length !== market_ids.length) {
+                    throw new Error(INVITATION_REPO_ERROR.MARKETS_NOT_FOUND);
+                }
+                assertMarketsActive(markets);
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    market_ids,
+                    actorIsGlobal,
+                );
+                invitationScopes = market_ids.map((market_id) => ({
+                    scope_type: ScopeType.MARKET,
+                    market: { connect: { id: market_id } },
+                }));
+            } else if (data.scope_type === ScopeType.WAREHOUSE) {
+                const warehouse_ids = data.warehouse_ids ?? [];
+                const warehouses = await tx.warehouse.findMany({
+                    where: { id: { in: warehouse_ids } },
+                    select: { id: true, market_id: true },
+                });
+                if (warehouses.length !== warehouse_ids.length) {
+                    throw new Error(INVITATION_REPO_ERROR.WAREHOUSES_NOT_FOUND);
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    warehouses.map((warehouse) => warehouse.market_id),
+                    actorIsGlobal,
+                );
+                invitationScopes = warehouse_ids.map((warehouse_id) => ({
+                    scope_type: ScopeType.WAREHOUSE,
+                    warehouse: { connect: { id: warehouse_id } },
+                }));
+            } else {
+                const distribution_point_ids =
+                    data.distribution_point_ids ?? [];
+                const distributionPoints =
+                    await tx.distributionPoint.findMany({
+                        where: { id: { in: distribution_point_ids } },
+                        select: { id: true, market_id: true },
+                    });
+                if (
+                    distributionPoints.length !==
+                    distribution_point_ids.length
+                ) {
+                    throw new Error(
+                        INVITATION_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
+                    );
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    distributionPoints.map((point) => point.market_id),
+                    actorIsGlobal,
+                );
+                invitationScopes = distribution_point_ids.map(
+                    (distribution_point_id) => ({
+                        scope_type: ScopeType.DISTRIBUTION_POINT,
+                        distribution_point: {
+                            connect: { id: distribution_point_id },
+                        },
+                    }),
+                );
+            }
 
             const plain_token = randomBytes(32).toString('base64url');
             const expires_at = new Date(
@@ -157,10 +192,8 @@ export class InvitationsRepository {
                     ...(data.phone_number !== undefined && {
                         phone_number: data.phone_number,
                     }),
-                    invitation_markets: {
-                        create: data.market_ids.map((market_id) => ({
-                            market: { connect: { id: market_id } },
-                        })),
+                    invitation_scopes: {
+                        create: invitationScopes,
                     },
                 },
                 include: invitationDetailsInclude,
@@ -174,12 +207,18 @@ export class InvitationsRepository {
         query: FindStaffInvitationsDto,
         market_ids: string[],
         hierarchy: number | null,
+        actor_scope_type: ScopeType | null,
     ): Promise<StaffInvitationPage> {
-        const scopedMarketIds = this.resolveMarketScope(
+        if (hierarchy === null) {
+            return { items: [], next_cursor: null };
+        }
+
+        const scopeFilter = this.buildInvitationScopeFilter(
+            query,
+            actor_scope_type,
             market_ids,
-            query.market_id,
         );
-        if (scopedMarketIds.length === 0 || hierarchy === null) {
+        if (scopeFilter === null) {
             return { items: [], next_cursor: null };
         }
 
@@ -188,9 +227,7 @@ export class InvitationsRepository {
             where: {
                 ...(query.status !== undefined && { status: query.status }),
                 ...(query.role_id !== undefined && { role_id: query.role_id }),
-                invitation_markets: {
-                    some: { market_id: { in: scopedMarketIds } },
-                },
+                invitation_scopes: scopeFilter,
                 role: {
                     hierarchy: { gt: hierarchy },
                 },
@@ -217,17 +254,25 @@ export class InvitationsRepository {
         id: string,
         market_ids: string[],
         hierarchy: number | null,
+        actor_scope_type: ScopeType | null,
     ): Promise<StaffInvitationDetails | null> {
-        if (market_ids.length === 0 || hierarchy === null) {
+        if (hierarchy === null) {
+            return null;
+        }
+
+        const scopeFilter = this.buildInvitationScopeFilter(
+            {},
+            actor_scope_type,
+            market_ids,
+        );
+        if (scopeFilter === null) {
             return null;
         }
 
         return await this.prisma.staffInvitation.findFirst({
             where: {
                 id,
-                invitation_markets: {
-                    some: { market_id: { in: market_ids } },
-                },
+                invitation_scopes: scopeFilter,
                 role: {
                     hierarchy: { gt: hierarchy },
                 },
@@ -286,7 +331,7 @@ export class InvitationsRepository {
     }
 
     private async assertCanManageInvitation(
-        tx: Pick<PrismaService, 'staff' | 'staffInvitation'>,
+        tx: Pick<PrismaService, 'staff' | 'staffInvitation' | 'market'>,
         id: string,
         performed_by_staff_id: string,
         options: { allowExpired: boolean },
@@ -295,8 +340,8 @@ export class InvitationsRepository {
             where: { id: performed_by_staff_id },
             select: {
                 id: true,
-                staff_markets: { select: { market_id: true } },
-                role: { select: { hierarchy: true } },
+                staff_scopes: { select: invitationScopeAccessSelect },
+                role: { select: { hierarchy: true, scope_type: true } },
             },
         });
         if (!actor) {
@@ -308,8 +353,8 @@ export class InvitationsRepository {
             select: {
                 id: true,
                 status: true,
-                role: { select: { hierarchy: true } },
-                invitation_markets: { select: { market_id: true } },
+                role: { select: { hierarchy: true, scope_type: true } },
+                invitation_scopes: { select: invitationScopeAccessSelect },
             },
         });
         if (!invitation) {
@@ -327,10 +372,25 @@ export class InvitationsRepository {
             actor.role?.hierarchy,
             invitation.role.hierarchy,
         );
-        assertActorBelongsToMarkets(
-            actor.staff_markets.map((sm) => sm.market_id),
-            invitation.invitation_markets.map((im) => im.market_id),
+        assertCanManageScopeType(
+            actor.role?.scope_type,
+            invitation.role.scope_type,
         );
+
+        const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
+        if (hasGlobalScope(invitation.invitation_scopes)) {
+            if (!actorIsGlobal) {
+                throw new Error(
+                    ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS,
+                );
+            }
+        } else {
+            assertActorBelongsToMarkets(
+                resolveScopeMarketIds(actor.staff_scopes),
+                resolveScopeMarketIds(invitation.invitation_scopes),
+                actorIsGlobal,
+            );
+        }
     }
 
     async accept(
@@ -389,28 +449,22 @@ export class InvitationsRepository {
                 throw new Error(INVITATION_REPO_ERROR.INVITATION_ROLE_UNAVAILABLE);
             }
 
-            const market_ids = invitation.invitation_markets.map(
-                (im) => im.market_id,
-            );
-            if (market_ids.length === 0) {
+            if (invitation.invitation_scopes.length === 0) {
                 await this.cancelInvitation(tx, invitation.id);
                 throw new Error(
-                    INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+                    INVITATION_REPO_ERROR.INVITATION_SCOPES_UNAVAILABLE,
                 );
             }
 
-            const markets = await tx.market.findMany({
-                where: { id: { in: market_ids } },
-                select: { id: true, name: true, status: true },
-            });
-            if (
-                markets.length !== market_ids.length ||
-                markets.some((market) => market.status !== MarketStatus.OPEN)
-            ) {
-                await this.cancelInvitation(tx, invitation.id);
-                throw new Error(
-                    INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+            let markets: { id: string; name: string }[];
+            try {
+                markets = await this.assertInvitationScopesAvailable(
+                    tx,
+                    invitation.invitation_scopes,
                 );
+            } catch (error) {
+                await this.cancelInvitation(tx, invitation.id);
+                throw error;
             }
 
             let staff: { id: string; name: string };
@@ -420,13 +474,29 @@ export class InvitationsRepository {
                         name: invitation.name,
                         email: invitation.email,
                         password,
+                        staff_number: `STF-${randomBytes(4).toString('hex').toUpperCase()}`,
                         role: { connect: { id: invitation.role_id } },
                         ...(invitation.phone_number !== null && {
                             phone_number: invitation.phone_number,
                         }),
-                        staff_markets: {
-                            create: market_ids.map((market_id) => ({
-                                market: { connect: { id: market_id } },
+                        staff_scopes: {
+                            create: invitation.invitation_scopes.map((scope) => ({
+                                scope_type: scope.scope_type,
+                                ...(scope.market_id != null && {
+                                    market: { connect: { id: scope.market_id } },
+                                }),
+                                ...(scope.warehouse_id != null && {
+                                    warehouse: {
+                                        connect: { id: scope.warehouse_id },
+                                    },
+                                }),
+                                ...(scope.distribution_point_id != null && {
+                                    distribution_point: {
+                                        connect: {
+                                            id: scope.distribution_point_id,
+                                        },
+                                    },
+                                }),
                             })),
                         },
                     },
@@ -451,8 +521,32 @@ export class InvitationsRepository {
                                 INVITATION_REPO_ERROR.INVITATION_ROLE_UNAVAILABLE,
                             );
                         }
+                        if (
+                            hint.includes('warehouse') ||
+                            hint.includes('warehouse_id')
+                        ) {
+                            throw new Error(
+                                INVITATION_REPO_ERROR.INVITATION_WAREHOUSES_UNAVAILABLE,
+                            );
+                        }
+                        if (
+                            hint.includes('distribution_point') ||
+                            hint.includes('distribution_point_id')
+                        ) {
+                            throw new Error(
+                                INVITATION_REPO_ERROR.INVITATION_DISTRIBUTION_POINTS_UNAVAILABLE,
+                            );
+                        }
+                        if (
+                            hint.includes('market') ||
+                            hint.includes('market_id')
+                        ) {
+                            throw new Error(
+                                INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+                            );
+                        }
                         throw new Error(
-                            INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+                            INVITATION_REPO_ERROR.INVITATION_SCOPES_UNAVAILABLE,
                         );
                     }
                 }
@@ -474,7 +568,7 @@ export class InvitationsRepository {
             for (const market of markets) {
                 await tx.staffAudit.create({
                     data: {
-                        action: StaffAuditAction.MARKET_ASSIGNED,
+                        action: StaffAuditAction.SCOPE_ASSIGNED,
                         staff_id: staff.id,
                         staff_name: staff.name,
                         performed_by_staff_id: invitation.invited_by.id,
@@ -510,13 +604,203 @@ export class InvitationsRepository {
         });
     }
 
-    private resolveMarketScope(
-        actor_market_ids: string[],
-        market_id?: string,
-    ): string[] {
-        if (market_id === undefined) {
-            return actor_market_ids;
+    private async assertInvitationScopesAvailable(
+        tx: Pick<
+            PrismaService,
+            'market' | 'warehouse' | 'distributionPoint'
+        >,
+        invitation_scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+            warehouse?: { market_id: string } | null;
+            distribution_point?: { market_id: string } | null;
+        }>,
+    ): Promise<{ id: string; name: string }[]> {
+        if (hasGlobalScope(invitation_scopes)) {
+            return [];
         }
-        return actor_market_ids.includes(market_id) ? [market_id] : [];
+
+        const market_ids = invitation_scopes
+            .filter((scope) => scope.scope_type === ScopeType.MARKET)
+            .map((scope) => scope.market_id)
+            .filter((id): id is string => id != null);
+        const warehouse_ids = invitation_scopes
+            .filter((scope) => scope.scope_type === ScopeType.WAREHOUSE)
+            .map((scope) => scope.warehouse_id)
+            .filter((id): id is string => id != null);
+        const distribution_point_ids = invitation_scopes
+            .filter(
+                (scope) => scope.scope_type === ScopeType.DISTRIBUTION_POINT,
+            )
+            .map((scope) => scope.distribution_point_id)
+            .filter((id): id is string => id != null);
+
+        const [markets, warehouses, distributionPoints] = await Promise.all([
+            market_ids.length === 0
+                ? Promise.resolve([])
+                : tx.market.findMany({
+                      where: { id: { in: market_ids } },
+                      select: { id: true, name: true, status: true },
+                  }),
+            warehouse_ids.length === 0
+                ? Promise.resolve([])
+                : tx.warehouse.findMany({
+                      where: { id: { in: warehouse_ids } },
+                      select: {
+                          id: true,
+                          status: true,
+                          market: { select: { id: true, name: true, status: true } },
+                      },
+                  }),
+            distribution_point_ids.length === 0
+                ? Promise.resolve([])
+                : tx.distributionPoint.findMany({
+                      where: { id: { in: distribution_point_ids } },
+                      select: {
+                          id: true,
+                          is_active: true,
+                          market: { select: { id: true, name: true, status: true } },
+                      },
+                  }),
+        ]);
+
+        if (markets.length !== market_ids.length) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+            );
+        }
+        if (markets.some((market) => market.status !== MarketStatus.OPEN)) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+            );
+        }
+
+        if (warehouses.length !== warehouse_ids.length) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_WAREHOUSES_UNAVAILABLE,
+            );
+        }
+        if (
+            warehouses.some(
+                (warehouse) => warehouse.status !== WarehouseStatus.OPEN,
+            )
+        ) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_WAREHOUSES_UNAVAILABLE,
+            );
+        }
+        if (
+            warehouses.some(
+                (warehouse) => warehouse.market.status !== MarketStatus.OPEN,
+            )
+        ) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+            );
+        }
+
+        if (distributionPoints.length !== distribution_point_ids.length) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_DISTRIBUTION_POINTS_UNAVAILABLE,
+            );
+        }
+        if (distributionPoints.some((point) => !point.is_active)) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_DISTRIBUTION_POINTS_UNAVAILABLE,
+            );
+        }
+        if (
+            distributionPoints.some(
+                (point) => point.market.status !== MarketStatus.OPEN,
+            )
+        ) {
+            throw new Error(
+                INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE,
+            );
+        }
+
+        const auditMarkets = new Map<string, { id: string; name: string }>();
+        for (const market of markets) {
+            auditMarkets.set(market.id, {
+                id: market.id,
+                name: market.name,
+            });
+        }
+        for (const warehouse of warehouses) {
+            auditMarkets.set(warehouse.market.id, warehouse.market);
+        }
+        for (const point of distributionPoints) {
+            auditMarkets.set(point.market.id, point.market);
+        }
+
+        return [...auditMarkets.values()];
+    }
+
+    private buildInvitationScopeFilter(
+        query: Pick<
+            FindStaffInvitationsDto,
+            | 'scope_type'
+            | 'market_id'
+            | 'warehouse_id'
+            | 'distribution_point_id'
+        >,
+        actor_scope_type: ScopeType | null,
+        actor_market_ids: string[],
+    ): Prisma.StaffInvitationScopeListRelationFilter | null {
+        const scopes = resolveQueriedRoleScopeTypes(
+            actor_scope_type,
+            query.scope_type,
+        );
+        if (scopes === null) {
+            return null;
+        }
+
+        assertOperableScopeFilters(actor_scope_type, {
+            market_id: query.market_id,
+            warehouse_id: query.warehouse_id,
+            distribution_point_id: query.distribution_point_id,
+        });
+
+        const actorIsGlobal = actor_scope_type === ScopeType.GLOBAL;
+        if (!actorIsGlobal && actor_market_ids.length === 0) {
+            return null;
+        }
+
+        const some: Prisma.StaffInvitationScopeWhereInput = {
+            scope_type: { in: scopes },
+            ...(query.market_id !== undefined && {
+                market_id: query.market_id,
+            }),
+            ...(query.warehouse_id !== undefined && {
+                warehouse_id: query.warehouse_id,
+            }),
+            ...(query.distribution_point_id !== undefined && {
+                distribution_point_id: query.distribution_point_id,
+            }),
+        };
+
+        if (!actorIsGlobal) {
+            some.AND = [
+                {
+                    OR: [
+                        { market_id: { in: actor_market_ids } },
+                        {
+                            warehouse: {
+                                market_id: { in: actor_market_ids },
+                            },
+                        },
+                        {
+                            distribution_point: {
+                                market_id: { in: actor_market_ids },
+                            },
+                        },
+                    ],
+                },
+            ];
+        }
+
+        return { some };
     }
 }

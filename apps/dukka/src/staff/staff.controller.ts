@@ -19,19 +19,18 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
-import { AssignStaffMarketDto } from './dto/assign-market.dto.js';
+import { AssignStaffScopeDto } from './dto/assign-scope.dto.js';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { ChangeStaffPasswordDto } from './dto/change_password.dto.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import { FindStaffDto } from './dto/find-staff.dto.js';
-import { RemoveStaffMarketDto } from './dto/remove-market.dto.js';
+import { RemoveStaffScopeDto } from './dto/remove-scope.dto.js';
 import { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import { UploadFileDto } from './dto/upload-file.dto.js';
-import { ValidateStaffDto } from './dto/validate-staff.dto.js';
 import { StaffAuthService } from './staff-auth.service.js';
 import { StaffService } from './staff.service.js';
 
@@ -160,13 +159,6 @@ export class StaffController {
         );
     }
 
-    @Post('validate')
-    @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Staff ids validated successfully')
-    validate(@Body() data: ValidateStaffDto) {
-        return this.staffService.validateIds(data);
-    }
-
     @Get(':id')
     @RequirePermission(StaffPermission.StaffRead)
     @ResponseMessage('Staff retrieved successfully')
@@ -229,28 +221,28 @@ export class StaffController {
         return this.staffService.revokeRole(id, staff.sub);
     }
 
-    @Post(':id/markets')
-    @RequirePermission(StaffPermission.StaffAssignMarkets)
+    @Post(':id/scopes')
+    @RequirePermission(StaffPermission.StaffAssignScopes)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Markets assigned to staff successfully')
-    assignMarkets(
+    @ResponseMessage('Scopes assigned to staff successfully')
+    assignScopes(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentStaff() staff: StaffJwtPayload,
-        @Body() data: AssignStaffMarketDto,
+        @Body() data: AssignStaffScopeDto,
     ) {
-        return this.staffService.assignMarkets(id, data, staff.sub);
+        return this.staffService.assignScopes(id, data, staff.sub);
     }
 
-    @Delete(':id/markets')
-    @RequirePermission(StaffPermission.StaffRemoveMarkets)
+    @Delete(':id/scopes')
+    @RequirePermission(StaffPermission.StaffRemoveScopes)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Markets removed from staff successfully')
-    removeMarkets(
+    @ResponseMessage('Scopes removed from staff successfully')
+    removeScopes(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentStaff() staff: StaffJwtPayload,
-        @Body() data: RemoveStaffMarketDto,
+        @Body() data: RemoveStaffScopeDto,
     ) {
-        return this.staffService.removeMarkets(id, data, staff.sub);
+        return this.staffService.removeScopes(id, data, staff.sub);
     }
 
     @Delete(':id')

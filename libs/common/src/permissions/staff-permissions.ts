@@ -2,241 +2,290 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'staff:create',
         description: 'Invite staff members',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:read',
         description: 'View staff members',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:delete',
         description: 'Deactivate staff members',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:assign_role',
         description: 'Assign roles to staff members',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:revoke_role',
         description: 'Revoke roles from staff members',
+        scope_type: 'MARKET',
     },
     {
-        name: 'staff:assign_markets',
-        description: 'Assign markets to staff members',
+        name: 'staff:assign_scopes',
+        description: 'Assign scopes to staff members',
+        scope_type: 'MARKET',
     },
     {
-        name: 'staff:remove_markets',
-        description: 'Remove markets from staff members',
+        name: 'staff:remove_scopes',
+        description: 'Remove scopes from staff members',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:read_audits',
         description: 'View staff audit logs',
+        scope_type: 'MARKET',
     },
     {
         name: 'staff:technical_support',
         description:
             "Manage another staff member's profile, avatar, and qualifications",
+        scope_type: 'MARKET',
     },
     {
         name: 'roles:create',
         description: 'Create roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'roles:read',
         description: 'View roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'roles:update',
         description: 'Update roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'roles:delete',
         description: 'Delete roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'roles:assign_permissions',
         description: 'Assign permissions to roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'roles:remove_permissions',
         description: 'Remove permissions from roles',
-    },
-    {
-        name: 'roles:assign_markets',
-        description: 'Assign markets to roles',
-    },
-    {
-        name: 'roles:remove_markets',
-        description: 'Remove markets from roles',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'markets:create',
         description: 'Create markets',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'markets:read',
         description: 'View markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'markets:update',
         description: 'Update markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'markets:open',
         description: 'Open markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'markets:close',
         description: 'Close markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'markets:delete',
         description: 'Delete markets',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'currencies:create',
         description: 'Create currencies',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'currencies:update',
         description: 'Update currencies',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'currencies:delete',
         description: 'Delete currencies',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'categories:create',
         description: 'Create product categories and add them to markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'categories:update',
         description: 'Update product categories',
+        scope_type: 'MARKET',
     },
     {
         name: 'categories:delete',
         description: 'Delete product categories or remove them from markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'products:create',
         description: 'Create products',
+        scope_type: 'MARKET',
     },
     {
         name: 'products:update',
         description: 'Update products',
+        scope_type: 'MARKET',
     },
     {
         name: 'products:approve',
         description: 'Approve products',
+        scope_type: 'MARKET',
     },
     {
         name: 'products:reject',
         description: 'Reject products',
+        scope_type: 'MARKET',
     },
     {
         name: 'products:archive',
         description: 'Archive products',
+        scope_type: 'MARKET',
     },
     {
         name: 'warehouses:create',
         description: 'Create warehouses',
+        scope_type: 'MARKET',
     },
     {
         name: 'warehouses:update',
         description: 'Update warehouses',
+        scope_type: 'WAREHOUSE',
     },
     {
         name: 'warehouses:close',
         description: 'Close warehouses',
+        scope_type: 'WAREHOUSE',
     },
     {
         name: 'warehouses:open',
         description: 'Open warehouses',
+        scope_type: 'WAREHOUSE',
     },
     {
         name: 'service_states:create',
         description: 'Create warehouse service states',
+        scope_type: 'MARKET',
     },
     {
         name: 'service_states:update',
         description:
             'Update warehouse service states and assign them to warehouses',
+        scope_type: 'WAREHOUSE',
     },
     {
         name: 'service_states:open',
         description: 'Open warehouse service states',
+        scope_type: 'MARKET',
     },
     {
         name: 'service_states:close',
         description: 'Close warehouse service states',
+        scope_type: 'MARKET',
     },
     {
         name: 'service_states:delete',
         description: 'Delete warehouse service states',
+        scope_type: 'MARKET',
     },
     {
         name: 'inventory:create',
         description: 'Create variant inventory',
+        scope_type: 'WAREHOUSE',
     },
     {
         name: 'payments:create',
         description: 'Create payment methods',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'payments:approve',
         description: 'Approve payment methods for markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'payments:remove',
         description: 'Remove payment methods from markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'payments:read',
         description: 'View payment methods and payment attempts',
+        scope_type: 'MARKET',
     },
     {
         name: 'permissions:read',
         description: 'View permissions',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'promotions:create',
         description: 'Create promotions',
+        scope_type: 'MARKET',
     },
     {
         name: 'promotions:read',
         description: 'View promotions',
+        scope_type: 'MARKET',
     },
     {
         name: 'promotions:update',
         description:
             'Update promotions, discounts, and promotion market rules',
+        scope_type: 'MARKET',
     },
     {
         name: 'promotions:activate',
         description: 'Activate promotions and promotion markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'promotions:deactivate',
         description: 'Deactivate promotions and promotion markets',
+        scope_type: 'MARKET',
     },
     {
         name: 'coupons:create',
         description: 'Create coupons',
+        scope_type: 'MARKET',
     },
     {
         name: 'coupons:read',
         description: 'View coupons',
+        scope_type: 'MARKET',
     },
     {
         name: 'coupons:update',
         description: 'Update coupons',
+        scope_type: 'MARKET',
     },
     {
         name: 'coupons:activate',
         description: 'Activate coupons',
+        scope_type: 'MARKET',
     },
     {
         name: 'coupons:deactivate',
         description: 'Deactivate coupons',
+        scope_type: 'MARKET',
     },
 ] as const;
 
@@ -249,8 +298,8 @@ export const StaffPermission = {
     StaffDelete: 'staff:delete',
     StaffAssignRole: 'staff:assign_role',
     StaffRevokeRole: 'staff:revoke_role',
-    StaffAssignMarkets: 'staff:assign_markets',
-    StaffRemoveMarkets: 'staff:remove_markets',
+    StaffAssignScopes: 'staff:assign_scopes',
+    StaffRemoveScopes: 'staff:remove_scopes',
     StaffReadAudits: 'staff:read_audits',
     StaffTechnicalSupport: 'staff:technical_support',
     RolesCreate: 'roles:create',
@@ -259,8 +308,6 @@ export const StaffPermission = {
     RolesDelete: 'roles:delete',
     RolesAssignPermissions: 'roles:assign_permissions',
     RolesRemovePermissions: 'roles:remove_permissions',
-    RolesAssignMarkets: 'roles:assign_markets',
-    RolesRemoveMarkets: 'roles:remove_markets',
     MarketsCreate: 'markets:create',
     MarketsRead: 'markets:read',
     MarketsUpdate: 'markets:update',

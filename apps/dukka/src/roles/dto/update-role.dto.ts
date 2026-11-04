@@ -1,4 +1,5 @@
 import {
+    IsIn,
     IsInt,
     IsOptional,
     IsString,
@@ -6,6 +7,13 @@ import {
     Min,
     MinLength,
 } from 'class-validator';
+
+const SCOPE_TYPES = [
+    'GLOBAL',
+    'MARKET',
+    'WAREHOUSE',
+    'DISTRIBUTION_POINT',
+] as const;
 
 export class UpdateRoleDto {
     @IsOptional()
@@ -23,4 +31,8 @@ export class UpdateRoleDto {
     @IsInt()
     @Min(0)
     hierarchy?: number;
+
+    @IsOptional()
+    @IsIn(SCOPE_TYPES)
+    scope_type?: (typeof SCOPE_TYPES)[number];
 }

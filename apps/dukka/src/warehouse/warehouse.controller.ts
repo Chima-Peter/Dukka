@@ -36,7 +36,10 @@ export class WarehouseController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: CreateWarehouseDto,
     ) {
-        return this.warehouseService.create(data, staff.market_ids);
+        return this.warehouseService.create(data, staff.market_ids, {
+            id: staff.sub,
+            name: staff.name,
+        });
     }
 
     @Get()
@@ -70,11 +73,10 @@ export class WarehouseController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseManagerDto,
     ) {
-        return this.warehouseService.updateManager(
-            id,
-            data,
-            staff.market_ids,
-        );
+        return this.warehouseService.updateManager(id, data, staff.market_ids, {
+            id: staff.sub,
+            name: staff.name,
+        });
     }
 
     @Post(':id/close')

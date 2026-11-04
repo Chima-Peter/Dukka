@@ -117,7 +117,7 @@ describe('InvitationsService', () => {
                 name: 'Admin',
                 email: 'admin@example.com',
             },
-            invitation_markets: [],
+            invitation_scopes: [],
         });
 
         const result = await service.invite(
@@ -125,6 +125,7 @@ describe('InvitationsService', () => {
                 name: 'New Staff',
                 email: 'new@example.com',
                 role_id: 'role-1',
+                scope_type: 'MARKET',
                 market_ids: ['market-1'],
             },
             'staff-1',
@@ -173,7 +174,7 @@ describe('InvitationsService', () => {
                 name: 'Admin',
                 email: 'admin@example.com',
             },
-            invitation_markets: [],
+            invitation_scopes: [],
         });
 
         await expect(
@@ -229,7 +230,7 @@ describe('InvitationsService', () => {
                 name: 'Admin',
                 email: 'admin@example.com',
             },
-            invitation_markets: [],
+            invitation_scopes: [],
         });
 
         await service.resend('inv-1', 'staff-1');

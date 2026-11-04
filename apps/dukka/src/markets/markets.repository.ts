@@ -155,7 +155,7 @@ export class MarketsRepository {
         return await this.prisma.staff.findMany({
             where: {
                 is_active: true,
-                staff_markets: {
+                staff_scopes: {
                     some: { market_id },
                 },
             },

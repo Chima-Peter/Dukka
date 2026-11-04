@@ -3,13 +3,19 @@ export {
     assertActorBelongsToMarkets,
     assertActorHasPermissions,
     assertCanManageHierarchies,
-    assertCanManageRoleMarkets,
+    assertCanManageScopeType,
     assertCanManageStaffInMarkets,
+    assertOperableScopeFilters,
+    hasGlobalScope,
+    resolveQueriedRoleScopeTypes,
+    resolveScopeMarketIds,
+    staffMatchesRequiredScope,
     visibleHierarchyFloor,
+    visibleRoleScopeTypes,
 } from './access-control.js';
+export type { RequiredStaffScope } from './access-control.js';
 
 export { assertMarketsActive } from './assert-markets-active.js';
-export { assertStaffHasMarkets } from './assert-staff-markets.js';
 export { assertValidImage } from './assert-valid-image.js';
 export {
     isNestedConnectFailure,

@@ -4,4 +4,6 @@ export type {
     JwtSubjectType,
     JwtTokenUse,
     StaffJwtPayload,
+    StaffJwtScope,
+    StaffJwtScopeType,
 } from './jwt-payload.interface.js';

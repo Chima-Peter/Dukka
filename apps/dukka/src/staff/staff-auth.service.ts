@@ -15,6 +15,7 @@ import {
     STAFF_JWT_SERVICE,
     type JwtPayload,
     type StaffJwtPayload,
+    type StaffJwtScope,
     TokenType,
 } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
@@ -23,6 +24,7 @@ import {
     PASSWORD_RESET_TOKEN_TTL_SECONDS,
     PASSWORD_RESET_VERIFIED_TTL_SECONDS,
     RedisKeys,
+    resolveScopeMarketIds,
 } from '../shared/index.js';
 import {
     STAFF_ACCESS_TOKEN_TTL_SECONDS,
@@ -36,7 +38,7 @@ import type { VerifyStaffPasswordResetTokenDto } from './dto/verify_password_res
 import { PermissionsService } from '../permissions/permissions.service.js';
 import { StaffService } from './staff.service.js';
 import { StaffTokenRepository } from './token.repository.js';
-import type { AuthTokens, StaffLoginData } from './types/index.js';
+import type { AuthTokens, StaffAuthRecord, StaffLoginData } from './types/index.js';
 
 @Injectable()
 export class StaffAuthService {
@@ -81,19 +83,12 @@ export class StaffAuthService {
             this.logger.log(`Staff ${data.email} password verified`);
 
             const publicStaff = this.staffService.toPublicStaff(staff);
-            const tokens = await this.issueTokenPair({
-                sub: staff.id,
-                email: staff.email,
-                type: 'staff',
-                name: staff.name,
-                role_id: staff.role_id,
-                role_name: staff.role?.name ?? null,
-                hierarchy: staff.role?.hierarchy ?? null,
-                market_ids: staff.staff_markets.map((sm) => sm.market_id),
-            });
-
             const permissions =
                 this.permissionsService.extractPermissionNames(staff);
+            const tokens = await this.issueTokenPair(
+                this.buildStaffClaims(staff, permissions),
+            );
+
             await this.permissionsService.cacheStaffPermissions(
                 staff.id,
                 permissions,
@@ -161,16 +156,16 @@ export class StaffAuthService {
                 throw new UnauthorizedException('Invalid or expired token');
             }
 
-            return this.issueTokenPair({
-                sub: payload.sub,
-                email: payload.email,
-                type: 'staff',
-                name: payload.name,
-                role_id: payload.role_id,
-                role_name: payload.role_name,
-                hierarchy: payload.hierarchy,
-                market_ids: payload.market_ids,
-            });
+            const permissions =
+                this.permissionsService.extractPermissionNames(staff);
+            await this.permissionsService.cacheStaffPermissions(
+                staff.id,
+                permissions,
+            );
+
+            return this.issueTokenPair(
+                this.buildStaffClaims(staff, permissions),
+            );
         } catch (error) {
             if (error instanceof HttpException) {
                 this.logger.warn(`HTTP exception: ${error.message}`);
@@ -455,6 +450,32 @@ export class StaffAuthService {
                 .map((token) => this.blacklistAccessToken(token.token)),
         );
         await this.tokenRepository.deleteAllByStaffId(staffId);
+    }
+
+    private buildStaffClaims(
+        staff: StaffAuthRecord,
+        permissions: string[],
+    ): Omit<StaffJwtPayload, 'iat' | 'exp' | 'tokenUse'> {
+        const scopes: StaffJwtScope[] = staff.staff_scopes.map((scope) => ({
+            scope_type: scope.scope_type,
+            market_id: scope.market_id,
+            warehouse_id: scope.warehouse_id,
+            distribution_point_id: scope.distribution_point_id,
+        }));
+
+        return {
+            sub: staff.id,
+            email: staff.email,
+            type: 'staff',
+            name: staff.name,
+            role_id: staff.role_id,
+            role_name: staff.role?.name ?? null,
+            hierarchy: staff.role?.hierarchy ?? null,
+            scope_type: staff.role?.scope_type ?? null,
+            scopes,
+            market_ids: resolveScopeMarketIds(staff.staff_scopes),
+            permissions,
+        };
     }
 
     private async issueTokenPair(

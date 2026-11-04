@@ -52,8 +52,6 @@ describe('RolesService', () => {
                         findStaffContactsByRoleId: vi.fn().mockResolvedValue([]),
                         assignPermissions: vi.fn(),
                         removePermissions: vi.fn(),
-                        assignMarkets: vi.fn(),
-                        removeMarkets: vi.fn(),
                     },
                 },
                 {

@@ -67,12 +67,16 @@ describe('InvitationsController', () => {
                     role_id: 'role-1',
                     role_name: 'Admin',
                     hierarchy: 0,
+                    scope_type: 'GLOBAL',
+                    scopes: [],
                     market_ids: ['market-1'],
+                    permissions: [],
                 },
                 {
                     name: 'New',
                     email: 'new@example.com',
                     role_id: 'role-2',
+                    scope_type: 'MARKET',
                     market_ids: ['market-1'],
                 },
             ),
@@ -83,6 +87,7 @@ describe('InvitationsController', () => {
                 name: 'New',
                 email: 'new@example.com',
                 role_id: 'role-2',
+                scope_type: 'MARKET',
                 market_ids: ['market-1'],
             },
             'staff-1',
@@ -101,7 +106,10 @@ describe('InvitationsController', () => {
             role_id: 'role-1',
             role_name: 'Admin',
             hierarchy: 0,
+            scope_type: 'GLOBAL' as const,
+            scopes: [],
             market_ids: ['market-1'],
+            permissions: [],
         };
 
         await expect(controller.cancel(staff, 'inv-1')).resolves.toEqual({

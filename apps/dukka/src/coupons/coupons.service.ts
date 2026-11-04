@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -17,7 +18,10 @@ import type { CreateCouponDto } from './dto/create-coupon.dto.js';
 import type { FindCouponUsagesDto } from './dto/find-coupon-usages.dto.js';
 import type { FindCouponsDto } from './dto/find-coupons.dto.js';
 import type { UpdateCouponDto } from './dto/update-coupon.dto.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import { CouponsRepository } from './coupons.repository.js';
 import type { CouponPage, CouponUsagePage } from './types/coupon.type.js';
 
@@ -166,7 +170,7 @@ export class CouponsService {
         marketId?: string,
     ): string[] {
         if (marketId !== undefined) {
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             return [marketId];
         }
         return staffMarketIds;
@@ -191,6 +195,16 @@ export class CouponsService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

@@ -49,6 +49,7 @@ export class InvitationsController {
             query,
             staff.market_ids,
             staff.hierarchy,
+            staff.scope_type,
         );
     }
 
@@ -63,6 +64,7 @@ export class InvitationsController {
             id,
             staff.market_ids,
             staff.hierarchy,
+            staff.scope_type,
         );
     }
 

@@ -86,7 +86,6 @@ describe('StaffService', () => {
                         createProfile: vi.fn(),
                         findProfileByStaffId: vi.fn(),
                         updateProfile: vi.fn(),
-                        deleteProfile: vi.fn(),
                         createQualification: vi.fn(),
                         findQualificationsByStaffId: vi.fn(),
                         findQualificationById: vi.fn(),

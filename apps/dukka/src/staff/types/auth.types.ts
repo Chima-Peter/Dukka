@@ -1,4 +1,4 @@
-import type { StaffResponse } from '../staff.service.js';
+import type { StaffResponse } from './staff.types.js';
 
 export type PublicStaff = StaffResponse;
 

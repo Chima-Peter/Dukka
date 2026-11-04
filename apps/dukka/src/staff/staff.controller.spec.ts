@@ -58,7 +58,6 @@ describe('StaffController', () => {
                     useValue: {
                         findAll: vi.fn(),
                         findOne: staffService.findOne,
-                        validateIds: vi.fn(),
                         findAudits: vi.fn(),
                         update: vi.fn(),
                         assignRole: vi.fn(),
@@ -69,7 +68,6 @@ describe('StaffController', () => {
                         createProfile: vi.fn(),
                         findProfile: vi.fn(),
                         updateProfile: vi.fn(),
-                        deleteProfile: vi.fn(),
                         createQualification: vi.fn(),
                         findQualifications: vi.fn(),
                         findQualification: vi.fn(),
@@ -104,7 +102,10 @@ describe('StaffController', () => {
                 role_id: null,
                 role_name: null,
                 hierarchy: null,
+                scope_type: null,
+                scopes: [],
                 market_ids: [],
+                permissions: [],
             }),
         ).resolves.toEqual(profile);
         expect(staffService.findOne).toHaveBeenCalledWith('staff-1');
@@ -123,7 +124,10 @@ describe('StaffController', () => {
                     role_id: null,
                     role_name: null,
                     hierarchy: null,
+                    scope_type: null,
+                    scopes: [],
                     market_ids: [],
+                    permissions: [],
                 },
                 {
                     currentPassword: 'old-password',

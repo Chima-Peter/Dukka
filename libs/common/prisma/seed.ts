@@ -11,6 +11,7 @@ import {
     ProductStatus,
     PromotionMarketStatus,
     PromotionStatus,
+    ScopeType,
     VariantStatus,
     StaffAuditAction,
     StaffInvitationStatus,
@@ -70,34 +71,70 @@ const DEFAULT_CATEGORIES = [
 
 const DEFAULT_ROLES = [
     {
+        name: 'Market Admin',
+        description: 'Administer staff and catalog within a market',
+        hierarchy: 1,
+        scope_type: ScopeType.MARKET,
+        permission_names: [
+            'staff:create',
+            'staff:read',
+            'staff:assign_role',
+            'staff:revoke_role',
+            'staff:assign_scopes',
+            'staff:remove_scopes',
+            'staff:read_audits',
+            'markets:read',
+            'markets:update',
+            'categories:create',
+            'categories:update',
+            'categories:delete',
+            'products:create',
+            'products:update',
+            'products:approve',
+            'products:reject',
+            'products:archive',
+            'warehouses:create',
+            'promotions:create',
+            'promotions:read',
+            'promotions:update',
+            'promotions:activate',
+            'promotions:deactivate',
+            'coupons:create',
+            'coupons:read',
+            'coupons:update',
+            'coupons:activate',
+            'coupons:deactivate',
+            'payments:approve',
+            'payments:remove',
+            'payments:read',
+        ],
+    },
+    {
         name: 'Warehouse Manager',
         description: 'Manage warehouses, inventory, and fulfillment',
         hierarchy: 2,
+        scope_type: ScopeType.WAREHOUSE,
         permission_names: [
-            'warehouses:create',
             'warehouses:update',
             'warehouses:close',
             'warehouses:open',
-            'service_states:create',
             'service_states:update',
-            'service_states:open',
-            'service_states:close',
-            'service_states:delete',
             'inventory:create',
-            'products:update',
-            'markets:read',
         ],
     },
     {
         name: 'Support Agent',
         description: 'Customer support and staff lookups',
         hierarchy: 3,
+        scope_type: ScopeType.MARKET,
         permission_names: [
             'staff:read',
             'staff:technical_support',
             'markets:read',
-            'permissions:read',
-            'roles:read',
+            'products:update',
+            'payments:read',
+            'promotions:read',
+            'coupons:read',
         ],
     },
 ] as const;
@@ -113,9 +150,11 @@ async function seedPermissions() {
             create: {
                 name: permission.name,
                 description: permission.description,
+                scope_type: permission.scope_type,
             },
             update: {
                 description: permission.description,
+                scope_type: permission.scope_type,
             },
         });
     }
@@ -200,14 +239,17 @@ async function seedSuperAdminRole() {
             name: SUPER_ADMIN_ROLE_NAME,
             description: 'Full access across all markets and permissions',
             hierarchy: SUPER_ADMIN_HIERARCHY,
+            scope_type: ScopeType.GLOBAL,
         },
         update: {
             description: 'Full access across all markets and permissions',
             hierarchy: SUPER_ADMIN_HIERARCHY,
+            scope_type: ScopeType.GLOBAL,
         },
     });
 
     const permissions = await prisma.permission.findMany({
+        where: { scope_type: ScopeType.GLOBAL },
         select: { id: true },
     });
     await prisma.rolePermission.createMany({
@@ -218,19 +260,8 @@ async function seedSuperAdminRole() {
         skipDuplicates: true,
     });
 
-    const markets = await prisma.market.findMany({
-        select: { id: true },
-    });
-    await prisma.roleMarket.createMany({
-        data: markets.map((market) => ({
-            role_id: role.id,
-            market_id: market.id,
-        })),
-        skipDuplicates: true,
-    });
-
     console.log(
-        `Seeded ${SUPER_ADMIN_ROLE_NAME} with ${permissions.length} permission(s) and ${markets.length} market(s)`,
+        `Seeded ${SUPER_ADMIN_ROLE_NAME} with ${permissions.length} GLOBAL permission(s)`,
     );
 
     return role;
@@ -243,7 +274,6 @@ async function seedAdditionalRoles() {
     const permissionByName = new Map(
         allPermissions.map((permission) => [permission.name, permission.id]),
     );
-    const markets = await prisma.market.findMany({ select: { id: true } });
     const roles: { id: string; name: string }[] = [];
 
     for (const roleDef of DEFAULT_ROLES) {
@@ -253,10 +283,12 @@ async function seedAdditionalRoles() {
                 name: roleDef.name,
                 description: roleDef.description,
                 hierarchy: roleDef.hierarchy,
+                scope_type: roleDef.scope_type,
             },
             update: {
                 description: roleDef.description,
                 hierarchy: roleDef.hierarchy,
+                scope_type: roleDef.scope_type,
             },
         });
 
@@ -273,14 +305,6 @@ async function seedAdditionalRoles() {
                 skipDuplicates: true,
             });
         }
-
-        await prisma.roleMarket.createMany({
-            data: markets.map((market) => ({
-                role_id: role.id,
-                market_id: market.id,
-            })),
-            skipDuplicates: true,
-        });
 
         roles.push(role);
     }
@@ -317,14 +341,14 @@ async function seedSuperAdminStaff(role_id: string) {
         },
     });
 
-    const markets = await prisma.market.findMany({
-        select: { id: true },
-    });
-    await prisma.staffMarket.createMany({
-        data: markets.map((market) => ({
-            staff_id: staff.id,
-            market_id: market.id,
-        })),
+    await prisma.staffScope.createMany({
+        data: [
+            {
+                staff_id: staff.id,
+                scope_type: ScopeType.GLOBAL,
+                market_id: null,
+            },
+        ],
         skipDuplicates: true,
     });
 
@@ -358,7 +382,7 @@ async function seedSuperAdminStaff(role_id: string) {
     });
 
     console.log(
-        `Seeded super admin staff ${staff.email} with ${markets.length} market(s)`,
+        `Seeded super admin staff ${staff.email} with GLOBAL scope`,
     );
 
     return staff;
@@ -447,9 +471,10 @@ async function seedDemoStaff(
             },
         });
 
-        await prisma.staffMarket.createMany({
+        await prisma.staffScope.createMany({
             data: staffDef.market_ids.map((market_id) => ({
                 staff_id: staff.id,
+                scope_type: ScopeType.MARKET,
                 market_id,
             })),
             skipDuplicates: true,
@@ -514,10 +539,11 @@ async function seedDemoStaff(
         },
     });
 
-    await prisma.staffInvitationMarket.createMany({
+    await prisma.staffInvitationScope.createMany({
         data: [
             {
                 invitation_id: pendingInvitation.id,
+                scope_type: ScopeType.MARKET,
                 market_id: ngMarket.id,
             },
         ],
@@ -548,10 +574,11 @@ async function seedDemoStaff(
         },
     });
 
-    await prisma.staffInvitationMarket.createMany({
+    await prisma.staffInvitationScope.createMany({
         data: [
             {
                 invitation_id: acceptedInvitation.id,
+                scope_type: ScopeType.MARKET,
                 market_id: ngMarket.id,
             },
         ],
@@ -574,7 +601,7 @@ async function seedDemoStaff(
                     role_name: warehouseRole.name,
                 },
                 {
-                    action: StaffAuditAction.MARKET_ASSIGNED,
+                    action: StaffAuditAction.SCOPE_ASSIGNED,
                     staff_id: acceptedStaff.id,
                     staff_name: acceptedStaff.name,
                     performed_by_staff_id: invitedByStaffId,

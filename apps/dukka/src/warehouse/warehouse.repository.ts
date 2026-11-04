@@ -1,24 +1,61 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, WarehouseStatus, PrismaService } from '@app/common';
+import {
+    Prisma,
+    ScopeType,
+    StaffAuditAction,
+    WarehouseStatus,
+    PrismaService,
+} from '@app/common';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type {
     CreateWarehouseRecord,
+    WarehouseAuditActor,
     WarehouseRecord,
+    WarehouseWithAuditRelations,
 } from './types/warehouse.type.js';
 
 @Injectable()
 export class WarehouseRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async create(data: CreateWarehouseRecord): Promise<WarehouseRecord> {
-        return await this.prisma.warehouse.create({
-            data: {
-                name: data.name,
-                address: data.address,
-                market: { connect: { id: data.market_id } },
-                manager: { connect: { id: data.manager_id } },
-            },
+    async create(
+        data: CreateWarehouseRecord,
+        performed_by: WarehouseAuditActor,
+        manager: WarehouseAuditActor,
+        market: WarehouseAuditActor,
+    ): Promise<WarehouseRecord> {
+        return await this.prisma.$transaction(async (tx) => {
+            const warehouse = await tx.warehouse.create({
+                data: {
+                    name: data.name,
+                    address: data.address,
+                    market: { connect: { id: data.market_id } },
+                    manager: { connect: { id: data.manager_id } },
+                },
+            });
+
+            await tx.staffScope.create({
+                data: {
+                    scope_type: ScopeType.WAREHOUSE,
+                    staff: { connect: { id: data.manager_id } },
+                    warehouse: { connect: { id: warehouse.id } },
+                },
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.SCOPE_ASSIGNED,
+                    staff_id: manager.id,
+                    staff_name: manager.name,
+                    performed_by_staff_id: performed_by.id,
+                    performed_by_staff_name: performed_by.name,
+                    market_id: market.id,
+                    market_name: market.name,
+                },
+            });
+
+            return warehouse;
         });
     }
 
@@ -73,6 +110,22 @@ export class WarehouseRepository {
         return warehouse;
     }
 
+    async findByIdWithAuditRelationsOrThrow(
+        id: string,
+    ): Promise<WarehouseWithAuditRelations> {
+        const warehouse = await this.prisma.warehouse.findUnique({
+            where: { id },
+            include: {
+                market: { select: { id: true, name: true } },
+                manager: { select: { id: true, name: true } },
+            },
+        });
+        if (!warehouse) {
+            throw new NotFoundException('Warehouse not found');
+        }
+        return warehouse;
+    }
+
     async update(id: string, data: UpdateWarehouseDto): Promise<WarehouseRecord> {
         return await this.prisma.warehouse.update({
             where: { id },
@@ -83,12 +136,71 @@ export class WarehouseRepository {
         });
     }
 
-    async updateManager(id: string, managerId: string): Promise<WarehouseRecord> {
-        return await this.prisma.warehouse.update({
-            where: { id },
-            data: {
-                manager: { connect: { id: managerId } },
-            },
+    async updateManager(
+        id: string,
+        managerId: string,
+        previousManagerId: string,
+        performed_by: WarehouseAuditActor,
+        previousManager: WarehouseAuditActor,
+        nextManager: WarehouseAuditActor,
+        market: WarehouseAuditActor,
+    ): Promise<WarehouseRecord> {
+        return await this.prisma.$transaction(async (tx) => {
+            const warehouse = await tx.warehouse.update({
+                where: { id },
+                data: {
+                    manager: { connect: { id: managerId } },
+                },
+            });
+
+            await tx.staffScope.deleteMany({
+                where: {
+                    staff_id: previousManagerId,
+                    warehouse_id: id,
+                    scope_type: ScopeType.WAREHOUSE,
+                },
+            });
+
+            await tx.staffScope.upsert({
+                where: {
+                    staff_id_warehouse_id: {
+                        staff_id: managerId,
+                        warehouse_id: id,
+                    },
+                },
+                create: {
+                    scope_type: ScopeType.WAREHOUSE,
+                    staff: { connect: { id: managerId } },
+                    warehouse: { connect: { id } },
+                },
+                update: {},
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.SCOPE_REMOVED,
+                    staff_id: previousManager.id,
+                    staff_name: previousManager.name,
+                    performed_by_staff_id: performed_by.id,
+                    performed_by_staff_name: performed_by.name,
+                    market_id: market.id,
+                    market_name: market.name,
+                },
+            });
+
+            await tx.staffAudit.create({
+                data: {
+                    action: StaffAuditAction.SCOPE_ASSIGNED,
+                    staff_id: nextManager.id,
+                    staff_name: nextManager.name,
+                    performed_by_staff_id: performed_by.id,
+                    performed_by_staff_name: performed_by.name,
+                    market_id: market.id,
+                    market_name: market.name,
+                },
+            });
+
+            return warehouse;
         });
     }
 

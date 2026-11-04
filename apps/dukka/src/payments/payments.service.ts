@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -17,7 +18,10 @@ import {
 } from '@app/common';
 import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
 import { MarketsService } from '../markets/markets.service.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -136,7 +140,7 @@ export class PaymentsService {
             this.logger.log(
                 `Approving payment method ${paymentMethodId} for market ${data.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
             await this.requireOpenMarket(data.market_id);
 
             const approved = await this.paymentsRepository.approveForMarket(
@@ -165,7 +169,7 @@ export class PaymentsService {
             this.logger.log(
                 `Removing payment method ${paymentMethodId} from market ${marketId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
 
             const marketMethod =
                 await this.paymentsRepository.findMarketPaymentMethod(
@@ -425,7 +429,7 @@ export class PaymentsService {
             this.logger.log(
                 `Fetching payment attempts for market ${query.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             this.assertPriceRange(query.min_price, query.max_price);
 
             const page = await this.paymentsRepository.findAttempts(query);
@@ -459,7 +463,7 @@ export class PaymentsService {
     ): Promise<PaymentAttemptDetail> {
         try {
             this.logger.log(`Fetching payment attempt ${id}`);
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
 
             const attempt = await this.paymentsRepository.findAttemptById(
                 id,
@@ -519,6 +523,16 @@ export class PaymentsService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

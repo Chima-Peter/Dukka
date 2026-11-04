@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -11,10 +12,14 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     NotificationPublisher,
     NotificationType,
+    ScopeType,
     WarehouseStatus,
 } from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -25,7 +30,10 @@ import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
-import type { WarehouseRecord } from './types/warehouse.type.js';
+import type {
+    WarehouseAuditActor,
+    WarehouseRecord,
+} from './types/warehouse.type.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 
 @Injectable()
@@ -42,17 +50,25 @@ export class WarehouseService {
     async create(
         data: CreateWarehouseDto,
         staffMarketIds: string[],
+        performed_by: WarehouseAuditActor,
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
                 `Creating warehouse ${data.name} in market ${data.market_id}`,
             );
-            const marketId = await this.requireOpenMarket(
+            const market = await this.marketsService.requireOpenMarket(
                 data.market_id,
                 staffMarketIds,
             );
-            await this.assertManagerValid(data.manager_id, marketId);
-            const warehouse = await this.warehouseRepository.create(data);
+            const manager = await this.assertManagerValid(data.manager_id, {
+                scope_type: ScopeType.WAREHOUSE,
+            });
+            const warehouse = await this.warehouseRepository.create(
+                data,
+                performed_by,
+                manager,
+                { id: market.id, name: market.name },
+            );
             this.logger.log(`Warehouse created ${warehouse.id}`);
             return warehouse;
         } catch (error) {
@@ -94,7 +110,7 @@ export class WarehouseService {
         try {
             this.logger.log(`Updating warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            this.assertWarehouseMarketAccess(existing, staffMarketIds);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update a closed warehouse',
@@ -112,37 +128,44 @@ export class WarehouseService {
         id: string,
         data: UpdateWarehouseManagerDto,
         staffMarketIds: string[],
+        performed_by: WarehouseAuditActor,
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Updating manager for warehouse ${id}`);
-            const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            const marketId = this.assertWarehouseMarketAccess(
-                existing,
-                staffMarketIds,
-            );
+            const existing =
+                await this.warehouseRepository.findByIdWithAuditRelationsOrThrow(
+                    id,
+                );
+            if (existing.manager_id === data.manager_id) {
+                throw new BadRequestException(
+                    'New manager is the same as the current manager',
+                );
+            }
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update manager of a closed warehouse',
                 );
             }
-            await this.assertManagerValid(data.manager_id, marketId);
-            const previousManagerId = existing.manager_id;
+            const nextManager = await this.assertManagerValid(data.manager_id, {
+                scope_type: ScopeType.WAREHOUSE,
+            });
             const warehouse = await this.warehouseRepository.updateManager(
                 id,
                 data.manager_id,
+                existing.manager_id,
+                performed_by,
+                existing.manager,
+                nextManager,
+                existing.market,
             );
             this.logger.log(`Warehouse manager updated ${id}`);
 
-            if (previousManagerId !== data.manager_id) {
-                await this.notificationPublisher.notifyStaff(
-                    previousManagerId,
-                    {
-                        title: 'Warehouse manager changed',
-                        type: NotificationType.SYSTEM,
-                        text: `You are no longer the manager of ${warehouse.name}.`,
-                    },
-                );
-            }
+            await this.notificationPublisher.notifyStaff(existing.manager_id, {
+                title: 'Warehouse manager changed',
+                type: NotificationType.SYSTEM,
+                text: `You are no longer the manager of ${warehouse.name}.`,
+            });
             await this.notificationPublisher.notifyStaff(data.manager_id, {
                 title: 'Warehouse assigned',
                 type: NotificationType.SYSTEM,
@@ -159,7 +182,7 @@ export class WarehouseService {
         try {
             this.logger.log(`Closing warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            this.assertWarehouseMarketAccess(existing, staffMarketIds);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException('Warehouse is already closed');
             }
@@ -182,7 +205,7 @@ export class WarehouseService {
         try {
             this.logger.log(`Opening warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            this.assertWarehouseMarketAccess(existing, staffMarketIds);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === WarehouseStatus.OPEN) {
                 throw new BadRequestException('Warehouse is already open');
             }
@@ -201,45 +224,35 @@ export class WarehouseService {
         }
     }
 
-    private assertWarehouseMarketAccess(
-        warehouse: WarehouseRecord,
-        staffMarketIds: string[],
-    ): string {
-        assertStaffHasMarkets(staffMarketIds, [warehouse.market_id]);
-        return warehouse.market_id;
-    }
-
-    private async requireOpenMarket(
-        marketId: string,
-        staffMarketIds: string[],
-    ): Promise<string> {
-        await this.marketsService.requireOpenMarket(marketId, staffMarketIds);
-        return marketId;
-    }
-
     private async assertManagerValid(
         managerId: string,
-        marketId: string,
-    ): Promise<void> {
+        scope: {
+            scope_type: typeof ScopeType.WAREHOUSE;
+            warehouse_id?: string;
+        },
+    ): Promise<WarehouseAuditActor> {
         const result = await this.staffService.validateIds({
             staff_ids: [managerId],
             permissions: [...WAREHOUSE_MANAGER_PERMISSIONS],
-            market_id: marketId,
+            scope,
         });
-        if (!result.valid) {
+        const manager = result.staff[managerId];
+        if (!manager?.valid || manager.name === null) {
             const parts: string[] = [];
-            if (result.invalid_ids.length > 0) {
+            if (!manager?.exists) {
                 parts.push('Manager is not a valid staff member');
             }
-            if (result.inactive_ids.length > 0) {
+            if (manager?.exists && !manager.is_active) {
                 parts.push('Manager staff account is inactive');
             }
-            if (result.missing_permission_ids.length > 0) {
+            if (manager?.exists && manager.is_active && !manager.has_permissions) {
                 parts.push('Manager lacks required warehouse permissions');
             }
-            if (result.missing_market_ids.length > 0) {
+            if (manager?.exists && manager.is_active && !manager.has_scope) {
                 parts.push(
-                    'Manager is not assigned to the warehouse market',
+                    scope.warehouse_id !== undefined
+                        ? 'Manager is not scoped to this warehouse'
+                        : 'Manager must have a warehouse-scoped role',
                 );
             }
             throw new BadRequestException({
@@ -247,12 +260,11 @@ export class WarehouseService {
                     parts.length > 0
                         ? parts.join('; ')
                         : 'Manager is invalid',
-                invalid_ids: result.invalid_ids,
-                inactive_ids: result.inactive_ids,
-                missing_permission_ids: result.missing_permission_ids,
-                missing_market_ids: result.missing_market_ids,
+                staff: result.staff,
             });
         }
+
+        return { id: manager.id, name: manager.name };
     }
 
     private handleError(error: unknown): never {
@@ -260,6 +272,16 @@ export class WarehouseService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

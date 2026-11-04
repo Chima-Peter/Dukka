@@ -11,6 +11,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import type { ScopeType } from '@app/common';
 import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
 import type { ConfigType } from '../config/env.interface.js';
 import {
@@ -24,12 +25,12 @@ import {
 import type { AcceptStaffInvitationDto } from './dto/accept-staff-invitation.dto.js';
 import type { FindStaffInvitationsDto } from './dto/find-staff-invitations.dto.js';
 import type { InviteStaffDto } from './dto/invite-staff.dto.js';
+import { InvitationsRepository } from './invitations.repository.js';
 import {
     INVITATION_REPO_ERROR,
-    InvitationsRepository,
     type StaffInvitationDetails,
     type StaffInvitationPage,
-} from './invitations.repository.js';
+} from './types/index.js';
 
 export type StaffInvitationResponse = Omit<StaffInvitationDetails, 'token'>;
 
@@ -68,6 +69,7 @@ export class InvitationsService {
         query: FindStaffInvitationsDto,
         market_ids: string[],
         hierarchy: number | null,
+        scope_type: ScopeType | null,
     ): Promise<{
         items: StaffInvitationResponse[];
         next_cursor: string | null;
@@ -78,6 +80,7 @@ export class InvitationsService {
                     query,
                     market_ids,
                     hierarchy,
+                    scope_type,
                 );
             return {
                 items: page.items.map((item) =>
@@ -94,6 +97,7 @@ export class InvitationsService {
         id: string,
         market_ids: string[],
         hierarchy: number | null,
+        scope_type: ScopeType | null,
     ): Promise<StaffInvitationResponse> {
         try {
             const invitation =
@@ -101,6 +105,7 @@ export class InvitationsService {
                     id,
                     market_ids,
                     hierarchy,
+                    scope_type,
                 );
             if (!invitation) {
                 throw new NotFoundException('Invitation not found');
@@ -234,6 +239,24 @@ export class InvitationsService {
             if (error.message === INVITATION_REPO_ERROR.MARKETS_NOT_FOUND) {
                 throw new NotFoundException('One or more markets not found');
             }
+            if (error.message === INVITATION_REPO_ERROR.WAREHOUSES_NOT_FOUND) {
+                throw new NotFoundException(
+                    'One or more warehouses not found',
+                );
+            }
+            if (
+                error.message ===
+                INVITATION_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND
+            ) {
+                throw new NotFoundException(
+                    'One or more distribution points not found',
+                );
+            }
+            if (error.message === INVITATION_REPO_ERROR.ROLE_SCOPE_MISMATCH) {
+                throw new ForbiddenException(
+                    'Invitation scope must match the role scope',
+                );
+            }
             if (
                 error.message ===
                 INVITATION_REPO_ERROR.INVITATION_ROLE_UNAVAILABLE
@@ -244,10 +267,34 @@ export class InvitationsService {
             }
             if (
                 error.message ===
+                INVITATION_REPO_ERROR.INVITATION_SCOPES_UNAVAILABLE
+            ) {
+                throw new BadRequestException(
+                    'This invitation has no scopes assigned',
+                );
+            }
+            if (
+                error.message ===
                 INVITATION_REPO_ERROR.INVITATION_MARKETS_UNAVAILABLE
             ) {
                 throw new BadRequestException(
                     'One or more markets on this invitation are no longer available',
+                );
+            }
+            if (
+                error.message ===
+                INVITATION_REPO_ERROR.INVITATION_WAREHOUSES_UNAVAILABLE
+            ) {
+                throw new BadRequestException(
+                    'One or more warehouses on this invitation are no longer available',
+                );
+            }
+            if (
+                error.message ===
+                INVITATION_REPO_ERROR.INVITATION_DISTRIBUTION_POINTS_UNAVAILABLE
+            ) {
+                throw new BadRequestException(
+                    'One or more distribution points on this invitation are no longer available',
                 );
             }
             if (error.message === INVITATION_REPO_ERROR.STAFF_EMAIL_EXISTS) {
@@ -301,6 +348,13 @@ export class InvitationsService {
                 );
             }
             if (
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS
+            ) {
+                throw new ForbiddenException(
+                    'Outside your authorized scope',
+                );
+            }
+            if (
                 error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
             ) {
                 throw new ForbiddenException(
@@ -351,6 +405,15 @@ export class InvitationsService {
                 return new BadRequestException(
                     'One or more markets on this invitation are no longer available',
                 );
+            case 'warehouse':
+                return new BadRequestException(
+                    'One or more warehouses on this invitation are no longer available',
+                );
+            case 'distributionpoint':
+            case 'distribution_point':
+                return new BadRequestException(
+                    'One or more distribution points on this invitation are no longer available',
+                );
             case 'staff':
                 return new NotFoundException('Staff not found');
             default:
@@ -362,6 +425,29 @@ export class InvitationsService {
                 if (prismaHintIncludes(error, 'market_id', 'market')) {
                     return new BadRequestException(
                         'One or more markets on this invitation are no longer available',
+                    );
+                }
+                if (
+                    prismaHintIncludes(
+                        error,
+                        'warehouse_id',
+                        'warehouse',
+                    )
+                ) {
+                    return new BadRequestException(
+                        'One or more warehouses on this invitation are no longer available',
+                    );
+                }
+                if (
+                    prismaHintIncludes(
+                        error,
+                        'distribution_point_id',
+                        'distribution_point',
+                        'distributionpoint',
+                    )
+                ) {
+                    return new BadRequestException(
+                        'One or more distribution points on this invitation are no longer available',
                     );
                 }
                 if (

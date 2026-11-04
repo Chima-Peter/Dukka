@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -16,7 +17,10 @@ import {
     RestCountriesIpService,
 } from '@app/common';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
@@ -71,7 +75,7 @@ export class MarketsService {
     ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Fetching market ${id}`);
-            assertStaffHasMarkets(market_ids, [id]);
+            assertActorBelongsToMarkets(market_ids, [id]);
             const market = await this.marketsRepository.findById(id);
             if (!market) {
                 throw new NotFoundException('Market not found');
@@ -100,7 +104,7 @@ export class MarketsService {
             throw new BadRequestException('Market is not open');
         }
         if (staffMarketIds !== undefined) {
-            assertStaffHasMarkets(staffMarketIds, [id]);
+            assertActorBelongsToMarkets(staffMarketIds, [id]);
         }
         return market;
     }
@@ -355,6 +359,16 @@ export class MarketsService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

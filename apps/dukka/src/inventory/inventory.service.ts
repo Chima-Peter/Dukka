@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -11,7 +12,10 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { Prisma, WarehouseStatus } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { ProductVariantRepository } from '../product/product-variant.repository.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -49,7 +53,7 @@ export class InventoryService {
                 `Creating inventory for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}`,
             );
 
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
 
             const marketVariant =
                 await this.productVariantRepository.findMarketVariantByIdOrThrow(
@@ -96,7 +100,7 @@ export class InventoryService {
                 `Updating stock for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}: ${data.type} ${data.quantity}`,
             );
 
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
 
             const marketVariant =
                 await this.productVariantRepository.findMarketVariantByIdOrThrow(
@@ -291,7 +295,7 @@ export class InventoryService {
             if (!query.market_id) {
                 throw new BadRequestException('market_id is required');
             }
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const page = await this.inventoryRepository.findByWarehouseId(
                 warehouseId,
                 { ...query, market_id: query.market_id },
@@ -318,7 +322,7 @@ export class InventoryService {
             if (!query.market_id) {
                 throw new BadRequestException('market_id is required');
             }
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const page = await this.inventoryRepository.findByMarketVariantId(
                 marketVariantId,
                 { ...query, market_id: query.market_id },
@@ -340,6 +344,16 @@ export class InventoryService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

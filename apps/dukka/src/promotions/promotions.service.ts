@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -25,7 +26,10 @@ import type { PromotionMarketVariantsDto } from './dto/promotion-market-variants
 import type { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import type { UpdatePromotionDto } from './dto/update-promotion.dto.js';
 import type { UpdatePromotionMarketDto } from './dto/update-promotion-market.dto.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -82,7 +86,7 @@ export class PromotionsService {
             this.logger.log(
                 `Fetching promotions for market ${query.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const promotions =
                 await this.promotionsRepository.findAll(query);
             this.logger.log(
@@ -146,7 +150,7 @@ export class PromotionsService {
             this.logger.log(
                 `Adding market ${data.market_id} to promotion ${promotionId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
             this.validatePromotionMarketRules(data);
             await this.assertNoValidVariantConflicts(
                 data.variant_ids,
@@ -243,7 +247,7 @@ export class PromotionsService {
             if (!existing) {
                 throw new NotFoundException('Promotion market not found');
             }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             this.validatePromotionMarketDateUpdate(data, existing);
 
             const promotionMarket =
@@ -276,7 +280,7 @@ export class PromotionsService {
             if (!existing) {
                 throw new NotFoundException('Promotion market not found');
             }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
 
             if (existing.status === PromotionMarketStatus.EXPIRED) {
                 throw new BadRequestException(
@@ -329,7 +333,7 @@ export class PromotionsService {
             if (!existing) {
                 throw new NotFoundException('Promotion market not found');
             }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
 
             if (existing.status === PromotionMarketStatus.EXPIRED) {
                 throw new BadRequestException(
@@ -432,7 +436,7 @@ export class PromotionsService {
             if (!existing) {
                 throw new NotFoundException('Promotion market not found');
             }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === PromotionMarketStatus.EXPIRED) {
                 throw new BadRequestException(
                     'Expired promotion markets cannot be activated',
@@ -482,7 +486,7 @@ export class PromotionsService {
             if (!existing) {
                 throw new NotFoundException('Promotion market not found');
             }
-            assertStaffHasMarkets(staffMarketIds, [existing.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
             if (existing.status === PromotionMarketStatus.EXPIRED) {
                 throw new BadRequestException(
                     'Expired promotion markets cannot be deactivated',
@@ -542,7 +546,7 @@ export class PromotionsService {
         marketId?: string,
     ): string[] {
         if (marketId !== undefined) {
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             return [marketId];
         }
         return staffMarketIds;
@@ -626,6 +630,16 @@ export class PromotionsService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

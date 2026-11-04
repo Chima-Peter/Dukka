@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -17,7 +18,10 @@ import {
     GENERAL_JOBS,
     GeneralQueueService,
 } from '@app/queues';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -145,7 +149,7 @@ export class OrdersService {
             this.logger.log(
                 `Fetching staff orders for market ${query.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const page = await this.ordersRepository.findForStaff(query);
             this.logger.log(
                 `Fetched staff orders for market ${query.market_id}`,
@@ -203,7 +207,7 @@ export class OrdersService {
             this.logger.log(
                 `Fetching staff order ${orderId} for market ${marketId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             const order = await this.ordersRepository.findOneForStaff(
                 orderId,
                 marketId,
@@ -311,6 +315,16 @@ export class OrdersService {
         if (error instanceof HttpException) {
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

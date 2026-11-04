@@ -30,7 +30,10 @@ import {
     MAIL_TEMPLATES,
     MailQueueService,
 } from '@app/queues';
-import { ACCESS_CONTROL_ERROR } from '../shared/access-control.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    staffMatchesRequiredScope,
+} from '../shared/access-control.js';
 import { PasswordHasher } from '../shared/password-hasher.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
@@ -41,30 +44,26 @@ import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
-import type { AssignStaffMarketDto } from './dto/assign-market.dto.js';
-import type { RemoveStaffMarketDto } from './dto/remove-market.dto.js';
+import type { AssignStaffScopeDto } from './dto/assign-scope.dto.js';
+import type { RemoveStaffScopeDto } from './dto/remove-scope.dto.js';
 import type { ValidateStaffDto } from './dto/validate-staff.dto.js';
+import { StaffRepository } from './staff.repository.js';
 import {
     STAFF_REPO_ERROR,
-    StaffRepository,
+    type QualificationResponse,
     type StaffAuditPage,
     type StaffAuthRecord,
+    type StaffResponse,
     type StaffSummary,
+    type StaffSummaryResponse,
     type StaffWithDetails,
-} from './staff.repository.js';
+} from './types/staff.types.js';
 
-export type StaffResponse = Omit<StaffWithDetails, 'avatar'> & {
-    /** Public Supabase URL built from the stored avatar path. */
-    avatar: string | null;
-};
-
-export type StaffSummaryResponse = Omit<StaffSummary, 'avatar'> & {
-    avatar: string | null;
-};
-
-export type QualificationResponse = Omit<Qualification, 'document_url'> & {
-    document_url: string | null;
-};
+export type {
+    QualificationResponse,
+    StaffResponse,
+    StaffSummaryResponse,
+} from './types/staff.types.js';
 
 @Injectable()
 export class StaffService {
@@ -130,10 +129,18 @@ export class StaffService {
 
     async validateIds(data: ValidateStaffDto): Promise<{
         valid: boolean;
-        invalid_ids: string[];
-        inactive_ids: string[];
-        missing_permission_ids: string[];
-        missing_market_ids: string[];
+        staff: Record<
+            string,
+            {
+                id: string;
+                name: string | null;
+                exists: boolean;
+                is_active: boolean;
+                has_permissions: boolean;
+                has_scope: boolean;
+                valid: boolean;
+            }
+        >;
     }> {
         try {
             this.logger.log(
@@ -145,44 +152,62 @@ export class StaffService {
             const existingById = new Map(
                 existing.map((staff) => [staff.id, staff]),
             );
-            const invalidIds = data.staff_ids.filter(
-                (id) => !existingById.has(id),
-            );
-            const inactiveIds = data.staff_ids.filter(
-                (id) => existingById.get(id)?.is_active === false,
-            );
-            const missingPermissionIds = data.staff_ids.filter((id) => {
-                const staff = existingById.get(id);
-                if (!staff || !staff.is_active) {
-                    return false;
+
+            const staff: Record<
+                string,
+                {
+                    id: string;
+                    name: string | null;
+                    exists: boolean;
+                    is_active: boolean;
+                    has_permissions: boolean;
+                    has_scope: boolean;
+                    valid: boolean;
                 }
-                const granted = new Set(staff.permissions);
-                return data.permissions.some(
-                    (permission) => !granted.has(permission),
+            > = {};
+
+            for (const id of data.staff_ids) {
+                const row = existingById.get(id);
+                if (!row) {
+                    staff[id] = {
+                        id,
+                        name: null,
+                        exists: false,
+                        is_active: false,
+                        has_permissions: false,
+                        has_scope: false,
+                        valid: false,
+                    };
+                    continue;
+                }
+
+                const granted = new Set(row.permissions);
+                const has_permissions = data.permissions.every((permission) =>
+                    granted.has(permission),
                 );
-            });
-            const requiredMarketId = data.market_id;
-            const missingMarketIds =
-                requiredMarketId === undefined
-                    ? []
-                    : data.staff_ids.filter((id) => {
-                          const staff = existingById.get(id);
-                          if (!staff || !staff.is_active) {
-                              return false;
-                          }
-                          return !staff.market_ids.includes(requiredMarketId);
-                      });
+                const has_scope =
+                    data.scope === undefined ||
+                    staffMatchesRequiredScope(
+                        row.staff_scopes,
+                        data.scope,
+                        row.role_scope_type,
+                    );
+                const valid = row.is_active && has_permissions && has_scope;
+
+                staff[id] = {
+                    id: row.id,
+                    name: row.name,
+                    exists: true,
+                    is_active: row.is_active,
+                    has_permissions,
+                    has_scope,
+                    valid,
+                };
+            }
 
             return {
-                valid:
-                    invalidIds.length === 0 &&
-                    inactiveIds.length === 0 &&
-                    missingPermissionIds.length === 0 &&
-                    missingMarketIds.length === 0,
-                invalid_ids: invalidIds,
-                inactive_ids: inactiveIds,
-                missing_permission_ids: missingPermissionIds,
-                missing_market_ids: missingMarketIds,
+                valid: data.staff_ids.every((id) => staff[id]?.valid === true),
+                staff,
             };
         } catch (error) {
             this.handleError(error);
@@ -405,42 +430,45 @@ export class StaffService {
         }
     }
 
-    async assignMarkets(
+    async assignScopes(
         id: string,
-        data: AssignStaffMarketDto,
+        data: AssignStaffScopeDto,
         performed_by_staff_id: string,
     ): Promise<StaffResponse> {
         try {
             this.logger.log(
-                `Assigning ${data.market_ids.length} market(s) to staff ${id}`,
+                `Assigning ${data.scope_type} scope(s) to staff ${id}`,
             );
-            const staff = await this.staffRepository.assignMarkets(
+            const staff = await this.staffRepository.assignScopes(
                 id,
-                data.market_ids,
+                data,
                 performed_by_staff_id,
             );
-            this.logger.log(`Markets assigned to staff ${id}`);
+            this.logger.log(`Scopes assigned to staff ${id}`);
 
             await this.mailQueueService.enqueueSend({
                 to: staff.email,
-                subject: 'Your markets were updated',
+                subject: 'Your scopes were updated',
                 template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
                 context: {
                     name: staff.name,
                     email: staff.email,
                     action: 'assigned',
-                    markets: staff.staff_markets.map((assignment) => ({
-                        id: assignment.market.id,
-                        name: assignment.market.name,
-                        code: assignment.market.code,
-                    })),
+                    scopeType: data.scope_type,
+                    markets: staff.staff_scopes
+                        .filter((assignment) => assignment.market != null)
+                        .map((assignment) => ({
+                            id: assignment.market!.id,
+                            name: assignment.market!.name,
+                            code: assignment.market!.code,
+                        })),
                 },
             });
 
             await this.notificationPublisher.notifyStaff(id, {
-                title: 'Markets updated',
+                title: 'Scopes updated',
                 type: NotificationType.SYSTEM,
-                text: `${data.market_ids.length} market(s) were assigned to your account.`,
+                text: `${data.scope_type} scope(s) were assigned to your account.`,
             });
 
             return this.toStaffResponse(staff);
@@ -449,43 +477,46 @@ export class StaffService {
         }
     }
 
-    async removeMarkets(
+    async removeScopes(
         id: string,
-        data: RemoveStaffMarketDto,
+        data: RemoveStaffScopeDto,
         performed_by_staff_id: string,
     ): Promise<StaffResponse> {
         try {
             this.logger.log(
-                `Removing ${data.market_ids.length} market(s) from staff ${id}`,
+                `Removing ${data.scope_type} scope(s) from staff ${id}`,
             );
-            const { staff, removed } = await this.staffRepository.removeMarkets(
+            const { staff, removed } = await this.staffRepository.removeScopes(
                 id,
-                data.market_ids,
+                data,
                 performed_by_staff_id,
             );
             if (removed === 0) {
                 throw new NotFoundException(
-                    'None of the markets are assigned to this staff member',
+                    'None of the scopes are assigned to this staff member',
                 );
             }
-            this.logger.log(`Removed ${removed} market(s) from staff ${id}`);
+            this.logger.log(`Removed ${removed} scope(s) from staff ${id}`);
 
             await this.mailQueueService.enqueueSend({
                 to: staff.email,
-                subject: 'Your markets were updated',
+                subject: 'Your scopes were updated',
                 template: MAIL_TEMPLATES.STAFF_MARKETS_CHANGED,
                 context: {
                     name: staff.name,
                     email: staff.email,
                     action: 'removed',
+                    scopeType: data.scope_type,
                     marketIds: data.market_ids,
+                    warehouseIds: data.warehouse_ids,
+                    distributionPointIds: data.distribution_point_ids,
                 },
             });
 
             await this.notificationPublisher.notifyStaff(id, {
-                title: 'Markets updated',
+                title: 'Scopes updated',
                 type: NotificationType.SYSTEM,
-                text: `${removed} market(s) were removed from your account.`,
+                text: `${removed} ${data.scope_type} scope(s) were removed from your account.`,
             });
 
             return this.toStaffResponse(staff);
@@ -616,18 +647,6 @@ export class StaffService {
             );
             this.logger.log(`Profile updated for staff ${staff_id}`);
             return profile;
-        } catch (error) {
-            this.handleProfileError(error);
-        }
-    }
-
-    async deleteProfile(staff_id: string): Promise<object> {
-        try {
-            this.logger.log(`Deleting profile for staff ${staff_id}`);
-            await this.ensureStaffExists(staff_id);
-            await this.staffRepository.deleteProfile(staff_id);
-            this.logger.log(`Profile deleted for staff ${staff_id}`);
-            return { data: null };
         } catch (error) {
             this.handleProfileError(error);
         }
@@ -764,9 +783,10 @@ export class StaffService {
     }
 
     private toStaffResponse(staff: StaffWithDetails): StaffResponse {
-        const { avatar: avatar_path, ...rest } = staff;
+        const { avatar: avatar_path, staff_scopes, ...rest } = staff;
         return {
             ...rest,
+            scopes: staff_scopes,
             avatar: avatar_path
                 ? this.supabaseService.getPublicURL(avatar_path, AVATAR_BUCKET)
                 : null,
@@ -1030,9 +1050,32 @@ export class StaffService {
             if (error.message === STAFF_REPO_ERROR.MARKETS_NOT_FOUND) {
                 throw new NotFoundException('One or more markets not found');
             }
-            if (error.message === STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION) {
+            if (error.message === STAFF_REPO_ERROR.WAREHOUSES_NOT_FOUND) {
+                throw new NotFoundException(
+                    'One or more warehouses not found',
+                );
+            }
+            if (
+                error.message ===
+                STAFF_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND
+            ) {
+                throw new NotFoundException(
+                    'One or more distribution points not found',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.SELF_SCOPE_MODIFICATION) {
                 throw new ForbiddenException(
-                    'Staff cannot modify their own markets',
+                    'Staff cannot modify their own scopes',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.ROLE_SCOPE_MISMATCH) {
+                throw new ForbiddenException(
+                    'Staff scope must match their role scope',
+                );
+            }
+            if (error.message === STAFF_REPO_ERROR.ALREADY_GLOBAL) {
+                throw new ConflictException(
+                    'Staff already has global scope',
                 );
             }
             if (error.message === STAFF_REPO_ERROR.ROLE_NOT_FOUND) {
@@ -1064,6 +1107,13 @@ export class StaffService {
             if (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_HIERARCHY) {
                 throw new ForbiddenException(
                     'Cannot manage someone with the same or higher hierarchy',
+                );
+            }
+            if (
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS
+            ) {
+                throw new ForbiddenException(
+                    'Cannot manage roles or scopes outside your scope',
                 );
             }
             if (

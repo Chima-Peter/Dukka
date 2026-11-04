@@ -37,6 +37,8 @@ export type {
     JwtSubjectType,
     JwtTokenUse,
     StaffJwtPayload,
+    StaffJwtScope,
+    StaffJwtScopeType,
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';
 export {

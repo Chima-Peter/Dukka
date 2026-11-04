@@ -60,8 +60,6 @@ describe('RolesController', () => {
                         hasPermission: vi.fn(),
                         assignPermissions: vi.fn(),
                         removePermissions: vi.fn(),
-                        assignMarkets: vi.fn(),
-                        removeMarkets: vi.fn(),
                     },
                 },
             ],

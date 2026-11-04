@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -17,7 +18,10 @@ import {
     VariantStatus,
 } from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
 import {
     prismaHintIncludes,
@@ -294,7 +298,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Adding variant ${variantId} to market ${data.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
             const [listing, market] = await Promise.all([
                 this.productVariantRepository.findProductVariantForMarketListing(
                     productId,
@@ -385,7 +389,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Updating market variant for variant ${variantId} in market ${marketId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             const marketVariant =
                 await this.productVariantRepository.updateMarketVariant(
                     variantId,
@@ -410,7 +414,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Removing variant ${variantId} from market ${marketId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             const marketVariant =
                 await this.productVariantRepository.closeMarketVariant(
                     variantId,
@@ -431,7 +435,7 @@ export class ProductVariantService {
     ) {
         try {
             this.logger.log('Fetching market variants');
-            assertStaffHasMarkets(staffMarketIds, [query.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const page = await this.productVariantRepository.findMarketVariants(
                 query,
                 [query.market_id],
@@ -671,6 +675,16 @@ export class ProductVariantService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

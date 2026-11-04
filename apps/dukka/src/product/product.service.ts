@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -34,7 +35,10 @@ import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import type { UpdateProductImagesDto } from './dto/update-product-images.dto.js';
 import type { UploadFileDto } from './dto/upload-file.dto.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import { ProductRepository } from './product.repository.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
 
@@ -225,7 +229,7 @@ export class ProductService {
         marketId?: string,
     ): string {
         if (marketId !== undefined) {
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             return marketId;
         }
 
@@ -678,6 +682,16 @@ export class ProductService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {

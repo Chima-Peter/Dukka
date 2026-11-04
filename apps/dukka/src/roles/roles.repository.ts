@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import {
     StaffAuditAction,
-    type Market,
     type Permission,
     type Role,
-    type RoleMarket,
     type RolePermission,
+    type ScopeType,
     PrismaService,
 } from '@app/common';
 import {
-    assertActorBelongsToMarkets,
     assertActorHasPermissions,
     assertCanManageHierarchies,
+    assertCanManageScopeType,
+    resolveQueriedRoleScopeTypes,
     visibleHierarchyFloor,
+    visibleRoleScopeTypes,
 } from '../shared/access-control.js';
-import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 
@@ -22,13 +22,12 @@ export const ROLES_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
     PERMISSIONS_NOT_FOUND: 'PERMISSIONS_NOT_FOUND',
-    MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
+    PERMISSION_SCOPE_MISMATCH: 'PERMISSION_SCOPE_MISMATCH',
     SELF_ROLE_MODIFICATION: 'SELF_ROLE_MODIFICATION',
 } as const;
 
 export type RoleWithDetails = Role & {
     role_permissions: (RolePermission & { permission: Permission })[];
-    role_markets: (RoleMarket & { market: Market })[];
 };
 
 @Injectable()
@@ -41,31 +40,41 @@ export class RolesRepository {
     ): Promise<Role> {
         const actor = await this.prisma.staff.findUnique({
             where: { id: performed_by_staff_id },
-            select: { role: { select: { hierarchy: true } } },
+            select: {
+                role: { select: { hierarchy: true, scope_type: true } },
+            },
         });
         if (!actor) {
             throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
         }
 
         assertCanManageHierarchies(actor.role?.hierarchy, data.hierarchy);
+        assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
 
         return await this.prisma.role.create({ data });
     }
 
     async findAll(
-        market_ids: string[],
         hierarchy: number | null,
+        actor_scope_type: ScopeType | null,
+        filter_scope_type?: ScopeType | null,
     ): Promise<Role[]> {
-        if (market_ids.length === 0 || hierarchy === null) {
+        if (hierarchy === null) {
+            return [];
+        }
+
+        const scopes = resolveQueriedRoleScopeTypes(
+            actor_scope_type,
+            filter_scope_type,
+        );
+        if (scopes === null) {
             return [];
         }
 
         return await this.prisma.role.findMany({
             where: {
                 hierarchy: { gte: visibleHierarchyFloor(hierarchy) },
-                role_markets: {
-                    some: { market_id: { in: market_ids } },
-                },
+                scope_type: { in: scopes },
             },
             orderBy: [{ hierarchy: 'asc' }, { created_at: 'desc' }],
         });
@@ -73,11 +82,15 @@ export class RolesRepository {
 
     async findById(
         id: string,
-        scope?: { market_ids: string[]; hierarchy: number | null },
+        scope?: { hierarchy: number | null; scope_type: ScopeType | null },
     ): Promise<RoleWithDetails | null> {
+        const visibleScopes =
+            scope !== undefined
+                ? visibleRoleScopeTypes(scope.scope_type)
+                : undefined;
         if (
             scope !== undefined &&
-            (scope.market_ids.length === 0 || scope.hierarchy === null)
+            (scope.hierarchy === null || visibleScopes === null)
         ) {
             return null;
         }
@@ -86,22 +99,17 @@ export class RolesRepository {
             where: {
                 id,
                 ...(scope !== undefined &&
-                    scope.hierarchy !== null && {
+                    scope.hierarchy !== null &&
+                    visibleScopes != null && {
                         hierarchy: {
                             gte: visibleHierarchyFloor(scope.hierarchy),
                         },
-                        role_markets: {
-                            some: { market_id: { in: scope.market_ids } },
-                        },
+                        scope_type: { in: visibleScopes },
                     }),
             },
             include: {
                 role_permissions: {
                     include: { permission: true },
-                    orderBy: { created_at: 'desc' },
-                },
-                role_markets: {
-                    include: { market: true },
                     orderBy: { created_at: 'desc' },
                 },
             },
@@ -117,7 +125,7 @@ export class RolesRepository {
             where: { id: performed_by_staff_id },
             select: {
                 role_id: true,
-                role: { select: { hierarchy: true } },
+                role: { select: { hierarchy: true, scope_type: true } },
             },
         });
         if (!actor) {
@@ -126,7 +134,7 @@ export class RolesRepository {
 
         const existing = await this.prisma.role.findUnique({
             where: { id },
-            select: { id: true, hierarchy: true },
+            select: { id: true, hierarchy: true, scope_type: true },
         });
         if (!existing) {
             throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
@@ -138,6 +146,11 @@ export class RolesRepository {
             existing.hierarchy,
             data.hierarchy,
         );
+        assertCanManageScopeType(
+            actor.role?.scope_type,
+            existing.scope_type,
+            ...(data.scope_type !== undefined ? [data.scope_type] : []),
+        );
 
         return await this.prisma.role.update({
             where: { id },
@@ -148,6 +161,9 @@ export class RolesRepository {
                 }),
                 ...(data.hierarchy !== undefined && {
                     hierarchy: data.hierarchy,
+                }),
+                ...(data.scope_type !== undefined && {
+                    scope_type: data.scope_type,
                 }),
             },
         });
@@ -161,7 +177,7 @@ export class RolesRepository {
             where: { id: performed_by_staff_id },
             select: {
                 role_id: true,
-                role: { select: { hierarchy: true } },
+                role: { select: { hierarchy: true, scope_type: true } },
             },
         });
         if (!actor) {
@@ -170,7 +186,7 @@ export class RolesRepository {
 
         const existing = await this.prisma.role.findUnique({
             where: { id },
-            select: { id: true, hierarchy: true },
+            select: { id: true, hierarchy: true, scope_type: true },
         });
         if (!existing) {
             throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
@@ -181,6 +197,7 @@ export class RolesRepository {
             actor.role?.hierarchy,
             existing.hierarchy,
         );
+        assertCanManageScopeType(actor.role?.scope_type, existing.scope_type);
 
         return await this.prisma.role.delete({ where: { id } });
     }
@@ -215,6 +232,7 @@ export class RolesRepository {
                     role: {
                         select: {
                             hierarchy: true,
+                            scope_type: true,
                             role_permissions: {
                                 select: { permission_id: true },
                             },
@@ -228,7 +246,12 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true, hierarchy: true },
+                select: {
+                    id: true,
+                    name: true,
+                    hierarchy: true,
+                    scope_type: true,
+                },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
@@ -239,6 +262,7 @@ export class RolesRepository {
                 actor.role?.hierarchy,
                 role.hierarchy,
             );
+            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
             assertActorHasPermissions(
                 actor.role?.role_permissions.map((rp) => rp.permission_id) ??
                     [],
@@ -247,10 +271,17 @@ export class RolesRepository {
 
             const permissions = await tx.permission.findMany({
                 where: { id: { in: permission_ids } },
-                select: { id: true, name: true },
+                select: { id: true, name: true, scope_type: true },
             });
             if (permissions.length !== permission_ids.length) {
                 throw new Error(ROLES_REPO_ERROR.PERMISSIONS_NOT_FOUND);
+            }
+            if (
+                permissions.some(
+                    (permission) => permission.scope_type !== role.scope_type,
+                )
+            ) {
+                throw new Error(ROLES_REPO_ERROR.PERMISSION_SCOPE_MISMATCH);
             }
 
             await tx.rolePermission.createMany({
@@ -298,6 +329,7 @@ export class RolesRepository {
                     role: {
                         select: {
                             hierarchy: true,
+                            scope_type: true,
                             role_permissions: {
                                 select: { permission_id: true },
                             },
@@ -311,7 +343,12 @@ export class RolesRepository {
 
             const role = await tx.role.findUnique({
                 where: { id: role_id },
-                select: { id: true, name: true, hierarchy: true },
+                select: {
+                    id: true,
+                    name: true,
+                    hierarchy: true,
+                    scope_type: true,
+                },
             });
             if (!role) {
                 throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
@@ -322,6 +359,7 @@ export class RolesRepository {
                 actor.role?.hierarchy,
                 role.hierarchy,
             );
+            assertCanManageScopeType(actor.role?.scope_type, role.scope_type);
             assertActorHasPermissions(
                 actor.role?.role_permissions.map((rp) => rp.permission_id) ??
                     [],
@@ -333,11 +371,23 @@ export class RolesRepository {
                     role_id,
                     permission_id: { in: permission_ids },
                 },
-                include: { permission: { select: { id: true, name: true } } },
+                include: {
+                    permission: {
+                        select: { id: true, name: true, scope_type: true },
+                    },
+                },
             });
 
             if (existing.length === 0) {
                 return 0;
+            }
+
+            if (
+                existing.some(
+                    (row) => row.permission.scope_type !== role.scope_type,
+                )
+            ) {
+                throw new Error(ROLES_REPO_ERROR.PERMISSION_SCOPE_MISMATCH);
             }
 
             const result = await tx.rolePermission.deleteMany({
@@ -358,166 +408,6 @@ export class RolesRepository {
                     role_name: role.name,
                     permission_id: row.permission.id,
                     permission_name: row.permission.name,
-                })),
-            });
-
-            return result.count;
-        });
-    }
-
-    async assignMarkets(
-        role_id: string,
-        market_ids: string[],
-        performed_by_staff_id: string,
-    ): Promise<(RoleMarket & { market: Market })[]> {
-        return await this.prisma.$transaction(async (tx) => {
-            const actor = await tx.staff.findUnique({
-                where: { id: performed_by_staff_id },
-                select: {
-                    id: true,
-                    name: true,
-                    role_id: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: {
-                        select: {
-                            hierarchy: true,
-                        },
-                    },
-                },
-            });
-            if (!actor) {
-                throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
-            }
-
-            const role = await tx.role.findUnique({
-                where: { id: role_id },
-                select: { id: true, name: true, hierarchy: true },
-            });
-            if (!role) {
-                throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
-            }
-
-            this.assertNotOwnRole(actor.role_id, role.id);
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                market_ids,
-            );
-
-            const markets = await tx.market.findMany({
-                where: { id: { in: market_ids } },
-                select: { id: true, name: true, status: true },
-            });
-            if (markets.length !== market_ids.length) {
-                throw new Error(ROLES_REPO_ERROR.MARKETS_NOT_FOUND);
-            }
-            assertMarketsActive(markets);
-
-            await tx.roleMarket.createMany({
-                data: market_ids.map((market_id) => ({
-                    role_id,
-                    market_id,
-                })),
-            });
-
-            await tx.staffAudit.createMany({
-                data: markets.map((market) => ({
-                    action: StaffAuditAction.MARKET_ASSIGNED,
-                    performed_by_staff_id: actor.id,
-                    performed_by_staff_name: actor.name,
-                    role_id: role.id,
-                    role_name: role.name,
-                    market_id: market.id,
-                    market_name: market.name,
-                })),
-            });
-
-            return await tx.roleMarket.findMany({
-                where: {
-                    role_id,
-                    market_id: { in: market_ids },
-                },
-                include: { market: true },
-                orderBy: { created_at: 'desc' },
-            });
-        });
-    }
-
-    async removeMarkets(
-        role_id: string,
-        market_ids: string[],
-        performed_by_staff_id: string,
-    ): Promise<number> {
-        return await this.prisma.$transaction(async (tx) => {
-            const actor = await tx.staff.findUnique({
-                where: { id: performed_by_staff_id },
-                select: {
-                    id: true,
-                    name: true,
-                    role_id: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: {
-                        select: {
-                            hierarchy: true,
-                        },
-                    },
-                },
-            });
-            if (!actor) {
-                throw new Error(ROLES_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
-            }
-
-            const role = await tx.role.findUnique({
-                where: { id: role_id },
-                select: { id: true, name: true, hierarchy: true },
-            });
-            if (!role) {
-                throw new Error(ROLES_REPO_ERROR.ROLE_NOT_FOUND);
-            }
-
-            this.assertNotOwnRole(actor.role_id, role.id);
-            assertCanManageHierarchies(
-                actor.role?.hierarchy,
-                role.hierarchy,
-            );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                market_ids,
-            );
-
-            const existing = await tx.roleMarket.findMany({
-                where: {
-                    role_id,
-                    market_id: { in: market_ids },
-                },
-                include: { market: { select: { id: true, name: true } } },
-            });
-
-            if (existing.length === 0) {
-                return 0;
-            }
-
-            const result = await tx.roleMarket.deleteMany({
-                where: {
-                    role_id,
-                    market_id: {
-                        in: existing.map((row) => row.market_id),
-                    },
-                },
-            });
-
-            await tx.staffAudit.createMany({
-                data: existing.map((row) => ({
-                    action: StaffAuditAction.MARKET_REMOVED,
-                    performed_by_staff_id: actor.id,
-                    performed_by_staff_name: actor.name,
-                    role_id: role.id,
-                    role_name: role.name,
-                    market_id: row.market.id,
-                    market_name: row.market.name,
                 })),
             });
 

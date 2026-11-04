@@ -1,87 +1,43 @@
 import { Injectable } from '@nestjs/common';
 import {
+    ScopeType,
     StaffAuditAction,
-    type Market,
-    type Permission,
     type Prisma,
     type Qualification,
-    type Role,
-    type RoleMarket,
-    type RolePermission,
     type Staff,
-    type StaffAudit,
-    type StaffMarket,
     type StaffProfile,
     PrismaService,
 } from '@app/common';
 import {
     assertActorBelongsToMarkets,
     assertCanManageHierarchies,
+    assertCanManageScopeType,
     assertCanManageStaffInMarkets,
+    hasGlobalScope,
+    resolveScopeMarketIds,
     visibleHierarchyFloor,
 } from '../shared/access-control.js';
 import { assertMarketsActive } from '../shared/assert-markets-active.js';
+import type { AssignStaffScopeDto } from './dto/assign-scope.dto.js';
 import type { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import type { CreateStaffProfileDto } from './dto/create-staff-profile.dto.js';
 import type { FindStaffAuditDto } from './dto/find-staff-audit.dto.js';
 import type { FindStaffDto } from './dto/find-staff.dto.js';
+import type { RemoveStaffScopeDto } from './dto/remove-scope.dto.js';
 import type { UpdateQualificationDto } from './dto/update-qualification.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
 import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
-
-export const STAFF_REPO_ERROR = {
-    PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
-    ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
-    ROLE_NOT_ASSIGNED: 'ROLE_NOT_ASSIGNED',
-    MARKETS_NOT_FOUND: 'MARKETS_NOT_FOUND',
-    SELF_ROLE_ASSIGNMENT: 'SELF_ROLE_ASSIGNMENT',
-    SELF_ROLE_REVOCATION: 'SELF_ROLE_REVOCATION',
-    SELF_MARKET_MODIFICATION: 'SELF_MARKET_MODIFICATION',
-    SELF_DELETION: 'SELF_DELETION',
-    STAFF_NOT_FOUND: 'STAFF_NOT_FOUND',
-    STAFF_INACTIVE: 'STAFF_INACTIVE',
-} as const;
-
-export type StaffRoleDetails = Role & {
-    role_permissions: (RolePermission & { permission: Permission })[];
-    role_markets: (RoleMarket & { market: Market })[];
-};
-
-export type StaffQualificationSummary = Omit<Qualification, 'document_url'>;
-
-export type StaffMarketDetails = StaffMarket & { market: Market };
-
-export type StaffWithDetails = Omit<Staff, 'password'> & {
-    profile: StaffProfile | null;
-    qualifications: StaffQualificationSummary[];
-    role: StaffRoleDetails | null;
-    staff_markets: StaffMarketDetails[];
-};
-
-export type StaffAuthRecord = Staff & {
-    profile: StaffProfile | null;
-    qualifications: StaffQualificationSummary[];
-    role: StaffRoleDetails | null;
-    staff_markets: StaffMarketDetails[];
-};
-
-export type StaffSummary = {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string | null;
-    role_name: string | null;
-};
-
-export type StaffPage = {
-    items: StaffSummary[];
-    next_cursor: string | null;
-};
-
-export type StaffAuditPage = {
-    items: StaffAudit[];
-    next_cursor: string | null;
-};
+import {
+    STAFF_REPO_ERROR,
+    type StaffAuditPage,
+    type StaffAuthRecord,
+    type StaffPage,
+    type StaffQualificationSummary,
+    type StaffRoleDetails,
+    type StaffScopeDetails,
+    type StaffSummary,
+    type StaffWithDetails,
+} from './types/staff.types.js';
 
 const staffQualificationSelect = {
     id: true,
@@ -98,8 +54,12 @@ const staffDetailsInclude = {
         orderBy: { created_at: 'desc' as const },
         select: staffQualificationSelect,
     },
-    staff_markets: {
-        include: { market: true },
+    staff_scopes: {
+        include: {
+            market: true,
+            warehouse: true,
+            distribution_point: true,
+        },
         orderBy: { created_at: 'desc' as const },
     },
     role: {
@@ -108,13 +68,16 @@ const staffDetailsInclude = {
                 include: { permission: true },
                 orderBy: { created_at: 'desc' as const },
             },
-            role_markets: {
-                include: { market: true },
-                orderBy: { created_at: 'desc' as const },
-            },
         },
     },
 };
+
+const staffScopeAccessSelect = {
+    market_id: true,
+    scope_type: true,
+    warehouse: { select: { market_id: true } },
+    distribution_point: { select: { market_id: true } },
+} as const;
 
 @Injectable()
 export class StaffRepository {
@@ -198,7 +161,7 @@ export class StaffRepository {
             ...(query.is_active !== undefined && {
                 is_active: query.is_active,
             }),
-            staff_markets: {
+            staff_scopes: {
                 some: { market_id: { in: market_ids } },
             },
             role: {
@@ -233,7 +196,7 @@ export class StaffRepository {
         const staff = await this.prisma.staff.findFirst({
             where: {
                 id,
-                staff_markets: {
+                staff_scopes: {
                     some: { market_id: { in: market_ids } },
                 },
             },
@@ -272,8 +235,15 @@ export class StaffRepository {
     async findValidationByIds(ids: string[]): Promise<
         {
             id: string;
+            name: string;
             is_active: boolean;
-            market_ids: string[];
+            role_scope_type: ScopeType | null;
+            staff_scopes: Array<{
+                scope_type: ScopeType;
+                market_id: string | null;
+                warehouse_id: string | null;
+                distribution_point_id: string | null;
+            }>;
             permissions: string[];
         }[]
     > {
@@ -285,12 +255,19 @@ export class StaffRepository {
             where: { id: { in: ids } },
             select: {
                 id: true,
+                name: true,
                 is_active: true,
-                staff_markets: {
-                    select: { market_id: true },
+                staff_scopes: {
+                    select: {
+                        scope_type: true,
+                        market_id: true,
+                        warehouse_id: true,
+                        distribution_point_id: true,
+                    },
                 },
                 role: {
                     select: {
+                        scope_type: true,
                         role_permissions: {
                             select: {
                                 permission: {
@@ -305,8 +282,10 @@ export class StaffRepository {
 
         return records.map((staff) => ({
             id: staff.id,
+            name: staff.name,
             is_active: staff.is_active,
-            market_ids: staff.staff_markets.map((sm) => sm.market_id),
+            role_scope_type: staff.role?.scope_type ?? null,
+            staff_scopes: staff.staff_scopes,
             permissions:
                 staff.role?.role_permissions.map(
                     (rolePermission) => rolePermission.permission.name,
@@ -397,7 +376,7 @@ export class StaffRepository {
             const existing = await tx.staff.findUnique({
                 where: { id },
                 include: {
-                    staff_markets: { select: { market_id: true } },
+                    staff_scopes: { select: staffScopeAccessSelect },
                     role: {
                         select: {
                             id: true,
@@ -430,6 +409,7 @@ export class StaffRepository {
                     id: true,
                     name: true,
                     hierarchy: true,
+                    scope_type: true,
                 },
             });
             if (!newRole) {
@@ -441,10 +421,11 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
+                    staff_scopes: { select: staffScopeAccessSelect },
                     role: {
                         select: {
                             hierarchy: true,
+                            scope_type: true,
                         },
                     },
                 },
@@ -458,10 +439,12 @@ export class StaffRepository {
                 existing.role?.hierarchy,
                 newRole.hierarchy,
             );
+            assertCanManageScopeType(actor.role?.scope_type, newRole.scope_type);
 
             assertCanManageStaffInMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                existing.staff_markets.map((sm) => sm.market_id),
+                resolveScopeMarketIds(actor.staff_scopes),
+                resolveScopeMarketIds(existing.staff_scopes),
+                hasGlobalScope(actor.staff_scopes),
             );
 
             const staff = await tx.staff.update({
@@ -503,12 +486,13 @@ export class StaffRepository {
             const existing = await tx.staff.findUnique({
                 where: { id },
                 include: {
-                    staff_markets: { select: { market_id: true } },
+                    staff_scopes: { select: staffScopeAccessSelect },
                     role: {
                         select: {
                             id: true,
                             name: true,
                             hierarchy: true,
+                            scope_type: true,
                         },
                     },
                 },
@@ -530,10 +514,11 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
+                    staff_scopes: { select: staffScopeAccessSelect },
                     role: {
                         select: {
                             hierarchy: true,
+                            scope_type: true,
                         },
                     },
                 },
@@ -546,10 +531,15 @@ export class StaffRepository {
                 actor.role?.hierarchy,
                 existing.role.hierarchy,
             );
+            assertCanManageScopeType(
+                actor.role?.scope_type,
+                existing.role.scope_type,
+            );
 
             assertCanManageStaffInMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                existing.staff_markets.map((sm) => sm.market_id),
+                resolveScopeMarketIds(actor.staff_scopes),
+                resolveScopeMarketIds(existing.staff_scopes),
+                hasGlobalScope(actor.staff_scopes),
             );
 
             const staff = await tx.staff.update({
@@ -582,9 +572,9 @@ export class StaffRepository {
         });
     }
 
-    async assignMarkets(
+    async assignScopes(
         staff_id: string,
-        market_ids: string[],
+        data: AssignStaffScopeDto,
         performed_by_staff_id: string,
     ): Promise<StaffWithDetails> {
         return await this.prisma.$transaction(async (tx) => {
@@ -593,16 +583,28 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
+                    staff_scopes: {
+                        select: staffScopeAccessSelect,
+                    },
+                    role: { select: { hierarchy: true, scope_type: true } },
                 },
             });
             if (!existing) {
                 throw new Error(STAFF_REPO_ERROR.STAFF_NOT_FOUND);
             }
 
+            const existingIsGlobal = hasGlobalScope(existing.staff_scopes);
+
             if (performed_by_staff_id === existing.id) {
-                throw new Error(STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION);
+                throw new Error(STAFF_REPO_ERROR.SELF_SCOPE_MODIFICATION);
+            }
+
+            if (existingIsGlobal) {
+                throw new Error(STAFF_REPO_ERROR.ALREADY_GLOBAL);
+            }
+
+            if (existing.role?.scope_type !== data.scope_type) {
+                throw new Error(STAFF_REPO_ERROR.ROLE_SCOPE_MISMATCH);
             }
 
             const actor = await tx.staff.findUnique({
@@ -610,48 +612,148 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
+                    staff_scopes: {
+                        select: staffScopeAccessSelect,
+                    },
+                    role: { select: { hierarchy: true, scope_type: true } },
                 },
             });
             if (!actor) {
                 throw new Error(STAFF_REPO_ERROR.PERFORMING_STAFF_NOT_FOUND);
             }
 
-            const markets = await tx.market.findMany({
-                where: { id: { in: market_ids } },
-                select: { id: true, name: true, status: true },
-            });
-            if (markets.length !== market_ids.length) {
-                throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
-            }
-            assertMarketsActive(markets);
-
             assertCanManageHierarchies(
                 actor.role?.hierarchy,
                 existing.role?.hierarchy,
             );
+            assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
+
+            const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
+            const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
+
             assertCanManageStaffInMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                existing.staff_markets.map((sm) => sm.market_id),
-            );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                market_ids,
+                resolveScopeMarketIds(actor.staff_scopes),
+                resolveScopeMarketIds(existing.staff_scopes),
+                actorIsGlobal,
             );
 
-            await tx.staffMarket.createMany({
-                data: market_ids.map((market_id) => ({
-                    staff_id,
-                    market_id,
-                })),
-                skipDuplicates: true,
-            });
+            const auditMarkets: { id: string; name: string }[] = [];
 
-            for (const market of markets) {
+            if (data.scope_type === ScopeType.GLOBAL) {
+                await tx.staffScope.create({
+                    data: {
+                        staff_id,
+                        scope_type: ScopeType.GLOBAL,
+                    },
+                });
                 await tx.staffAudit.create({
                     data: {
-                        action: StaffAuditAction.MARKET_ASSIGNED,
+                        action: StaffAuditAction.SCOPE_ASSIGNED,
+                        staff_id: existing.id,
+                        staff_name: existing.name,
+                        performed_by_staff_id: actor.id,
+                        performed_by_staff_name: actor.name,
+                    },
+                });
+            } else if (data.scope_type === ScopeType.MARKET) {
+                const market_ids = data.market_ids ?? [];
+                const markets = await tx.market.findMany({
+                    where: { id: { in: market_ids } },
+                    select: { id: true, name: true, status: true },
+                });
+                if (markets.length !== market_ids.length) {
+                    throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
+                }
+                assertMarketsActive(markets);
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    market_ids,
+                    actorIsGlobal,
+                );
+
+                await tx.staffScope.createMany({
+                    data: market_ids.map((market_id) => ({
+                        staff_id,
+                        scope_type: ScopeType.MARKET,
+                        market_id,
+                    })),
+                    skipDuplicates: true,
+                });
+                auditMarkets.push(...markets);
+            } else if (data.scope_type === ScopeType.WAREHOUSE) {
+                const warehouse_ids = data.warehouse_ids ?? [];
+                const warehouses = await tx.warehouse.findMany({
+                    where: { id: { in: warehouse_ids } },
+                    select: {
+                        id: true,
+                        market_id: true,
+                        market: { select: { id: true, name: true } },
+                    },
+                });
+                if (warehouses.length !== warehouse_ids.length) {
+                    throw new Error(STAFF_REPO_ERROR.WAREHOUSES_NOT_FOUND);
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    warehouses.map((warehouse) => warehouse.market_id),
+                    actorIsGlobal,
+                );
+
+                await tx.staffScope.createMany({
+                    data: warehouse_ids.map((warehouse_id) => ({
+                        staff_id,
+                        scope_type: ScopeType.WAREHOUSE,
+                        warehouse_id,
+                    })),
+                    skipDuplicates: true,
+                });
+                auditMarkets.push(
+                    ...warehouses.map((warehouse) => warehouse.market),
+                );
+            } else {
+                const distribution_point_ids =
+                    data.distribution_point_ids ?? [];
+                const distributionPoints =
+                    await tx.distributionPoint.findMany({
+                        where: { id: { in: distribution_point_ids } },
+                        select: {
+                            id: true,
+                            market_id: true,
+                            market: { select: { id: true, name: true } },
+                        },
+                    });
+                if (
+                    distributionPoints.length !== distribution_point_ids.length
+                ) {
+                    throw new Error(
+                        STAFF_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
+                    );
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    distributionPoints.map((point) => point.market_id),
+                    actorIsGlobal,
+                );
+
+                await tx.staffScope.createMany({
+                    data: distribution_point_ids.map(
+                        (distribution_point_id) => ({
+                            staff_id,
+                            scope_type: ScopeType.DISTRIBUTION_POINT,
+                            distribution_point_id,
+                        }),
+                    ),
+                    skipDuplicates: true,
+                });
+                auditMarkets.push(
+                    ...distributionPoints.map((point) => point.market),
+                );
+            }
+
+            for (const market of this.uniqueById(auditMarkets)) {
+                await tx.staffAudit.create({
+                    data: {
+                        action: StaffAuditAction.SCOPE_ASSIGNED,
                         staff_id: existing.id,
                         staff_name: existing.name,
                         performed_by_staff_id: actor.id,
@@ -671,9 +773,9 @@ export class StaffRepository {
         });
     }
 
-    async removeMarkets(
+    async removeScopes(
         staff_id: string,
-        market_ids: string[],
+        data: RemoveStaffScopeDto,
         performed_by_staff_id: string,
     ): Promise<{ staff: StaffWithDetails; removed: number }> {
         return await this.prisma.$transaction(async (tx) => {
@@ -682,7 +784,9 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
+                    staff_scopes: {
+                        select: staffScopeAccessSelect,
+                    },
                     role: { select: { hierarchy: true } },
                 },
             });
@@ -691,7 +795,7 @@ export class StaffRepository {
             }
 
             if (performed_by_staff_id === existing.id) {
-                throw new Error(STAFF_REPO_ERROR.SELF_MARKET_MODIFICATION);
+                throw new Error(STAFF_REPO_ERROR.SELF_SCOPE_MODIFICATION);
             }
 
             const actor = await tx.staff.findUnique({
@@ -699,8 +803,10 @@ export class StaffRepository {
                 select: {
                     id: true,
                     name: true,
-                    staff_markets: { select: { market_id: true } },
-                    role: { select: { hierarchy: true } },
+                    staff_scopes: {
+                        select: staffScopeAccessSelect,
+                    },
+                    role: { select: { hierarchy: true, scope_type: true } },
                 },
             });
             if (!actor) {
@@ -711,31 +817,134 @@ export class StaffRepository {
                 actor.role?.hierarchy,
                 existing.role?.hierarchy,
             );
+            assertCanManageScopeType(actor.role?.scope_type, data.scope_type);
+            const actorIsGlobal = hasGlobalScope(actor.staff_scopes);
+            const actorMarketIds = resolveScopeMarketIds(actor.staff_scopes);
+
             assertCanManageStaffInMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                existing.staff_markets.map((sm) => sm.market_id),
-            );
-            assertActorBelongsToMarkets(
-                actor.staff_markets.map((sm) => sm.market_id),
-                market_ids,
+                resolveScopeMarketIds(actor.staff_scopes),
+                resolveScopeMarketIds(existing.staff_scopes),
+                actorIsGlobal,
             );
 
-            const markets = await tx.market.findMany({
-                where: { id: { in: market_ids } },
-                select: { id: true, name: true },
-            });
+            const auditMarkets: { id: string; name: string }[] = [];
+            let removed = 0;
 
-            const result = await tx.staffMarket.deleteMany({
-                where: {
-                    staff_id,
-                    market_id: { in: market_ids },
-                },
-            });
+            if (data.scope_type === ScopeType.GLOBAL) {
+                const result = await tx.staffScope.deleteMany({
+                    where: {
+                        staff_id,
+                        scope_type: ScopeType.GLOBAL,
+                    },
+                });
+                removed = result.count;
+                if (removed > 0) {
+                    await tx.staffAudit.create({
+                        data: {
+                            action: StaffAuditAction.SCOPE_REMOVED,
+                            staff_id: existing.id,
+                            staff_name: existing.name,
+                            performed_by_staff_id: actor.id,
+                            performed_by_staff_name: actor.name,
+                        },
+                    });
+                }
+            } else if (data.scope_type === ScopeType.MARKET) {
+                const market_ids = data.market_ids ?? [];
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    market_ids,
+                    actorIsGlobal,
+                );
 
-            for (const market of markets) {
+                const markets = await tx.market.findMany({
+                    where: { id: { in: market_ids } },
+                    select: { id: true, name: true },
+                });
+                if (markets.length !== market_ids.length) {
+                    throw new Error(STAFF_REPO_ERROR.MARKETS_NOT_FOUND);
+                }
+                const result = await tx.staffScope.deleteMany({
+                    where: {
+                        staff_id,
+                        scope_type: ScopeType.MARKET,
+                        market_id: { in: market_ids },
+                    },
+                });
+                removed = result.count;
+                auditMarkets.push(...markets);
+            } else if (data.scope_type === ScopeType.WAREHOUSE) {
+                const warehouse_ids = data.warehouse_ids ?? [];
+                const warehouses = await tx.warehouse.findMany({
+                    where: { id: { in: warehouse_ids } },
+                    select: {
+                        id: true,
+                        market_id: true,
+                        market: { select: { id: true, name: true } },
+                    },
+                });
+                if (warehouses.length !== warehouse_ids.length) {
+                    throw new Error(STAFF_REPO_ERROR.WAREHOUSES_NOT_FOUND);
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    warehouses.map((warehouse) => warehouse.market_id),
+                    actorIsGlobal,
+                );
+
+                const result = await tx.staffScope.deleteMany({
+                    where: {
+                        staff_id,
+                        scope_type: ScopeType.WAREHOUSE,
+                        warehouse_id: { in: warehouse_ids },
+                    },
+                });
+                removed = result.count;
+                auditMarkets.push(
+                    ...warehouses.map((warehouse) => warehouse.market),
+                );
+            } else {
+                const distribution_point_ids =
+                    data.distribution_point_ids ?? [];
+                const distributionPoints =
+                    await tx.distributionPoint.findMany({
+                        where: { id: { in: distribution_point_ids } },
+                        select: {
+                            id: true,
+                            market_id: true,
+                            market: { select: { id: true, name: true } },
+                        },
+                    });
+                if (
+                    distributionPoints.length !== distribution_point_ids.length
+                ) {
+                    throw new Error(
+                        STAFF_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
+                    );
+                }
+                assertActorBelongsToMarkets(
+                    actorMarketIds,
+                    distributionPoints.map((point) => point.market_id),
+                    actorIsGlobal,
+                );
+
+                const result = await tx.staffScope.deleteMany({
+                    where: {
+                        staff_id,
+                        scope_type: ScopeType.DISTRIBUTION_POINT,
+                        distribution_point_id: { in: distribution_point_ids },
+                    },
+                });
+                removed = result.count;
+                auditMarkets.push(
+                    ...distributionPoints.map((point) => point.market),
+                );
+            }
+
+            for (const market of this.uniqueById(auditMarkets)) {
                 await tx.staffAudit.create({
                     data: {
-                        action: StaffAuditAction.MARKET_REMOVED,
+                        action: StaffAuditAction.SCOPE_REMOVED,
                         staff_id: existing.id,
                         staff_name: existing.name,
                         performed_by_staff_id: actor.id,
@@ -753,7 +962,7 @@ export class StaffRepository {
                 }),
             );
 
-            return { staff, removed: result.count };
+            return { staff, removed };
         });
     }
 
@@ -771,7 +980,7 @@ export class StaffRepository {
             where: { id },
             include: {
                 role: { select: { id: true, name: true, hierarchy: true } },
-                staff_markets: { select: { market_id: true } },
+                staff_scopes: { select: staffScopeAccessSelect },
             },
         });
         if (!existing) {
@@ -789,7 +998,7 @@ export class StaffRepository {
             where: { id: performed_by_staff_id },
             select: {
                 name: true,
-                staff_markets: { select: { market_id: true } },
+                staff_scopes: { select: staffScopeAccessSelect },
                 role: { select: { hierarchy: true } },
             },
         });
@@ -802,8 +1011,9 @@ export class StaffRepository {
             existing.role?.hierarchy,
         );
         assertCanManageStaffInMarkets(
-            actor.staff_markets.map((sm) => sm.market_id),
-            existing.staff_markets.map((sm) => sm.market_id),
+            resolveScopeMarketIds(actor.staff_scopes),
+            resolveScopeMarketIds(existing.staff_scopes),
+            hasGlobalScope(actor.staff_scopes),
         );
 
         return {
@@ -869,10 +1079,6 @@ export class StaffRepository {
         });
     }
 
-    async deleteProfile(staff_id: string): Promise<void> {
-        await this.prisma.staffProfile.delete({ where: { staff_id } });
-    }
-
     async createQualification(
         staff_id: string,
         data: CreateQualificationDto,
@@ -928,12 +1134,23 @@ export class StaffRepository {
         return await this.prisma.qualification.delete({ where: { id } });
     }
 
+    private uniqueById<T extends { id: string }>(items: T[]): T[] {
+        const seen = new Set<string>();
+        return items.filter((item) => {
+            if (seen.has(item.id)) {
+                return false;
+            }
+            seen.add(item.id);
+            return true;
+        });
+    }
+
     private omitPassword(
         staff: Staff & {
             profile: StaffProfile | null;
             qualifications: StaffQualificationSummary[];
             role: StaffRoleDetails | null;
-            staff_markets: StaffMarketDetails[];
+            staff_scopes: StaffScopeDetails[];
         },
     ): StaffWithDetails {
         const { password: _, ...rest } = staff;

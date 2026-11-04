@@ -81,7 +81,7 @@ export class StaffDeactivatedService {
         await this.revokeTokens(staff_id);
 
         await this.prisma.$transaction(async (tx) => {
-            await tx.staffMarket.deleteMany({
+            await tx.staffScope.deleteMany({
                 where: { staff_id },
             });
 

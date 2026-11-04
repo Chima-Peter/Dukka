@@ -1,5 +1,6 @@
 import {
     ConflictException,
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
@@ -9,7 +10,10 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Category } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
-import { assertStaffHasMarkets } from '../shared/assert-staff-markets.js';
+import {
+    ACCESS_CONTROL_ERROR,
+    assertActorBelongsToMarkets,
+} from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
@@ -101,7 +105,7 @@ export class CategoryService {
             this.logger.log(
                 `Adding category ${categoryId} to market ${data.market_id}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [data.market_id]);
+            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
             const marketCategory = await this.categoryRepository.addToMarket(
                 categoryId,
                 data.market_id,
@@ -156,7 +160,7 @@ export class CategoryService {
             this.logger.log(
                 `Removing category ${categoryId} from market ${marketId}`,
             );
-            assertStaffHasMarkets(staffMarketIds, [marketId]);
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
             const marketCategory =
                 await this.categoryRepository.removeFromMarket(
                     categoryId,
@@ -188,6 +192,16 @@ export class CategoryService {
             this.logger.warn(`HTTP exception: ${error.message}`);
             throw error;
         }
+
+        if (
+            error instanceof Error &&
+            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+        ) {
+            throw new ForbiddenException(
+                'Cannot operate on markets outside your assigned markets',
+            );
+        }
+
 
         if (error instanceof PrismaClientKnownRequestError) {
             const notFoundMessage =

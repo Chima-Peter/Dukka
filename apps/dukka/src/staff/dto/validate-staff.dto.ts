@@ -1,11 +1,38 @@
+import { Type } from 'class-transformer';
 import {
     ArrayMinSize,
     ArrayUnique,
     IsArray,
+    IsIn,
     IsOptional,
     IsString,
     IsUUID,
+    ValidateNested,
 } from 'class-validator';
+
+const SCOPE_TYPES = [
+    'GLOBAL',
+    'MARKET',
+    'WAREHOUSE',
+    'DISTRIBUTION_POINT',
+] as const;
+
+export class ValidateStaffScopeDto {
+    @IsIn(SCOPE_TYPES)
+    scope_type!: (typeof SCOPE_TYPES)[number];
+
+    @IsOptional()
+    @IsUUID('4')
+    market_id?: string;
+
+    @IsOptional()
+    @IsUUID('4')
+    warehouse_id?: string;
+
+    @IsOptional()
+    @IsUUID('4')
+    distribution_point_id?: string;
+}
 
 export class ValidateStaffDto {
     @IsArray()
@@ -21,6 +48,7 @@ export class ValidateStaffDto {
     permissions!: string[];
 
     @IsOptional()
-    @IsUUID('4')
-    market_id?: string;
+    @ValidateNested()
+    @Type(() => ValidateStaffScopeDto)
+    scope?: ValidateStaffScopeDto;
 }

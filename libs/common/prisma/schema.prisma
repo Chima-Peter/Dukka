@@ -180,7 +180,7 @@ model Staff {
   profile          StaffProfile?
   qualifications   Qualification[]
   tokens           StaffToken[]
-  staff_markets    StaffMarket[]
+  staff_scopes     StaffScope[]
   invitations_sent StaffInvitation[] @relation("StaffInvitationsSent")
   invitation       StaffInvitation?  @relation("StaffInvitationAccepted")
   warehouses       Warehouse[]
@@ -229,27 +229,32 @@ model Qualification {
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String    @id @default(uuid())
+  name        String    @unique
   description String?
-  hierarchy   Int      @default(1)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  hierarchy   Int       @default(1)
+  scope_type  ScopeType
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
 
   staff            Staff[]
   invitations      StaffInvitation[]
   role_permissions RolePermission[]
-  role_markets     RoleMarket[]
+
+  @@index([scope_type])
 }
 
 model Permission {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String    @id @default(uuid())
+  name        String    @unique
   description String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  scope_type  ScopeType
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
 
   role_permissions RolePermission[]
+
+  @@index([scope_type])
 }
 
 model Currency {
@@ -284,9 +289,8 @@ model Market {
   currency            Currency @relation(fields: [currency_id], references: [id], onDelete: Restrict)
   service_states      ServiceState[]
   warehouses          Warehouse[]
-  role_markets        RoleMarket[]
-  staff_markets       StaffMarket[]
-  invitation_markets  StaffInvitationMarket[]
+  staff_scopes        StaffScope[]
+  invitation_scopes   StaffInvitationScope[]
   market_categories   MarketCategory[]
   market_variants     MarketVariant[]
   shipping_addresses  ShippingAddress[]
@@ -330,7 +334,7 @@ model StaffInvitation {
   staff_id String? @unique
   staff    Staff?  @relation("StaffInvitationAccepted", fields: [staff_id], references: [id], onDelete: SetNull)
 
-  invitation_markets StaffInvitationMarket[]
+  invitation_scopes StaffInvitationScope[]
 
   @@index([email])
   @@index([status])
@@ -346,7 +350,7 @@ enum ScopeType {
   DISTRIBUTION_POINT
 }
 
-model StaffInvitationMarket {
+model StaffInvitationScope {
   id         String   @id @default(uuid())
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -371,9 +375,10 @@ model StaffInvitationMarket {
   @@index([market_id])
   @@index([warehouse_id])
   @@index([distribution_point_id])
+  @@index([scope_type])
 }
 
-model StaffMarket {
+model StaffScope {
   id         String   @id @default(uuid())
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -398,21 +403,7 @@ model StaffMarket {
   @@index([market_id])
   @@index([warehouse_id])
   @@index([distribution_point_id])
-}
-
-model RoleMarket {
-  id         String   @id @default(uuid())
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  role_id String
-  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
-
-  market_id String
-  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
-
-  @@unique([role_id, market_id])
-  @@index([market_id])
+  @@index([scope_type])
 }
 
 model RolePermission {
@@ -436,8 +427,8 @@ enum StaffAuditAction {
   ROLE_ASSIGNED
   ROLE_CHANGED
   ROLE_REVOKED
-  MARKET_ASSIGNED
-  MARKET_REMOVED
+  SCOPE_ASSIGNED
+  SCOPE_REMOVED
   PERMISSION_ASSIGNED
   PERMISSION_REMOVED
 }
@@ -676,8 +667,8 @@ model Warehouse {
   orders                   Order[]
   warehouse_service_states WarehouseServiceState[]
   logistics_locations      LogisticsLocation[]
-  staff_markets            StaffMarket[]
-  invitation_markets       StaffInvitationMarket[]
+  staff_scopes             StaffScope[]
+  invitation_scopes        StaffInvitationScope[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -1208,8 +1199,8 @@ model DistributionPoint {
   state ServiceState @relation(fields: [state_id], references: [id], onDelete: Restrict)
 
   logistics_locations LogisticsLocation[]
-  staff_markets       StaffMarket[]
-  invitation_markets  StaffInvitationMarket[]
+  staff_scopes        StaffScope[]
+  invitation_scopes   StaffInvitationScope[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
