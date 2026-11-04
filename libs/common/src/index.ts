@@ -23,12 +23,10 @@ export {
     REQUEST_USER_KEY,
     STAFF_ACCESS_TOKEN_TTL_SECONDS,
     STAFF_JWT_SERVICE,
-    STAFF_PERMISSIONS_SERVICE,
     STAFF_REFRESH_TOKEN_TTL_SECONDS,
     StaffJwtAuthGuard,
     StaffPermissionsGuard,
     blacklistedTokenKey,
-    type StaffPermissionsReader,
 } from './guards/index.js';
 
 export type {

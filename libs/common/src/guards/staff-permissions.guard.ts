@@ -2,7 +2,6 @@ import {
     CanActivate,
     ExecutionContext,
     ForbiddenException,
-    Inject,
     Injectable,
     UnauthorizedException,
 } from '@nestjs/common';
@@ -15,22 +14,13 @@ import type {
     JwtPayload,
     JwtSubjectType,
 } from '../interfaces/jwt-payload.interface.js';
-import {
-    REQUEST_USER_KEY,
-    STAFF_PERMISSIONS_SERVICE,
-    type StaffPermissionsReader,
-} from './auth.constants.js';
-import { extractBearerToken } from './jwt-auth.utils.js';
+import { REQUEST_USER_KEY } from './auth.constants.js';
 
 @Injectable()
 export class StaffPermissionsGuard implements CanActivate {
-    constructor(
-        private readonly reflector: Reflector,
-        @Inject(STAFF_PERMISSIONS_SERVICE)
-        private readonly staffPermissionsService: StaffPermissionsReader,
-    ) {}
+    constructor(private readonly reflector: Reflector) {}
 
-    async canActivate(context: ExecutionContext): Promise<boolean> {
+    canActivate(context: ExecutionContext): boolean {
         const requiredPermissions = this.requiredPermissions(context);
         if (
             requiredPermissions.length === 0 ||
@@ -49,12 +39,7 @@ export class StaffPermissionsGuard implements CanActivate {
             throw new UnauthorizedException('Missing authentication token');
         }
 
-        const accessToken = extractBearerToken(request);
-        const permissions =
-            await this.staffPermissionsService.getStaffPermissions(
-                staff.sub,
-                accessToken,
-            );
+        const permissions = staff.permissions ?? [];
         const hasPermission = requiredPermissions.every((permission) =>
             permissions.includes(permission),
         );
