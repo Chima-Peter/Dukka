@@ -76,37 +76,29 @@ const DEFAULT_ROLES = [
         hierarchy: 1,
         scope_type: ScopeType.MARKET,
         permission_names: [
-            'staff:create',
+            'staff:manage',
             'staff:read',
-            'staff:assign_role',
-            'staff:revoke_role',
-            'staff:assign_scopes',
-            'staff:remove_scopes',
+            'staff:technical_support',
             'staff:read_audits',
+            'roles:manage',
+            'roles:read',
             'markets:read',
-            'markets:update',
-            'categories:create',
-            'categories:update',
-            'categories:delete',
-            'products:create',
-            'products:update',
-            'products:approve',
-            'products:reject',
-            'products:archive',
-            'warehouses:create',
-            'promotions:create',
+            'markets:manage',
+            'categories:manage',
+            'products:manage',
+            'products:review',
+            'warehouses:manage',
+            'service_states:manage',
+            'promotions:manage',
             'promotions:read',
-            'promotions:update',
-            'promotions:activate',
-            'promotions:deactivate',
-            'coupons:create',
+            'promotions:review',
+            'coupons:manage',
             'coupons:read',
-            'coupons:update',
-            'coupons:activate',
-            'coupons:deactivate',
-            'payments:approve',
-            'payments:remove',
+            'coupons:review',
+            'payments:manage',
+            'payments:review',
             'payments:read',
+            'permissions:read',
         ],
     },
     {
@@ -115,11 +107,9 @@ const DEFAULT_ROLES = [
         hierarchy: 2,
         scope_type: ScopeType.WAREHOUSE,
         permission_names: [
-            'warehouses:update',
-            'warehouses:close',
-            'warehouses:open',
-            'service_states:update',
-            'inventory:create',
+            'warehouses:manage',
+            'service_states:manage',
+            'inventory:manage',
         ],
     },
     {
@@ -131,22 +121,30 @@ const DEFAULT_ROLES = [
             'staff:read',
             'staff:technical_support',
             'markets:read',
-            'products:update',
+            'products:manage',
             'payments:read',
             'promotions:read',
             'coupons:read',
+            'permissions:read',
         ],
     },
 ] as const;
 
 async function seedPermissions() {
-    const permissionNames = STAFF_ACCOUNT_PERMISSIONS.map(
-        (permission) => permission.name,
+    const desiredKeys = new Set(
+        STAFF_ACCOUNT_PERMISSIONS.map(
+            (permission) => `${permission.name}:${permission.scope_type}`,
+        ),
     );
 
     for (const permission of STAFF_ACCOUNT_PERMISSIONS) {
         await prisma.permission.upsert({
-            where: { name: permission.name },
+            where: {
+                name_scope_type: {
+                    name: permission.name,
+                    scope_type: permission.scope_type,
+                },
+            },
             create: {
                 name: permission.name,
                 description: permission.description,
@@ -154,15 +152,16 @@ async function seedPermissions() {
             },
             update: {
                 description: permission.description,
-                scope_type: permission.scope_type,
             },
         });
     }
 
-    const obsolete = await prisma.permission.findMany({
-        where: { name: { notIn: [...permissionNames] } },
-        select: { id: true, name: true },
+    const existing = await prisma.permission.findMany({
+        select: { id: true, name: true, scope_type: true },
     });
+    const obsolete = existing.filter(
+        (row) => !desiredKeys.has(`${row.name}:${row.scope_type}`),
+    );
     if (obsolete.length > 0) {
         await prisma.rolePermission.deleteMany({
             where: { permission_id: { in: obsolete.map((row) => row.id) } },
@@ -172,7 +171,7 @@ async function seedPermissions() {
         });
         console.log(
             `Removed ${obsolete.length} obsolete permission(s): ${obsolete
-                .map((row) => row.name)
+                .map((row) => `${row.name}:${row.scope_type}`)
                 .join(', ')}`,
         );
     }
@@ -269,10 +268,13 @@ async function seedSuperAdminRole() {
 
 async function seedAdditionalRoles() {
     const allPermissions = await prisma.permission.findMany({
-        select: { id: true, name: true },
+        select: { id: true, name: true, scope_type: true },
     });
-    const permissionByName = new Map(
-        allPermissions.map((permission) => [permission.name, permission.id]),
+    const permissionByNameAndScope = new Map(
+        allPermissions.map((permission) => [
+            `${permission.name}:${permission.scope_type}`,
+            permission.id,
+        ]),
     );
     const roles: { id: string; name: string }[] = [];
 
@@ -293,7 +295,9 @@ async function seedAdditionalRoles() {
         });
 
         const permissionIds = roleDef.permission_names
-            .map((name) => permissionByName.get(name))
+            .map((name) =>
+                permissionByNameAndScope.get(`${name}:${roleDef.scope_type}`),
+            )
             .filter((id): id is string => id !== undefined);
 
         if (permissionIds.length > 0) {

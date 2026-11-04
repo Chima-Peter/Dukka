@@ -35,14 +35,14 @@ export class CategoryController {
     constructor(private readonly categoryService: CategoryService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.CategoriesCreate)
+    @RequirePermission(StaffPermission.CategoriesManage)
     @ResponseMessage('Category created successfully')
     create(@Body() data: CreateCategoryDto) {
         return this.categoryService.create(data);
     }
 
     @Post(':categoryId/markets')
-    @RequirePermission(StaffPermission.CategoriesCreate)
+    @RequirePermission(StaffPermission.CategoriesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Category added to market successfully')
     addToMarket(
@@ -71,7 +71,7 @@ export class CategoryController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.CategoriesUpdate)
+    @RequirePermission(StaffPermission.CategoriesManage)
     @ResponseMessage('Category updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -81,7 +81,7 @@ export class CategoryController {
     }
 
     @Delete(':categoryId/markets/:marketId')
-    @RequirePermission(StaffPermission.CategoriesDelete)
+    @RequirePermission(StaffPermission.CategoriesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Category removed from market successfully')
     removeFromMarket(
@@ -97,7 +97,7 @@ export class CategoryController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.CategoriesDelete)
+    @RequirePermission(StaffPermission.CategoriesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Category deleted successfully')
     delete(@Param('id', ParseUUIDPipe) id: string) {

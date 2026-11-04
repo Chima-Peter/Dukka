@@ -34,7 +34,7 @@ export class InventoryController {
     constructor(private readonly inventoryService: InventoryService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.InventoryCreate)
+    @RequirePermission(StaffPermission.InventoryManage)
     @ResponseMessage('Inventory created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -44,7 +44,7 @@ export class InventoryController {
     }
 
     @Patch('stock')
-    @RequirePermission(StaffPermission.InventoryCreate)
+    @RequirePermission(StaffPermission.InventoryManage)
     @ResponseMessage('Stock updated successfully')
     updateStock(
         @CurrentStaff() staff: StaffJwtPayload,

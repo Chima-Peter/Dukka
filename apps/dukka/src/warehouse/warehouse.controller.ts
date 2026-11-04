@@ -30,7 +30,7 @@ export class WarehouseController {
     constructor(private readonly warehouseService: WarehouseService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.WarehousesCreate)
+    @RequirePermission(StaffPermission.WarehousesManage)
     @ResponseMessage('Warehouse created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -55,7 +55,7 @@ export class WarehouseController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.WarehousesUpdate)
+    @RequirePermission(StaffPermission.WarehousesManage)
     @ResponseMessage('Warehouse updated successfully')
     update(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -66,7 +66,7 @@ export class WarehouseController {
     }
 
     @Patch(':id/manager')
-    @RequirePermission(StaffPermission.WarehousesUpdate)
+    @RequirePermission(StaffPermission.WarehousesManage)
     @ResponseMessage('Warehouse manager updated successfully')
     updateManager(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -80,7 +80,7 @@ export class WarehouseController {
     }
 
     @Post(':id/close')
-    @RequirePermission(StaffPermission.WarehousesClose)
+    @RequirePermission(StaffPermission.WarehousesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse closed successfully')
     close(
@@ -91,7 +91,7 @@ export class WarehouseController {
     }
 
     @Post(':id/open')
-    @RequirePermission(StaffPermission.WarehousesOpen)
+    @RequirePermission(StaffPermission.WarehousesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse opened successfully')
     open(

@@ -1,11 +1,20 @@
 import {
+    ForbiddenException,
     HttpException,
     Injectable,
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import { RedisService, type Permission } from '@app/common';
-import { RedisKeys, STAFF_PERMISSIONS_TTL_SECONDS } from '../shared/index.js';
+import {
+    RedisService,
+    type Permission,
+    type ScopeType,
+} from '@app/common';
+import {
+    RedisKeys,
+    STAFF_PERMISSIONS_TTL_SECONDS,
+    visibleRoleScopeTypes,
+} from '../shared/index.js';
 import { PermissionsRepository } from './permissions.repository.js';
 
 type StaffWithRolePermissions = {
@@ -23,10 +32,20 @@ export class PermissionsService {
         private readonly redisService: RedisService,
     ) {}
 
-    async findAll(): Promise<Permission[]> {
+    async findAll(actor_scope_type: ScopeType | null): Promise<Permission[]> {
         try {
-            this.logger.log('Fetching permissions');
-            const permissions = await this.permissionsRepository.findAll();
+            const scopeTypes = visibleRoleScopeTypes(actor_scope_type);
+            if (scopeTypes === null) {
+                throw new ForbiddenException(
+                    'Cannot view permissions without an assigned role scope',
+                );
+            }
+
+            this.logger.log(
+                `Fetching permissions for scopes: ${scopeTypes.join(', ')}`,
+            );
+            const permissions =
+                await this.permissionsRepository.findAll(scopeTypes);
             this.logger.log('Fetched permissions');
             return permissions;
         } catch (error) {

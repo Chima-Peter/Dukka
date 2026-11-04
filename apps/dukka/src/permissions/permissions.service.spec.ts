@@ -52,14 +52,14 @@ describe('PermissionsService', () => {
         const staff = {
             role: {
                 role_permissions: [
-                    { permission: { name: 'staff:create' } },
+                    { permission: { name: 'staff:manage' } },
                     { permission: { name: 'roles:read' } },
                 ],
             },
         };
 
         expect(service.extractPermissionNames(staff)).toEqual([
-            'staff:create',
+            'staff:manage',
             'roles:read',
         ]);
     });
@@ -69,11 +69,11 @@ describe('PermissionsService', () => {
     });
 
     it('returns cached staff permissions when present in redis', async () => {
-        redisService.getObject.mockResolvedValue(['staff:create']);
+        redisService.getObject.mockResolvedValue(['staff:manage']);
 
         const result = await service.getStaffPermissions('staff-1');
 
-        expect(result).toEqual(['staff:create']);
+        expect(result).toEqual(['staff:manage']);
         expect(permissionsRepository.findNamesByStaffId).not.toHaveBeenCalled();
     });
 

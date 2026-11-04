@@ -23,8 +23,8 @@ export class PermissionsController {
     @Get()
     @RequirePermission(StaffPermission.PermissionsRead)
     @ResponseMessage('Permissions retrieved successfully')
-    findAll() {
-        return this.permissionsService.findAll();
+    findAll(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.permissionsService.findAll(staff.scope_type);
     }
 
     @Get('staff/:staffId')

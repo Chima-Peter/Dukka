@@ -1,13 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { type Permission, PrismaService } from '@app/common';
+import {
+    type Permission,
+    type ScopeType,
+    PrismaService,
+} from '@app/common';
 
 @Injectable()
 export class PermissionsRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async findAll(): Promise<Permission[]> {
+    async findAll(scope_types: ScopeType[]): Promise<Permission[]> {
+        if (scope_types.length === 0) {
+            return [];
+        }
+
         return await this.prisma.permission.findMany({
-            orderBy: { created_at: 'desc' },
+            where: { scope_type: { in: scope_types } },
+            orderBy: [{ scope_type: 'asc' }, { name: 'asc' }],
         });
     }
 

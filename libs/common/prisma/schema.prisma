@@ -241,12 +241,13 @@ model Role {
   invitations      StaffInvitation[]
   role_permissions RolePermission[]
 
+  @@unique([hierarchy, scope_type])
   @@index([scope_type])
 }
 
 model Permission {
   id          String    @id @default(uuid())
-  name        String    @unique
+  name        String
   description String?
   scope_type  ScopeType
   created_at  DateTime  @default(now())
@@ -254,6 +255,7 @@ model Permission {
 
   role_permissions RolePermission[]
 
+  @@unique([name, scope_type])
   @@index([scope_type])
 }
 

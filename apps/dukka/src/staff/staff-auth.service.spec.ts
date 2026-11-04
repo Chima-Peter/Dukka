@@ -93,7 +93,7 @@ describe('StaffAuthService', () => {
             hierarchy: 1,
             scope_type: 'MARKET',
             role_permissions: [
-                { permission: { name: 'staff:create' } },
+                { permission: { name: 'staff:manage' } },
                 { permission: { name: 'staff:read' } },
             ],
         },
@@ -219,7 +219,7 @@ describe('StaffAuthService', () => {
                 .mockResolvedValueOnce('staff.access.token')
                 .mockResolvedValueOnce('staff.refresh.token');
             permissionsService.extractPermissionNames.mockReturnValue([
-                'staff:create',
+                'staff:manage',
                 'staff:read',
             ]);
             permissionsService.cacheStaffPermissions.mockResolvedValue(
@@ -249,7 +249,7 @@ describe('StaffAuthService', () => {
                     scope_type: 'MARKET',
                     scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
-                    permissions: ['staff:create', 'staff:read'],
+                    permissions: ['staff:manage', 'staff:read'],
                     tokenUse: 'access',
                 },
                 { expiresIn: expect.any(Number) },
@@ -266,7 +266,7 @@ describe('StaffAuthService', () => {
                     scope_type: 'MARKET',
                     scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
-                    permissions: ['staff:create', 'staff:read'],
+                    permissions: ['staff:manage', 'staff:read'],
                     tokenUse: 'refresh',
                 },
                 { expiresIn: expect.any(Number) },
@@ -285,7 +285,7 @@ describe('StaffAuthService', () => {
             ]);
             expect(
                 permissionsService.cacheStaffPermissions,
-            ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
+            ).toHaveBeenCalledWith('staff-1', ['staff:manage', 'staff:read']);
         });
 
         it('rejects inactive staff', async () => {
@@ -338,7 +338,7 @@ describe('StaffAuthService', () => {
             tokenRepository.deleteRefreshToken.mockResolvedValue(1);
             staffService.findByEmail.mockResolvedValue(staffRecord);
             permissionsService.extractPermissionNames.mockReturnValue([
-                'staff:create',
+                'staff:manage',
                 'staff:read',
             ]);
             permissionsService.cacheStaffPermissions.mockResolvedValue(
@@ -367,7 +367,7 @@ describe('StaffAuthService', () => {
             );
             expect(
                 permissionsService.cacheStaffPermissions,
-            ).toHaveBeenCalledWith('staff-1', ['staff:create', 'staff:read']);
+            ).toHaveBeenCalledWith('staff-1', ['staff:manage', 'staff:read']);
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
                 {
                     sub: 'staff-1',
@@ -380,7 +380,7 @@ describe('StaffAuthService', () => {
                     scope_type: 'MARKET',
                     scopes: staffRecord.staff_scopes,
                     market_ids: ['market-1', 'market-2'],
-                    permissions: ['staff:create', 'staff:read'],
+                    permissions: ['staff:manage', 'staff:read'],
                     tokenUse: 'access',
                 },
                 { expiresIn: expect.any(Number) },

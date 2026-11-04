@@ -359,6 +359,17 @@ export class RolesService {
         if (error instanceof PrismaClientKnownRequestError) {
             if (error.code === 'P2002') {
                 this.logger.warn(`Conflict error: ${error.message}`);
+                const targets = Array.isArray(error.meta?.target)
+                    ? error.meta.target.map(String)
+                    : [];
+                if (
+                    targets.includes('hierarchy') ||
+                    targets.includes('scope_type')
+                ) {
+                    throw new ConflictException(
+                        'A role with this hierarchy already exists for this scope',
+                    );
+                }
                 throw new ConflictException(
                     'A role with this name already exists',
                 );

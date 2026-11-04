@@ -40,7 +40,7 @@ export class ProductController {
     constructor(private readonly productService: ProductService) {}
 
     @Post('upload-url')
-    @RequirePermission(StaffPermission.ProductsCreate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product image upload URLs generated successfully')
     getImageUploadURLs(@Body() data: UploadFileDto) {
@@ -48,7 +48,7 @@ export class ProductController {
     }
 
     @Post()
-    @RequirePermission(StaffPermission.ProductsCreate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product created successfully')
     create(@Body() data: CreateProductDto) {
         return this.productService.create(data);
@@ -94,7 +94,7 @@ export class ProductController {
     }
 
     @Post('product-pending-updates/approve')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product pending updates approved successfully')
     approvePendingUpdates(@Body() data: PendingUpdateIdsDto) {
@@ -102,7 +102,7 @@ export class ProductController {
     }
 
     @Post('product-pending-updates/reject')
-    @RequirePermission(StaffPermission.ProductsReject)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product pending updates rejected successfully')
     rejectPendingUpdates(@Body() data: PendingUpdateIdsDto) {
@@ -116,7 +116,7 @@ export class ProductController {
     }
 
     @Patch('product-pending-updates/:id')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product pending update updated successfully')
     updatePendingUpdate(
         @Param('id', ParseUUIDPipe) id: string,
@@ -126,7 +126,7 @@ export class ProductController {
     }
 
     @Patch('product-pending-updates/:id/images')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product pending update images updated successfully')
     updatePendingUpdateImages(
         @Param('id', ParseUUIDPipe) id: string,
@@ -150,7 +150,7 @@ export class ProductController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product update proposed successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -160,7 +160,7 @@ export class ProductController {
     }
 
     @Patch(':id/images')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product image update proposed successfully')
     updateImages(
         @Param('id', ParseUUIDPipe) id: string,
@@ -170,7 +170,7 @@ export class ProductController {
     }
 
     @Post(':id/approve')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product approved successfully')
     approve(@Param('id', ParseUUIDPipe) id: string) {
@@ -178,7 +178,7 @@ export class ProductController {
     }
 
     @Post(':id/reject')
-    @RequirePermission(StaffPermission.ProductsReject)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product rejected successfully')
     reject(@Param('id', ParseUUIDPipe) id: string) {
@@ -186,7 +186,7 @@ export class ProductController {
     }
 
     @Post(':id/archive')
-    @RequirePermission(StaffPermission.ProductsArchive)
+    @RequirePermission(StaffPermission.ProductsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product archived successfully')
     archive(@Param('id', ParseUUIDPipe) id: string) {

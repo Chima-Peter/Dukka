@@ -37,7 +37,7 @@ export class PromotionsController {
     constructor(private readonly promotionsService: PromotionsService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.PromotionsCreate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion created successfully')
     create(@Body() data: CreatePromotionDto) {
         return this.promotionsService.create(data);
@@ -71,14 +71,14 @@ export class PromotionsController {
     }
 
     @Post('discounts')
-    @RequirePermission(StaffPermission.PromotionsCreate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Discount created successfully')
     createDiscount(@Body() data: CreateDiscountDto) {
         return this.promotionsService.createDiscount(data);
     }
 
     @Patch('discounts/:id')
-    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Discount updated successfully')
     updateDiscount(
         @Param('id', ParseUUIDPipe) id: string,
@@ -88,7 +88,7 @@ export class PromotionsController {
     }
 
     @Post(':id/markets')
-    @RequirePermission(StaffPermission.PromotionsCreate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion market added successfully')
     addMarket(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -99,7 +99,7 @@ export class PromotionsController {
     }
 
     @Patch(':id/markets/:promotionMarketId')
-    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion market updated successfully')
     updateMarket(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -116,7 +116,7 @@ export class PromotionsController {
     }
 
     @Post(':id/markets/:promotionMarketId/activate')
-    @RequirePermission(StaffPermission.PromotionsActivate)
+    @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion market activated successfully')
     activateMarket(
@@ -132,7 +132,7 @@ export class PromotionsController {
     }
 
     @Post(':id/markets/:promotionMarketId/deactivate')
-    @RequirePermission(StaffPermission.PromotionsDeactivate)
+    @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion market deactivated successfully')
     deactivateMarket(
@@ -148,7 +148,7 @@ export class PromotionsController {
     }
 
     @Post(':id/markets/:promotionMarketId/variants')
-    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Variants added to promotion market successfully')
     addVariants(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -165,7 +165,7 @@ export class PromotionsController {
     }
 
     @Delete(':id/markets/:promotionMarketId/variants')
-    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants removed from promotion market successfully')
     removeVariants(
@@ -198,7 +198,7 @@ export class PromotionsController {
     }
 
     @Post(':id/activate')
-    @RequirePermission(StaffPermission.PromotionsActivate)
+    @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion activated successfully')
     activate(@Param('id', ParseUUIDPipe) id: string) {
@@ -206,7 +206,7 @@ export class PromotionsController {
     }
 
     @Post(':id/deactivate')
-    @RequirePermission(StaffPermission.PromotionsDeactivate)
+    @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion deactivated successfully')
     deactivate(@Param('id', ParseUUIDPipe) id: string) {
@@ -214,7 +214,7 @@ export class PromotionsController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.PromotionsUpdate)
+    @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,

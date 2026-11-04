@@ -30,7 +30,7 @@ export class CouponsController {
     constructor(private readonly couponsService: CouponsService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.CouponsCreate)
+    @RequirePermission(StaffPermission.CouponsManage)
     @ResponseMessage('Coupon created successfully')
     create(@Body() data: CreateCouponDto) {
         return this.couponsService.create(data);
@@ -54,7 +54,7 @@ export class CouponsController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.CouponsUpdate)
+    @RequirePermission(StaffPermission.CouponsManage)
     @ResponseMessage('Coupon updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -64,7 +64,7 @@ export class CouponsController {
     }
 
     @Post(':id/activate')
-    @RequirePermission(StaffPermission.CouponsActivate)
+    @RequirePermission(StaffPermission.CouponsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Coupon activated successfully')
     activate(@Param('id', ParseUUIDPipe) id: string) {
@@ -72,7 +72,7 @@ export class CouponsController {
     }
 
     @Post(':id/deactivate')
-    @RequirePermission(StaffPermission.CouponsDeactivate)
+    @RequirePermission(StaffPermission.CouponsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Coupon deactivated successfully')
     deactivate(@Param('id', ParseUUIDPipe) id: string) {

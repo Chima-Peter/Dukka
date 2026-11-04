@@ -52,7 +52,7 @@ export class PaymentsController {
     }
 
     @Post('methods')
-    @RequirePermission(StaffPermission.PaymentsCreate)
+    @RequirePermission(StaffPermission.PaymentsManage)
     @ResponseMessage('Payment method created successfully')
     createMethod(@Body() data: CreatePaymentMethodDto) {
         return this.paymentsService.createMethod(data);
@@ -73,7 +73,7 @@ export class PaymentsController {
     }
 
     @Post('methods/:id/markets')
-    @RequirePermission(StaffPermission.PaymentsApprove)
+    @RequirePermission(StaffPermission.PaymentsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Payment method approved for market successfully')
     approveForMarket(
@@ -89,7 +89,7 @@ export class PaymentsController {
     }
 
     @Delete('methods/:id/markets/:marketId')
-    @RequirePermission(StaffPermission.PaymentsRemove)
+    @RequirePermission(StaffPermission.PaymentsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Payment method removed from market successfully')
     removeFromMarket(

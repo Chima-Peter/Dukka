@@ -27,7 +27,7 @@ export class CurrenciesController {
     constructor(private readonly currenciesService: CurrenciesService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.CurrenciesCreate)
+    @RequirePermission(StaffPermission.CurrenciesManage)
     @ResponseMessage('Currency created successfully')
     create(@Body() data: CreateCurrencyDto) {
         return this.currenciesService.create(data);
@@ -48,7 +48,7 @@ export class CurrenciesController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.CurrenciesUpdate)
+    @RequirePermission(StaffPermission.CurrenciesManage)
     @ResponseMessage('Currency updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -58,7 +58,7 @@ export class CurrenciesController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.CurrenciesDelete)
+    @RequirePermission(StaffPermission.CurrenciesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Currency deleted successfully')
     delete(@Param('id', ParseUUIDPipe) id: string) {

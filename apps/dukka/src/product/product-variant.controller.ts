@@ -56,7 +56,7 @@ export class ProductVariantController {
     }
 
     @Post('variant-pending-updates/approve')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant pending updates approved successfully')
     approvePendingUpdates(@Body() data: PendingUpdateIdsDto) {
@@ -64,7 +64,7 @@ export class ProductVariantController {
     }
 
     @Post('variant-pending-updates/reject')
-    @RequirePermission(StaffPermission.ProductsReject)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant pending updates rejected successfully')
     rejectPendingUpdates(@Body() data: PendingUpdateIdsDto) {
@@ -78,7 +78,7 @@ export class ProductVariantController {
     }
 
     @Patch('variant-pending-updates/:id')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Variant pending update updated successfully')
     updatePendingUpdate(
         @Param('id', ParseUUIDPipe) id: string,
@@ -88,7 +88,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Variant added successfully')
     addVariant(
         @Param('id', ParseUUIDPipe) id: string,
@@ -98,7 +98,7 @@ export class ProductVariantController {
     }
 
     @Patch(':id/variants/:variantId')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Variant update proposed successfully')
     updateVariant(
         @Param('id', ParseUUIDPipe) id: string,
@@ -109,7 +109,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants/approve')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants approved successfully')
     approveVariants(
@@ -120,7 +120,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants/reject')
-    @RequirePermission(StaffPermission.ProductsReject)
+    @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants rejected successfully')
     rejectVariants(
@@ -131,7 +131,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants/archive')
-    @RequirePermission(StaffPermission.ProductsArchive)
+    @RequirePermission(StaffPermission.ProductsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants archived successfully')
     archiveVariants(
@@ -142,7 +142,7 @@ export class ProductVariantController {
     }
 
     @Post(':id/variants/:variantId/markets')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant added to market successfully')
     addVariantToMarket(
@@ -160,7 +160,7 @@ export class ProductVariantController {
     }
 
     @Patch('variants/:variantId/markets/:marketId')
-    @RequirePermission(StaffPermission.ProductsUpdate)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Market variant updated successfully')
     updateMarketVariant(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -177,7 +177,7 @@ export class ProductVariantController {
     }
 
     @Delete('variants/:variantId/markets/:marketId')
-    @RequirePermission(StaffPermission.ProductsApprove)
+    @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Variant removed from market successfully')
     removeVariantFromMarket(
         @CurrentStaff() staff: StaffJwtPayload,

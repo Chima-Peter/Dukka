@@ -32,7 +32,7 @@ export class RolesController {
     constructor(private readonly rolesService: RolesService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.RolesCreate)
+    @RequirePermission(StaffPermission.RolesManage)
     @ResponseMessage('Role created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -70,7 +70,7 @@ export class RolesController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.RolesUpdate)
+    @RequirePermission(StaffPermission.RolesManage)
     @ResponseMessage('Role updated successfully')
     update(
         @Param('id', ParseUUIDPipe) id: string,
@@ -81,7 +81,7 @@ export class RolesController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.RolesDelete)
+    @RequirePermission(StaffPermission.RolesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role deleted successfully')
     delete(
@@ -102,7 +102,7 @@ export class RolesController {
     }
 
     @Post(':id/permissions')
-    @RequirePermission(StaffPermission.RolesAssignPermissions)
+    @RequirePermission(StaffPermission.RolesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Permissions assigned to role successfully')
     assignPermissions(
@@ -114,7 +114,7 @@ export class RolesController {
     }
 
     @Delete(':id/permissions')
-    @RequirePermission(StaffPermission.RolesRemovePermissions)
+    @RequirePermission(StaffPermission.RolesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Permissions removed from role successfully')
     removePermissions(

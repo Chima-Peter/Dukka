@@ -37,7 +37,7 @@ export class ServiceStateController {
     constructor(private readonly serviceStateService: ServiceStateService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.ServiceStatesCreate)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @ResponseMessage('Service state created successfully')
     create(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -66,7 +66,7 @@ export class ServiceStateController {
     }
 
     @Patch(':id')
-    @RequirePermission(StaffPermission.ServiceStatesUpdate)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @ResponseMessage('Service state updated successfully')
     update(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -77,7 +77,7 @@ export class ServiceStateController {
     }
 
     @Post(':id/open')
-    @RequirePermission(StaffPermission.ServiceStatesOpen)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Service state opened successfully')
     open(
@@ -88,7 +88,7 @@ export class ServiceStateController {
     }
 
     @Post(':id/close')
-    @RequirePermission(StaffPermission.ServiceStatesClose)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Service state closed successfully')
     close(
@@ -99,7 +99,7 @@ export class ServiceStateController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.ServiceStatesDelete)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Service state deleted successfully')
     delete(
@@ -115,7 +115,7 @@ export class ServiceStateController {
     }
 
     @Post(':id/warehouses')
-    @RequirePermission(StaffPermission.ServiceStatesUpdate)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse assigned to service state successfully')
     assignWarehouse(
@@ -131,7 +131,7 @@ export class ServiceStateController {
     }
 
     @Delete(':id/warehouses/:warehouseId')
-    @RequirePermission(StaffPermission.ServiceStatesUpdate)
+    @RequirePermission(StaffPermission.ServiceStatesManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Warehouse unassigned from service state successfully')
     unassignWarehouse(

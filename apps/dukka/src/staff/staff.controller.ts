@@ -199,7 +199,7 @@ export class StaffController {
     }
 
     @Post(':id/role')
-    @RequirePermission(StaffPermission.StaffAssignRole)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role assigned to staff successfully')
     assignRole(
@@ -211,7 +211,7 @@ export class StaffController {
     }
 
     @Delete(':id/role')
-    @RequirePermission(StaffPermission.StaffRevokeRole)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Role revoked from staff successfully')
     revokeRole(
@@ -222,7 +222,7 @@ export class StaffController {
     }
 
     @Post(':id/scopes')
-    @RequirePermission(StaffPermission.StaffAssignScopes)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Scopes assigned to staff successfully')
     assignScopes(
@@ -234,7 +234,7 @@ export class StaffController {
     }
 
     @Delete(':id/scopes')
-    @RequirePermission(StaffPermission.StaffRemoveScopes)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Scopes removed from staff successfully')
     removeScopes(
@@ -246,7 +246,7 @@ export class StaffController {
     }
 
     @Delete(':id')
-    @RequirePermission(StaffPermission.StaffDelete)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Staff deactivation is in process')
     delete(

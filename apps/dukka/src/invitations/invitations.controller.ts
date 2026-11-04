@@ -29,7 +29,7 @@ export class InvitationsController {
     constructor(private readonly invitationsService: InvitationsService) {}
 
     @Post()
-    @RequirePermission(StaffPermission.StaffCreate)
+    @RequirePermission(StaffPermission.StaffManage)
     @ResponseMessage('Staff invited successfully')
     invite(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -69,7 +69,7 @@ export class InvitationsController {
     }
 
     @Post(':id/cancel')
-    @RequirePermission(StaffPermission.StaffCreate)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Staff invitation cancelled successfully')
     cancel(
@@ -89,7 +89,7 @@ export class InvitationsController {
     }
 
     @Post(':id/resend')
-    @RequirePermission(StaffPermission.StaffCreate)
+    @RequirePermission(StaffPermission.StaffManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Staff invitation resent successfully')
     resend(
