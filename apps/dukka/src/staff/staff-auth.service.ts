@@ -89,15 +89,6 @@ export class StaffAuthService {
                 this.buildStaffClaims(staff, permissions),
             );
 
-            await this.permissionsService.cacheStaffPermissions(
-                staff.id,
-                permissions,
-            );
-
-            this.logger.log(
-                `Cached ${permissions.length} permission(s) for staff ${data.email}`,
-            );
-
             return { ...tokens, staff: publicStaff };
         } catch (error) {
             if (error instanceof HttpException) {
@@ -158,10 +149,6 @@ export class StaffAuthService {
 
             const permissions =
                 this.permissionsService.extractPermissionNames(staff);
-            await this.permissionsService.cacheStaffPermissions(
-                staff.id,
-                permissions,
-            );
 
             return this.issueTokenPair(
                 this.buildStaffClaims(staff, permissions),

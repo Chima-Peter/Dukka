@@ -74,7 +74,6 @@ describe('StaffAuthService', () => {
     };
     let permissionsService: {
         extractPermissionNames: ReturnType<typeof vi.fn>;
-        cacheStaffPermissions: ReturnType<typeof vi.fn>;
     };
     let mailQueueService: {
         enqueueSend: ReturnType<typeof vi.fn>;
@@ -168,7 +167,6 @@ describe('StaffAuthService', () => {
         };
         permissionsService = {
             extractPermissionNames: vi.fn(),
-            cacheStaffPermissions: vi.fn(),
         };
         mailQueueService = {
             enqueueSend: vi.fn(),
@@ -222,9 +220,6 @@ describe('StaffAuthService', () => {
                 'staff:manage',
                 'staff:read',
             ]);
-            permissionsService.cacheStaffPermissions.mockResolvedValue(
-                undefined,
-            );
             tokenRepository.createMany.mockResolvedValue(2);
 
             const result = await service.login({
@@ -283,9 +278,6 @@ describe('StaffAuthService', () => {
                     staffId: 'staff-1',
                 },
             ]);
-            expect(
-                permissionsService.cacheStaffPermissions,
-            ).toHaveBeenCalledWith('staff-1', ['staff:manage', 'staff:read']);
         });
 
         it('rejects inactive staff', async () => {
@@ -341,9 +333,6 @@ describe('StaffAuthService', () => {
                 'staff:manage',
                 'staff:read',
             ]);
-            permissionsService.cacheStaffPermissions.mockResolvedValue(
-                undefined,
-            );
             staffJwtService.signAsync
                 .mockResolvedValueOnce('new.access')
                 .mockResolvedValueOnce('new.refresh');
@@ -365,9 +354,6 @@ describe('StaffAuthService', () => {
             expect(staffService.findByEmail).toHaveBeenCalledWith(
                 'staff@example.com',
             );
-            expect(
-                permissionsService.cacheStaffPermissions,
-            ).toHaveBeenCalledWith('staff-1', ['staff:manage', 'staff:read']);
             expect(staffJwtService.signAsync).toHaveBeenCalledWith(
                 {
                     sub: 'staff-1',

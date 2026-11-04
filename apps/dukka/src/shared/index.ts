@@ -1,7 +1,6 @@
 export {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
-    assertActorHasPermissions,
     assertCanManageHierarchies,
     assertCanManageScopeType,
     assertCanManageStaffInMarkets,
@@ -35,7 +34,6 @@ export {
     REFRESH_TOKEN_TTL_SECONDS,
     RedisKeys,
     STAFF_ACCESS_TOKEN_TTL_SECONDS,
-    STAFF_PERMISSIONS_TTL_SECONDS,
     STAFF_REFRESH_TOKEN_TTL_SECONDS,
 } from './redis.constants.js';
 export { safeDeleteImages } from './safe-delete-images.js';

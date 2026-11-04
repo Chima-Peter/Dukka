@@ -5,16 +5,8 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import {
-    RedisService,
-    type Permission,
-    type ScopeType,
-} from '@app/common';
-import {
-    RedisKeys,
-    STAFF_PERMISSIONS_TTL_SECONDS,
-    visibleRoleScopeTypes,
-} from '../shared/index.js';
+import { type Permission, type ScopeType } from '@app/common';
+import { visibleRoleScopeTypes } from '../shared/index.js';
 import { PermissionsRepository } from './permissions.repository.js';
 
 type StaffWithRolePermissions = {
@@ -29,7 +21,6 @@ export class PermissionsService {
 
     constructor(
         private readonly permissionsRepository: PermissionsRepository,
-        private readonly redisService: RedisService,
     ) {}
 
     async findAll(actor_scope_type: ScopeType | null): Promise<Permission[]> {
@@ -61,30 +52,11 @@ export class PermissionsService {
         );
     }
 
-    async cacheStaffPermissions(
-        staffId: string,
-        permissions: string[],
-    ): Promise<void> {
-        await this.redisService.setObject(
-            RedisKeys.staffPermissions(staffId),
-            permissions,
-            STAFF_PERMISSIONS_TTL_SECONDS,
-        );
-    }
-
     async getStaffPermissions(staffId: string): Promise<string[]> {
-        const cached = await this.redisService.getObject<string[]>(
-            RedisKeys.staffPermissions(staffId),
-        );
-        if (cached !== null) {
-            return cached;
-        }
-
-        const permissions =
+        return (
             (await this.permissionsRepository.findNamesByStaffId(staffId)) ??
-            [];
-        await this.cacheStaffPermissions(staffId, permissions);
-        return permissions;
+            []
+        );
     }
 
     private handleError(error: unknown): never {

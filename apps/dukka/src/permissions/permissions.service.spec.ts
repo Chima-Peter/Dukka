@@ -12,19 +12,11 @@ describe('PermissionsService', () => {
         findAll: ReturnType<typeof vi.fn>;
         findNamesByStaffId: ReturnType<typeof vi.fn>;
     };
-    let redisService: {
-        setObject: ReturnType<typeof vi.fn>;
-        getObject: ReturnType<typeof vi.fn>;
-    };
 
     beforeEach(async () => {
         permissionsRepository = {
             findAll: vi.fn(),
             findNamesByStaffId: vi.fn(),
-        };
-        redisService = {
-            setObject: vi.fn(),
-            getObject: vi.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -33,10 +25,6 @@ describe('PermissionsService', () => {
                 {
                     provide: PermissionsRepository,
                     useValue: permissionsRepository,
-                },
-                {
-                    provide: commonMock.RedisService,
-                    useValue: redisService,
                 },
             ],
         }).compile();
@@ -68,44 +56,24 @@ describe('PermissionsService', () => {
         expect(service.extractPermissionNames({ role: null })).toEqual([]);
     });
 
-    it('returns cached staff permissions when present in redis', async () => {
-        redisService.getObject.mockResolvedValue(['staff:manage']);
-
-        const result = await service.getStaffPermissions('staff-1');
-
-        expect(result).toEqual(['staff:manage']);
-        expect(permissionsRepository.findNamesByStaffId).not.toHaveBeenCalled();
-    });
-
-    it('loads from db and caches when redis misses', async () => {
-        redisService.getObject.mockResolvedValue(null);
+    it('loads staff permissions from the database', async () => {
         permissionsRepository.findNamesByStaffId.mockResolvedValue([
             'staff:read',
         ]);
-        redisService.setObject.mockResolvedValue('OK');
 
         const result = await service.getStaffPermissions('staff-1');
 
         expect(result).toEqual(['staff:read']);
-        expect(redisService.setObject).toHaveBeenCalledWith(
-            'staff_permissions:staff-1',
-            ['staff:read'],
-            3600,
+        expect(permissionsRepository.findNamesByStaffId).toHaveBeenCalledWith(
+            'staff-1',
         );
     });
 
-    it('caches an empty list when staff has no permissions in db', async () => {
-        redisService.getObject.mockResolvedValue(null);
+    it('returns an empty list when staff has no permissions in db', async () => {
         permissionsRepository.findNamesByStaffId.mockResolvedValue([]);
-        redisService.setObject.mockResolvedValue('OK');
 
         const result = await service.getStaffPermissions('staff-1');
 
         expect(result).toEqual([]);
-        expect(redisService.setObject).toHaveBeenCalledWith(
-            'staff_permissions:staff-1',
-            [],
-            3600,
-        );
     });
 });
