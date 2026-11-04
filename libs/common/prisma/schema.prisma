@@ -165,6 +165,7 @@ model PointsHistory {
 model Staff {
   id            String   @id @default(uuid())
   name          String
+  staff_number  String @unique
   avatar        String?
   email         String   @unique
   password      String
@@ -338,6 +339,13 @@ model StaffInvitation {
   @@index([role_id])
 }
 
+enum ScopeType {
+  GLOBAL
+  MARKET
+  WAREHOUSE
+  DISTRIBUTION_POINT
+}
+
 model StaffInvitationMarket {
   id         String   @id @default(uuid())
   created_at DateTime @default(now())
@@ -346,11 +354,23 @@ model StaffInvitationMarket {
   invitation_id String
   invitation    StaffInvitation @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
 
-  market_id String
-  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  scope_type ScopeType
+
+  market_id String?
+  market    Market? @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  warehouse_id String?
+  warehouse    Warehouse? @relation(fields: [warehouse_id], references: [id], onDelete: Restrict)
+
+  distribution_point_id String?
+  distribution_point    DistributionPoint? @relation(fields: [distribution_point_id], references: [id], onDelete: Restrict)
 
   @@unique([invitation_id, market_id])
+  @@unique([invitation_id, warehouse_id])
+  @@unique([invitation_id, distribution_point_id])
   @@index([market_id])
+  @@index([warehouse_id])
+  @@index([distribution_point_id])
 }
 
 model StaffMarket {
@@ -361,11 +381,23 @@ model StaffMarket {
   staff_id String
   staff    Staff  @relation(fields: [staff_id], references: [id], onDelete: Cascade)
 
-  market_id String
-  market    Market @relation(fields: [market_id], references: [id], onDelete: Restrict)
+  scope_type ScopeType
+
+  market_id String?
+  market    Market? @relation(fields: [market_id], references: [id], onDelete: Restrict)
+
+  warehouse_id String?
+  warehouse    Warehouse? @relation(fields: [warehouse_id], references: [id], onDelete: Restrict)
+
+  distribution_point_id String?
+  distribution_point    DistributionPoint? @relation(fields: [distribution_point_id], references: [id], onDelete: Restrict)
 
   @@unique([staff_id, market_id])
+  @@unique([staff_id, warehouse_id])
+  @@unique([staff_id, distribution_point_id])
   @@index([market_id])
+  @@index([warehouse_id])
+  @@index([distribution_point_id])
 }
 
 model RoleMarket {
@@ -644,6 +676,8 @@ model Warehouse {
   orders                   Order[]
   warehouse_service_states WarehouseServiceState[]
   logistics_locations      LogisticsLocation[]
+  staff_markets            StaffMarket[]
+  invitation_markets       StaffInvitationMarket[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -1174,6 +1208,8 @@ model DistributionPoint {
   state ServiceState @relation(fields: [state_id], references: [id], onDelete: Restrict)
 
   logistics_locations LogisticsLocation[]
+  staff_markets       StaffMarket[]
+  invitation_markets  StaffInvitationMarket[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
