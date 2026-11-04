@@ -1,6 +1,5 @@
 import {
     IsBoolean,
-    IsEmail,
     IsOptional,
     IsString,
     MaxLength,
@@ -13,10 +12,6 @@ export class UpdateStaffDto {
     @MinLength(1)
     @MaxLength(128)
     name?: string;
-
-    @IsOptional()
-    @IsEmail()
-    email?: string;
 
     @IsOptional()
     @IsString()

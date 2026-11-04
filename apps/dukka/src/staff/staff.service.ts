@@ -328,7 +328,6 @@ export class StaffService {
             this.logger.log(`Staff updated ${id}`);
 
             const significantChange =
-                data.email !== undefined ||
                 data.name !== undefined ||
                 data.phone_number !== undefined ||
                 data.is_active !== undefined;

@@ -348,7 +348,6 @@ export class StaffRepository {
                 where: { id },
                 data: {
                     ...(data.name !== undefined && { name: data.name }),
-                    ...(data.email !== undefined && { email: data.email }),
                     ...(data.avatar_path !== undefined && {
                         avatar: data.avatar_path,
                     }),
