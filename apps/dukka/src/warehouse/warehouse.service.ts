@@ -18,7 +18,10 @@ import {
 import { MarketsService } from '../markets/markets.service.js';
 import {
     ACCESS_CONTROL_ERROR,
-    assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
+    hasGlobalScope,
+    resolveActorWarehouseIds,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
@@ -49,16 +52,16 @@ export class WarehouseService {
 
     async create(
         data: CreateWarehouseDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
         performed_by: WarehouseAuditActor,
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(
                 `Creating warehouse ${data.name} in market ${data.market_id}`,
             );
+            assertActorHasScopedAccess(actor, { market_id: data.market_id });
             const market = await this.marketsService.requireOpenMarket(
                 data.market_id,
-                staffMarketIds,
             );
             const manager = await this.assertManagerValid(data.manager_id, {
                 scope_type: ScopeType.WAREHOUSE,
@@ -76,10 +79,14 @@ export class WarehouseService {
         }
     }
 
-    async findAll(query: FindWarehousesDto) {
+    async findAll(query: FindWarehousesDto, actor: ScopedAccessActor) {
         try {
             this.logger.log('Fetching warehouses');
-            const page = await this.warehouseRepository.findAll(query);
+            const scope = this.resolveWarehouseListScope(query, actor);
+            if (scope === null) {
+                return { items: [], next_cursor: null };
+            }
+            const page = await this.warehouseRepository.findAll(query, scope);
             this.logger.log('Fetched warehouses');
             return {
                 items: page.items,
@@ -90,11 +97,20 @@ export class WarehouseService {
         }
     }
 
-    async findOne(id: string): Promise<WarehouseRecord> {
+    async findOne(
+        id: string,
+        actor?: ScopedAccessActor,
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Fetching warehouse ${id}`);
             const warehouse =
                 await this.warehouseRepository.findByIdOrThrow(id);
+            if (actor !== undefined) {
+                assertActorHasScopedAccess(actor, {
+                    market_id: warehouse.market_id,
+                    warehouse_id: warehouse.id,
+                });
+            }
             this.logger.log(`Fetched warehouse ${id}`);
             return warehouse;
         } catch (error) {
@@ -105,12 +121,15 @@ export class WarehouseService {
     async update(
         id: string,
         data: UpdateWarehouseDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Updating warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: existing.market_id,
+                warehouse_id: existing.id,
+            });
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update a closed warehouse',
@@ -127,7 +146,7 @@ export class WarehouseService {
     async updateManager(
         id: string,
         data: UpdateWarehouseManagerDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
         performed_by: WarehouseAuditActor,
     ): Promise<WarehouseRecord> {
         try {
@@ -141,7 +160,10 @@ export class WarehouseService {
                     'New manager is the same as the current manager',
                 );
             }
-            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: existing.market_id,
+                warehouse_id: existing.id,
+            });
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException(
                     'Cannot update manager of a closed warehouse',
@@ -178,11 +200,17 @@ export class WarehouseService {
         }
     }
 
-    async close(id: string, staffMarketIds: string[]): Promise<WarehouseRecord> {
+    async close(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Closing warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: existing.market_id,
+                warehouse_id: existing.id,
+            });
             if (existing.status === WarehouseStatus.CLOSED) {
                 throw new BadRequestException('Warehouse is already closed');
             }
@@ -201,11 +229,17 @@ export class WarehouseService {
         }
     }
 
-    async open(id: string, staffMarketIds: string[]): Promise<WarehouseRecord> {
+    async open(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<WarehouseRecord> {
         try {
             this.logger.log(`Opening warehouse ${id}`);
             const existing = await this.warehouseRepository.findByIdOrThrow(id);
-            assertActorBelongsToMarkets(staffMarketIds, [existing.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: existing.market_id,
+                warehouse_id: existing.id,
+            });
             if (existing.status === WarehouseStatus.OPEN) {
                 throw new BadRequestException('Warehouse is already open');
             }
@@ -222,6 +256,37 @@ export class WarehouseService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private resolveWarehouseListScope(
+        query: FindWarehousesDto,
+        actor: ScopedAccessActor,
+    ): { market_ids?: string[]; warehouse_ids?: string[] } | null {
+        if (hasGlobalScope(actor.scopes)) {
+            return {};
+        }
+
+        const hasMarketScope = actor.scopes.some(
+            (scope) => scope.scope_type === 'MARKET',
+        );
+        if (hasMarketScope) {
+            if (actor.market_ids.length === 0) {
+                return null;
+            }
+            if (
+                query.market_id !== undefined &&
+                !actor.market_ids.includes(query.market_id)
+            ) {
+                throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+            }
+            return { market_ids: [...actor.market_ids] };
+        }
+
+        const warehouseIds = resolveActorWarehouseIds(actor.scopes);
+        if (warehouseIds.length === 0) {
+            return null;
+        }
+        return { warehouse_ids: warehouseIds };
     }
 
     private async assertManagerValid(
@@ -275,10 +340,11 @@ export class WarehouseService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

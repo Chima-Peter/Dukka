@@ -152,11 +152,11 @@ export class StaffController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Query() query: FindStaffDto,
     ) {
-        return this.staffService.findAll(
-            query,
-            staff.market_ids,
-            staff.hierarchy,
-        );
+        return this.staffService.findAll(query, {
+            scopes: staff.scopes,
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+        });
     }
 
     @Get(':id')
@@ -169,6 +169,7 @@ export class StaffController {
         return this.staffService.findOne(id, {
             market_ids: staff.market_ids,
             hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
         });
     }
 
@@ -176,10 +177,15 @@ export class StaffController {
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff updated successfully')
     update(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateStaffDto,
     ) {
-        return this.staffService.update(id, data);
+        return this.staffService.update(id, data, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Get(':id/audits')
@@ -190,12 +196,11 @@ export class StaffController {
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: FindStaffAuditDto,
     ) {
-        return this.staffService.findAudits(
-            id,
-            query,
-            staff.market_ids,
-            staff.hierarchy,
-        );
+        return this.staffService.findAudits(id, query, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Post(':id/role')
@@ -261,20 +266,30 @@ export class StaffController {
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Avatar upload URL generated successfully')
     getStaffAvatarUploadURL(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: UploadFileDto,
     ) {
-        return this.staffService.getAvatarUploadURL(id, query.name);
+        return this.staffService.getAvatarUploadURL(id, query.name, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Post(':id/profile')
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff profile created successfully')
     createStaffProfile(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: CreateStaffProfileDto,
     ) {
-        return this.staffService.createProfile(id, data);
+        return this.staffService.createProfile(id, data, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Get(':id/profile')
@@ -287,6 +302,7 @@ export class StaffController {
         return this.staffService.findProfile(id, {
             market_ids: staff.market_ids,
             hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
         });
     }
 
@@ -294,10 +310,15 @@ export class StaffController {
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Staff profile updated successfully')
     updateStaffProfile(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateStaffProfileDto,
     ) {
-        return this.staffService.updateProfile(id, data);
+        return this.staffService.updateProfile(id, data, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Post(':id/qualifications/upload-url')
@@ -305,20 +326,30 @@ export class StaffController {
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Qualification upload URL generated successfully')
     getStaffQualificationUploadURL(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: UploadFileDto,
     ) {
-        return this.staffService.getQualificationUploadURL(id, query.name);
+        return this.staffService.getQualificationUploadURL(id, query.name, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Post(':id/qualifications')
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualification created successfully')
     createStaffQualification(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: CreateQualificationDto,
     ) {
-        return this.staffService.createQualification(id, data);
+        return this.staffService.createQualification(id, data, {
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
+        });
     }
 
     @Get(':id/qualifications')
@@ -331,6 +362,7 @@ export class StaffController {
         return this.staffService.findQualifications(id, {
             market_ids: staff.market_ids,
             hierarchy: staff.hierarchy,
+            scopes: staff.scopes,
         });
     }
 
@@ -338,6 +370,7 @@ export class StaffController {
     @RequirePermission(StaffPermission.StaffTechnicalSupport)
     @ResponseMessage('Qualification updated successfully')
     updateStaffQualification(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('qualificationId', ParseUUIDPipe) qualificationId: string,
         @Body() data: UpdateQualificationDto,
@@ -346,6 +379,11 @@ export class StaffController {
             id,
             qualificationId,
             data,
+            {
+                market_ids: staff.market_ids,
+                hierarchy: staff.hierarchy,
+                scopes: staff.scopes,
+            },
         );
     }
 }

@@ -1,17 +1,29 @@
 export {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasGlobalScope,
+    assertActorHasMarketOrGlobalScope,
+    assertActorHasScopedAccess,
     assertCanManageRole,
     assertCanManageStaffInMarkets,
     assertOperableScopeFilters,
     hasGlobalScope,
+    resolveActorDistributionPointIds,
+    resolveActorWarehouseIds,
     resolveQueriedRoleScopeTypes,
     resolveScopeMarketIds,
     staffMatchesRequiredScope,
+    toScopedAccessActor,
     visibleHierarchyFloor,
     visibleRoleScopeTypes,
 } from './access-control.js';
-export type { RequiredStaffScope, RoleAccessRef } from './access-control.js';
+export type {
+    RequiredStaffScope,
+    RoleAccessRef,
+    ScopedAccessActor,
+    ScopedAccessResource,
+    StaffScopeRef,
+} from './access-control.js';
 
 export { assertMarketsActive } from './assert-markets-active.js';
 export { assertValidImage } from './assert-valid-image.js';

@@ -34,6 +34,8 @@ export const INVITATION_REPO_ERROR = {
 export const invitationScopeAccessSelect = {
     market_id: true,
     scope_type: true,
+    warehouse_id: true,
+    distribution_point_id: true,
     warehouse: { select: { market_id: true } },
     distribution_point: { select: { market_id: true } },
 } as const;

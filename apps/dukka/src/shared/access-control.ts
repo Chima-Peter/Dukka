@@ -145,7 +145,7 @@ export function assertCanManageRole(
 }
 
 export function hasGlobalScope(
-    scopes: Array<{ scope_type: ScopeType }>,
+    scopes: ReadonlyArray<{ scope_type: ScopeType }>,
 ): boolean {
     return scopes.some((scope) => scope.scope_type === 'GLOBAL');
 }
@@ -188,12 +188,151 @@ export type RequiredStaffScope = {
     distribution_point_id?: string;
 };
 
-type StaffScopeRef = {
+export type StaffScopeRef = {
     scope_type: ScopeType;
     market_id: string | null;
     warehouse_id: string | null;
     distribution_point_id: string | null;
 };
+
+export type ScopedAccessActor = {
+    scopes: readonly StaffScopeRef[];
+    market_ids: readonly string[];
+};
+
+export function toScopedAccessActor(staff: {
+    scopes: readonly StaffScopeRef[];
+    market_ids: readonly string[];
+}): ScopedAccessActor {
+    return { scopes: staff.scopes, market_ids: staff.market_ids };
+}
+
+export type ScopedAccessResource = {
+    market_id?: string;
+    warehouse_id?: string;
+    distribution_point_id?: string;
+};
+
+export function resolveActorWarehouseIds(
+    scopes: readonly StaffScopeRef[],
+): string[] {
+    const ids = new Set<string>();
+    for (const scope of scopes) {
+        if (
+            scope.scope_type === 'WAREHOUSE' &&
+            scope.warehouse_id != null
+        ) {
+            ids.add(scope.warehouse_id);
+        }
+    }
+    return [...ids];
+}
+
+export function resolveActorDistributionPointIds(
+    scopes: readonly StaffScopeRef[],
+): string[] {
+    const ids = new Set<string>();
+    for (const scope of scopes) {
+        if (
+            scope.scope_type === 'DISTRIBUTION_POINT' &&
+            scope.distribution_point_id != null
+        ) {
+            ids.add(scope.distribution_point_id);
+        }
+    }
+    return [...ids];
+}
+
+function actorHasMarketScope(scopes: readonly StaffScopeRef[]): boolean {
+    return scopes.some((scope) => scope.scope_type === 'MARKET');
+}
+
+/** Platform-wide catalog mutations that are not market-bound. */
+export function assertActorHasGlobalScope(actor: ScopedAccessActor): void {
+    if (hasGlobalScope(actor.scopes)) {
+        return;
+    }
+    throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+}
+
+/**
+ * Catalog review / platform pending-update flows:
+ * GLOBAL or MARKET actors only (WAREHOUSE / DP denied).
+ */
+export function assertActorHasMarketOrGlobalScope(
+    actor: ScopedAccessActor,
+): void {
+    if (hasGlobalScope(actor.scopes) || actorHasMarketScope(actor.scopes)) {
+        return;
+    }
+    throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+}
+
+function actorOwnsMarket(
+    actor: ScopedAccessActor,
+    market_id: string,
+): boolean {
+    return actor.market_ids.includes(market_id);
+}
+
+/**
+ * Hierarchical resource access:
+ * GLOBAL → any resource
+ * MARKET → any warehouse/DP under assigned markets
+ * WAREHOUSE / DISTRIBUTION_POINT → only exact assigned ids
+ * Market-only resources: WH/DP may access when market_id is in parent-derived market_ids
+ */
+export function assertActorHasScopedAccess(
+    actor: ScopedAccessActor,
+    resource: ScopedAccessResource,
+): void {
+    if (hasGlobalScope(actor.scopes)) {
+        return;
+    }
+
+    const ownedWarehouses = new Set(resolveActorWarehouseIds(actor.scopes));
+    const ownedDistributionPoints = new Set(
+        resolveActorDistributionPointIds(actor.scopes),
+    );
+    const isMarketActor = actorHasMarketScope(actor.scopes);
+
+    if (resource.warehouse_id !== undefined) {
+        if (ownedWarehouses.has(resource.warehouse_id)) {
+            return;
+        }
+        if (
+            isMarketActor &&
+            resource.market_id !== undefined &&
+            actorOwnsMarket(actor, resource.market_id)
+        ) {
+            return;
+        }
+        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+    }
+
+    if (resource.distribution_point_id !== undefined) {
+        if (ownedDistributionPoints.has(resource.distribution_point_id)) {
+            return;
+        }
+        if (
+            isMarketActor &&
+            resource.market_id !== undefined &&
+            actorOwnsMarket(actor, resource.market_id)
+        ) {
+            return;
+        }
+        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+    }
+
+    if (resource.market_id !== undefined) {
+        if (actorOwnsMarket(actor, resource.market_id)) {
+            return;
+        }
+        throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+    }
+
+    throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+}
 
 /**
  * GLOBAL staff match any required scope.

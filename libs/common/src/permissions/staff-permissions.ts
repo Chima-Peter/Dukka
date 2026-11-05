@@ -54,6 +54,11 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         scope_type: 'MARKET',
     },
     {
+        name: 'staff:read',
+        description: 'View staff members scoped to assigned warehouses',
+        scope_type: 'WAREHOUSE',
+    },
+    {
         name: 'staff:technical_support',
         description:
             "Manage another staff member's profile, avatar, and qualifications",

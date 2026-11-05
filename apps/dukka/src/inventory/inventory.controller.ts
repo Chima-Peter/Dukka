@@ -22,6 +22,7 @@ import {
     type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CheckAvailabilityDto } from './dto/check-availability.dto.js';
 import { CreateInventoryDto } from './dto/create-inventory.dto.js';
 import { FindInventoryDto } from './dto/find-inventory.dto.js';
@@ -40,7 +41,7 @@ export class InventoryController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: CreateInventoryDto,
     ) {
-        return this.inventoryService.create(data, staff.market_ids);
+        return this.inventoryService.create(data, toScopedAccessActor(staff));
     }
 
     @Patch('stock')
@@ -50,7 +51,10 @@ export class InventoryController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: UpdateStockDto,
     ) {
-        return this.inventoryService.updateStock(data, staff.market_ids);
+        return this.inventoryService.updateStock(
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get('check-availability')
@@ -76,7 +80,7 @@ export class InventoryController {
         return this.inventoryService.findByWarehouse(
             warehouseId,
             query,
-            staff.market_ids,
+            toScopedAccessActor(staff),
         );
     }
 
@@ -90,7 +94,7 @@ export class InventoryController {
         return this.inventoryService.findByMarketVariant(
             marketVariantId,
             query,
-            staff.market_ids,
+            toScopedAccessActor(staff),
         );
     }
 

@@ -59,11 +59,21 @@ export class WarehouseRepository {
         });
     }
 
-    async findAll(query: FindWarehousesDto) {
+    async findAll(
+        query: FindWarehousesDto,
+        scope?: { market_ids?: string[]; warehouse_ids?: string[] },
+    ) {
         const limit = query.limit ?? 50;
         const where: Prisma.WarehouseWhereInput = {
             ...(query.market_id !== undefined && {
                 market_id: query.market_id,
+            }),
+            ...(query.market_id === undefined &&
+                scope?.market_ids !== undefined && {
+                    market_id: { in: scope.market_ids },
+                }),
+            ...(scope?.warehouse_ids !== undefined && {
+                id: { in: scope.warehouse_ids },
             }),
             ...(query.manager_id !== undefined && {
                 manager_id: query.manager_id,

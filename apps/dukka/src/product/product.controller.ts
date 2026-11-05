@@ -22,6 +22,7 @@ import {
     type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
@@ -76,65 +77,94 @@ export class ProductController {
     @Get('internal/:id')
     @ResponseMessage('Product retrieved successfully')
     findOneForStaff(
-        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Query() query: FindStaffProductDto,
     ) {
-        return this.productService.findOneForStaff(
-            id,
-            query,
-            staff.market_ids,
-        );
+        return this.productService.findOneForStaff(id, query);
     }
 
     @Get('product-pending-updates')
     @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Product pending updates retrieved successfully')
-    findPendingUpdates(@Query() query: FindProductPendingUpdatesDto) {
-        return this.productService.findPendingUpdatesForStaff(query);
+    findPendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindProductPendingUpdatesDto,
+    ) {
+        return this.productService.findPendingUpdatesForStaff(
+            query,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post('product-pending-updates/approve')
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product pending updates approved successfully')
-    approvePendingUpdates(@Body() data: PendingUpdateIdsDto) {
-        return this.productService.approvePendingUpdates(data.ids);
+    approvePendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: PendingUpdateIdsDto,
+    ) {
+        return this.productService.approvePendingUpdates(
+            data.ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post('product-pending-updates/reject')
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product pending updates rejected successfully')
-    rejectPendingUpdates(@Body() data: PendingUpdateIdsDto) {
-        return this.productService.rejectPendingUpdates(data.ids);
+    rejectPendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: PendingUpdateIdsDto,
+    ) {
+        return this.productService.rejectPendingUpdates(
+            data.ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get('product-pending-updates/:id')
     @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Product pending update retrieved successfully')
-    findPendingUpdate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productService.findPendingUpdateById(id);
+    findPendingUpdate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.productService.findPendingUpdateById(
+            id,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch('product-pending-updates/:id')
     @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product pending update updated successfully')
     updatePendingUpdate(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateProductDto,
     ) {
-        return this.productService.updatePendingUpdate(id, data);
+        return this.productService.updatePendingUpdate(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch('product-pending-updates/:id/images')
     @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Product pending update images updated successfully')
     updatePendingUpdateImages(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateProductImagesDto,
     ) {
-        return this.productService.updatePendingUpdateImages(id, data);
+        return this.productService.updatePendingUpdateImages(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get(':id')
@@ -175,16 +205,22 @@ export class ProductController {
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product approved successfully')
-    approve(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productService.approve(id);
+    approve(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.productService.approve(id, toScopedAccessActor(staff));
     }
 
     @Post(':id/reject')
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Product rejected successfully')
-    reject(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productService.reject(id);
+    reject(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.productService.reject(id, toScopedAccessActor(staff));
     }
 
     @Post(':id/archive')

@@ -25,6 +25,8 @@ import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -187,9 +189,11 @@ export class MarketsService {
     async update(
         id: string,
         data: UpdateMarketDto,
+        actor: ScopedAccessActor,
     ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Updating market ${id}`);
+            assertActorHasScopedAccess(actor, { market_id: id });
             const existing = await this.requireMarket(id);
             if (existing.status === MarketStatus.CLOSED) {
                 throw new BadRequestException('Cannot update a closed market');
@@ -210,9 +214,13 @@ export class MarketsService {
         }
     }
 
-    async open(id: string): Promise<MarketWithCurrency> {
+    async open(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Opening market ${id}`);
+            assertActorHasScopedAccess(actor, { market_id: id });
             const existing = await this.requireMarket(id);
             if (existing.status === MarketStatus.OPEN) {
                 throw new BadRequestException('Market is already open');
@@ -232,9 +240,13 @@ export class MarketsService {
         }
     }
 
-    async close(id: string): Promise<MarketWithCurrency> {
+    async close(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<MarketWithCurrency> {
         try {
             this.logger.log(`Closing market ${id}`);
+            assertActorHasScopedAccess(actor, { market_id: id });
             const existing = await this.requireMarket(id);
             if (existing.status === MarketStatus.CLOSED) {
                 throw new BadRequestException('Market is already closed');
@@ -351,10 +363,11 @@ export class MarketsService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

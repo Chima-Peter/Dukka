@@ -6,7 +6,10 @@ import {
     Logger,
 } from '@nestjs/common';
 import { type Permission, type ScopeType } from '@app/common';
-import { visibleRoleScopeTypes } from '../shared/index.js';
+import {
+    visibleRoleScopeTypes,
+    type StaffScopeRef,
+} from '../shared/index.js';
 import { PermissionsRepository } from './permissions.repository.js';
 
 type StaffWithRolePermissions = {
@@ -57,6 +60,27 @@ export class PermissionsService {
             (await this.permissionsRepository.findNamesByStaffId(staffId)) ??
             []
         );
+    }
+
+    async getStaffPermissionsInScope(
+        staffId: string,
+        actor: {
+            scopes: readonly StaffScopeRef[];
+            market_ids: string[];
+            hierarchy: number | null;
+        },
+    ): Promise<string[]> {
+        const names =
+            await this.permissionsRepository.findNamesByStaffIdInScope(
+                staffId,
+                actor,
+            );
+        if (names === null) {
+            throw new ForbiddenException(
+                'Cannot view permissions for staff outside your assigned scope',
+            );
+        }
+        return names;
     }
 
     private handleError(error: unknown): never {

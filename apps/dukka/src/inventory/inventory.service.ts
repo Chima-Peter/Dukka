@@ -14,7 +14,8 @@ import { CustomerService } from '../customer/customer.service.js';
 import { ProductVariantRepository } from '../product/product-variant.repository.js';
 import {
     ACCESS_CONTROL_ERROR,
-    assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
@@ -46,14 +47,17 @@ export class InventoryService {
 
     async create(
         data: CreateInventoryDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<InventoryItem> {
         try {
             this.logger.log(
                 `Creating inventory for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}`,
             );
 
-            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: data.market_id,
+                warehouse_id: data.warehouse_id,
+            });
 
             const marketVariant =
                 await this.productVariantRepository.findMarketVariantByIdOrThrow(
@@ -93,14 +97,17 @@ export class InventoryService {
 
     async updateStock(
         data: UpdateStockDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<{ available_quantity: number }> {
         try {
             this.logger.log(
                 `Updating stock for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}: ${data.type} ${data.quantity}`,
             );
 
-            assertActorBelongsToMarkets(staffMarketIds, [data.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: data.market_id,
+                warehouse_id: data.warehouse_id,
+            });
 
             const marketVariant =
                 await this.productVariantRepository.findMarketVariantByIdOrThrow(
@@ -288,14 +295,17 @@ export class InventoryService {
     async findByWarehouse(
         warehouseId: string,
         query: FindInventoryDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ) {
         try {
             this.logger.log(`Fetching inventory for warehouse ${warehouseId}`);
             if (!query.market_id) {
                 throw new BadRequestException('market_id is required');
             }
-            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: query.market_id,
+                warehouse_id: warehouseId,
+            });
             const page = await this.inventoryRepository.findByWarehouseId(
                 warehouseId,
                 { ...query, market_id: query.market_id },
@@ -313,7 +323,7 @@ export class InventoryService {
     async findByMarketVariant(
         marketVariantId: string,
         query: FindInventoryDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ) {
         try {
             this.logger.log(
@@ -322,7 +332,9 @@ export class InventoryService {
             if (!query.market_id) {
                 throw new BadRequestException('market_id is required');
             }
-            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: query.market_id,
+            });
             const page = await this.inventoryRepository.findByMarketVariantId(
                 marketVariantId,
                 { ...query, market_id: query.market_id },
@@ -347,10 +359,11 @@ export class InventoryService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

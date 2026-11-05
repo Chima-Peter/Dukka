@@ -34,13 +34,20 @@ export class PermissionsController {
         @Param('staffId', ParseUUIDPipe) staffId: string,
         @CurrentStaff() staff: StaffJwtPayload,
     ) {
+        if (staff.sub === staffId) {
+            return this.permissionsService.getStaffPermissions(staffId);
+        }
+
         if (
-            staff.sub !== staffId &&
             !staffHasRequiredPermission(StaffPermission.PermissionsRead, staff)
         ) {
             throw new ForbiddenException('Insufficient permissions');
         }
 
-        return this.permissionsService.getStaffPermissions(staffId);
+        return this.permissionsService.getStaffPermissionsInScope(staffId, {
+            scopes: staff.scopes,
+            market_ids: staff.market_ids,
+            hierarchy: staff.hierarchy,
+        });
     }
 }

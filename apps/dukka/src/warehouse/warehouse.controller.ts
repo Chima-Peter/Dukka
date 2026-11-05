@@ -18,6 +18,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
@@ -36,22 +37,35 @@ export class WarehouseController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Body() data: CreateWarehouseDto,
     ) {
-        return this.warehouseService.create(data, staff.market_ids, {
-            id: staff.sub,
-            name: staff.name,
-        });
+        return this.warehouseService.create(
+            data,
+            toScopedAccessActor(staff),
+            {
+                id: staff.sub,
+                name: staff.name,
+            },
+        );
     }
 
     @Get()
     @ResponseMessage('Warehouses retrieved successfully')
-    findAll(@Query() query: FindWarehousesDto) {
-        return this.warehouseService.findAll(query);
+    findAll(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindWarehousesDto,
+    ) {
+        return this.warehouseService.findAll(
+            query,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get(':id')
     @ResponseMessage('Warehouse retrieved successfully')
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.warehouseService.findOne(id);
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.warehouseService.findOne(id, toScopedAccessActor(staff));
     }
 
     @Patch(':id')
@@ -62,7 +76,11 @@ export class WarehouseController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseDto,
     ) {
-        return this.warehouseService.update(id, data, staff.market_ids);
+        return this.warehouseService.update(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch(':id/manager')
@@ -73,10 +91,15 @@ export class WarehouseController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateWarehouseManagerDto,
     ) {
-        return this.warehouseService.updateManager(id, data, staff.market_ids, {
-            id: staff.sub,
-            name: staff.name,
-        });
+        return this.warehouseService.updateManager(
+            id,
+            data,
+            toScopedAccessActor(staff),
+            {
+                id: staff.sub,
+                name: staff.name,
+            },
+        );
     }
 
     @Post(':id/close')
@@ -87,7 +110,7 @@ export class WarehouseController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
     ) {
-        return this.warehouseService.close(id, staff.market_ids);
+        return this.warehouseService.close(id, toScopedAccessActor(staff));
     }
 
     @Post(':id/open')
@@ -98,6 +121,6 @@ export class WarehouseController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
     ) {
-        return this.warehouseService.open(id, staff.market_ids);
+        return this.warehouseService.open(id, toScopedAccessActor(staff));
     }
 }

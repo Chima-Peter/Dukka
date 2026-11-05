@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,8 +9,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketStatus } from '../../../../libs/common/generated/prisma/enums.js';
 import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
 import { RestCountriesIpService } from '../../../../libs/common/src/rest-countries/rest-countries-ip.service.js';
+import type { ScopedAccessActor } from '../shared/access-control.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
+
+const globalActor: ScopedAccessActor = {
+    scopes: [
+        {
+            scope_type: 'GLOBAL',
+            market_id: null,
+            warehouse_id: null,
+            distribution_point_id: null,
+        },
+    ],
+    market_ids: [],
+};
 
 vi.mock('../../../../libs/queues/src/index.ts', () => ({
     MailQueueService: class MailQueueService {},
@@ -134,7 +148,7 @@ describe('MarketsService', () => {
         ]);
 
         await expect(
-            service.update('market-1', { name: 'Lagos' }),
+            service.update('market-1', { name: 'Lagos' }, globalActor),
         ).rejects.toBeInstanceOf(BadRequestException);
         expect(marketsRepository.update).not.toHaveBeenCalled();
     });
@@ -151,7 +165,7 @@ describe('MarketsService', () => {
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
-        await service.update('market-1', { name: 'Lagos' });
+        await service.update('market-1', { name: 'Lagos' }, globalActor);
 
         expect(marketsRepository.update).toHaveBeenCalledWith('market-1', {
             name: 'Lagos',
@@ -171,7 +185,7 @@ describe('MarketsService', () => {
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
-        await service.open('market-1');
+        await service.open('market-1', globalActor);
 
         expect(marketsRepository.setStatus).toHaveBeenCalledWith(
             'market-1',
@@ -184,9 +198,9 @@ describe('MarketsService', () => {
             { id: 'market-1', status: MarketStatus.OPEN },
         ]);
 
-        await expect(service.open('market-1')).rejects.toBeInstanceOf(
-            BadRequestException,
-        );
+        await expect(
+            service.open('market-1', globalActor),
+        ).rejects.toBeInstanceOf(BadRequestException);
         expect(marketsRepository.setStatus).not.toHaveBeenCalled();
     });
 
@@ -202,7 +216,7 @@ describe('MarketsService', () => {
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
         });
 
-        await service.close('market-1');
+        await service.close('market-1', globalActor);
 
         expect(marketsRepository.setStatus).toHaveBeenCalledWith(
             'market-1',
@@ -265,7 +279,26 @@ describe('MarketsService', () => {
         marketsRepository.findExistingByIds.mockResolvedValue([]);
 
         await expect(
-            service.update('market-1', { name: 'Lagos' }),
+            service.update('market-1', { name: 'Lagos' }, globalActor),
         ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects market update outside actor markets', async () => {
+        const marketActor: ScopedAccessActor = {
+            scopes: [
+                {
+                    scope_type: 'MARKET',
+                    market_id: 'market-2',
+                    warehouse_id: null,
+                    distribution_point_id: null,
+                },
+            ],
+            market_ids: ['market-2'],
+        };
+
+        await expect(
+            service.update('market-1', { name: 'Lagos' }, marketActor),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(marketsRepository.update).not.toHaveBeenCalled();
     });
 });

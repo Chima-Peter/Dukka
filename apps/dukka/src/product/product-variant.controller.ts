@@ -20,6 +20,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import { CreateVariantDto } from './dto/create-variant.dto.js';
 import { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
@@ -40,54 +41,77 @@ export class ProductVariantController {
     @Get('market-variants')
     @RequirePermission(StaffPermission.MarketVariantsRead)
     @ResponseMessage('Market variants retrieved successfully')
-    findMarketVariants(
-        @CurrentStaff() staff: StaffJwtPayload,
-        @Query() query: FindMarketVariantsDto,
-    ) {
-        return this.productVariantService.findMarketVariants(
-            query,
-            staff.market_ids,
-        );
+    findMarketVariants(@Query() query: FindMarketVariantsDto) {
+        return this.productVariantService.findMarketVariants(query);
     }
 
     @Get('variant-pending-updates')
     @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Variant pending updates retrieved successfully')
-    findPendingUpdates(@Query() query: FindVariantPendingUpdatesDto) {
-        return this.productVariantService.findPendingUpdatesForStaff(query);
+    findPendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindVariantPendingUpdatesDto,
+    ) {
+        return this.productVariantService.findPendingUpdatesForStaff(
+            query,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post('variant-pending-updates/approve')
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant pending updates approved successfully')
-    approvePendingUpdates(@Body() data: PendingUpdateIdsDto) {
-        return this.productVariantService.approvePendingUpdates(data.ids);
+    approvePendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: PendingUpdateIdsDto,
+    ) {
+        return this.productVariantService.approvePendingUpdates(
+            data.ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post('variant-pending-updates/reject')
     @RequirePermission(StaffPermission.ProductsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variant pending updates rejected successfully')
-    rejectPendingUpdates(@Body() data: PendingUpdateIdsDto) {
-        return this.productVariantService.rejectPendingUpdates(data.ids);
+    rejectPendingUpdates(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: PendingUpdateIdsDto,
+    ) {
+        return this.productVariantService.rejectPendingUpdates(
+            data.ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get('variant-pending-updates/:id')
     @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Variant pending update retrieved successfully')
-    findPendingUpdate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productVariantService.findPendingUpdateById(id);
+    findPendingUpdate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.productVariantService.findPendingUpdateById(
+            id,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch('variant-pending-updates/:id')
     @RequirePermission(StaffPermission.ProductsManage)
     @ResponseMessage('Variant pending update updated successfully')
     updatePendingUpdate(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateVariantDto,
     ) {
-        return this.productVariantService.updatePendingUpdate(id, data);
+        return this.productVariantService.updatePendingUpdate(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/variants')
@@ -116,10 +140,15 @@ export class ProductVariantController {
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants approved successfully')
     approveVariants(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: VariantIdsDto,
     ) {
-        return this.productVariantService.approveVariants(id, data.variant_ids);
+        return this.productVariantService.approveVariants(
+            id,
+            data.variant_ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/variants/reject')
@@ -127,10 +156,15 @@ export class ProductVariantController {
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Variants rejected successfully')
     rejectVariants(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: VariantIdsDto,
     ) {
-        return this.productVariantService.rejectVariants(id, data.variant_ids);
+        return this.productVariantService.rejectVariants(
+            id,
+            data.variant_ids,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/variants/archive')

@@ -10,11 +10,16 @@ import {
 } from '@app/common';
 import {
     assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
     assertCanManageRole,
     assertCanManageStaffInMarkets,
     hasGlobalScope,
+    resolveActorDistributionPointIds,
+    resolveActorWarehouseIds,
     resolveScopeMarketIds,
     visibleHierarchyFloor,
+    type ScopedAccessActor,
+    type StaffScopeRef,
 } from '../shared/access-control.js';
 import { assertMarketsActive } from '../shared/assert-markets-active.js';
 import type { AssignStaffScopeDto } from './dto/assign-scope.dto.js';
@@ -74,6 +79,8 @@ const staffDetailsInclude = {
 const staffScopeAccessSelect = {
     market_id: true,
     scope_type: true,
+    warehouse_id: true,
+    distribution_point_id: true,
     warehouse: { select: { market_id: true } },
     distribution_point: { select: { market_id: true } },
 } as const;
@@ -84,22 +91,29 @@ export class StaffRepository {
 
     async findAll(
         query: FindStaffDto,
-        market_ids: string[],
-        hierarchy: number | null,
+        actor: {
+            scopes: readonly StaffScopeRef[];
+            market_ids: readonly string[];
+            hierarchy: number | null;
+        },
     ): Promise<StaffPage> {
-        const scopedMarketIds = this.resolveMarketScope(
-            market_ids,
+        if (actor.hierarchy === null) {
+            return { items: [], next_cursor: null };
+        }
+
+        const scopeFilter = this.buildActorStaffScopeFilter(
+            actor,
             query.market_id,
         );
-        if (scopedMarketIds.length === 0 || hierarchy === null) {
+        if (scopeFilter === null) {
             return { items: [], next_cursor: null };
         }
 
         const limit = query.limit ?? 20;
         const where = this.buildFindWhere(
             query,
-            scopedMarketIds,
-            hierarchy,
+            actor.hierarchy,
+            scopeFilter,
         );
 
         const records = await this.prisma.staff.findMany({
@@ -135,34 +149,74 @@ export class StaffRepository {
         };
     }
 
-    private resolveMarketScope(
-        actor_market_ids: string[],
+    private buildActorStaffScopeFilter(
+        actor: {
+            scopes: readonly StaffScopeRef[];
+            market_ids: readonly string[];
+        },
         requested_market_id?: string,
-    ): string[] {
-        if (actor_market_ids.length === 0) {
-            return [];
+    ): Prisma.StaffScopeListRelationFilter | true | null {
+        if (hasGlobalScope(actor.scopes)) {
+            if (requested_market_id !== undefined) {
+                return { some: { market_id: requested_market_id } };
+            }
+            return true;
         }
-        if (requested_market_id === undefined) {
-            return actor_market_ids;
+
+        const hasMarketScope = actor.scopes.some(
+            (scope) => scope.scope_type === 'MARKET',
+        );
+        if (hasMarketScope) {
+            const marketIds =
+                requested_market_id !== undefined
+                    ? actor.market_ids.includes(requested_market_id)
+                        ? [requested_market_id]
+                        : []
+                    : [...actor.market_ids];
+            if (marketIds.length === 0) {
+                return null;
+            }
+            return { some: { market_id: { in: marketIds } } };
         }
-        return actor_market_ids.includes(requested_market_id)
-            ? [requested_market_id]
-            : [];
+
+        const warehouseIds = resolveActorWarehouseIds(actor.scopes);
+        if (warehouseIds.length > 0) {
+            return {
+                some: {
+                    scope_type: 'WAREHOUSE',
+                    warehouse_id: { in: warehouseIds },
+                },
+            };
+        }
+
+        const distributionPointIds = resolveActorDistributionPointIds(
+            actor.scopes,
+        );
+        if (distributionPointIds.length > 0) {
+            return {
+                some: {
+                    scope_type: 'DISTRIBUTION_POINT',
+                    distribution_point_id: { in: distributionPointIds },
+                },
+            };
+        }
+
+        return null;
     }
 
     private buildFindWhere(
         query: FindStaffDto,
-        market_ids: string[],
         hierarchy: number,
+        scopeFilter: Prisma.StaffScopeListRelationFilter | true,
     ): Prisma.StaffWhereInput {
         return {
             ...(query.role_id !== undefined && { role_id: query.role_id }),
             ...(query.is_active !== undefined && {
                 is_active: query.is_active,
             }),
-            staff_scopes: {
-                some: { market_id: { in: market_ids } },
-            },
+            ...(scopeFilter !== true && {
+                staff_scopes: scopeFilter,
+            }),
             role: {
                 hierarchy: { gte: visibleHierarchyFloor(hierarchy) },
                 ...(query.permission_id !== undefined && {
@@ -185,19 +239,29 @@ export class StaffRepository {
 
     async findByIdInScope(
         id: string,
-        market_ids: string[],
-        hierarchy: number | null,
+        actor: {
+            scopes: readonly StaffScopeRef[];
+            market_ids: readonly string[];
+            hierarchy: number | null;
+        },
     ): Promise<StaffWithDetails | null> {
-        if (market_ids.length === 0 || hierarchy === null) {
+        if (actor.hierarchy === null) {
+            return null;
+        }
+
+        if (hasGlobalScope(actor.scopes)) {
+            return this.findById(id);
+        }
+
+        const scopeFilter = this.buildActorStaffScopeFilter(actor);
+        if (scopeFilter === null || scopeFilter === true) {
             return null;
         }
 
         const staff = await this.prisma.staff.findFirst({
             where: {
                 id,
-                staff_scopes: {
-                    some: { market_id: { in: market_ids } },
-                },
+                staff_scopes: scopeFilter,
             },
             include: staffDetailsInclude,
         });
@@ -685,10 +749,10 @@ export class StaffRepository {
                 if (warehouses.length !== warehouse_ids.length) {
                     throw new Error(STAFF_REPO_ERROR.WAREHOUSES_NOT_FOUND);
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessWarehouses(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    warehouses.map((warehouse) => warehouse.market_id),
-                    actorIsGlobal,
+                    warehouses,
                 );
 
                 await tx.staffScope.createMany({
@@ -721,10 +785,10 @@ export class StaffRepository {
                         STAFF_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
                     );
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessDistributionPoints(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    distributionPoints.map((point) => point.market_id),
-                    actorIsGlobal,
+                    distributionPoints,
                 );
 
                 await tx.staffScope.createMany({
@@ -880,10 +944,10 @@ export class StaffRepository {
                 if (warehouses.length !== warehouse_ids.length) {
                     throw new Error(STAFF_REPO_ERROR.WAREHOUSES_NOT_FOUND);
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessWarehouses(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    warehouses.map((warehouse) => warehouse.market_id),
-                    actorIsGlobal,
+                    warehouses,
                 );
 
                 const result = await tx.staffScope.deleteMany({
@@ -916,10 +980,10 @@ export class StaffRepository {
                         STAFF_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
                     );
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessDistributionPoints(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    distributionPoints.map((point) => point.market_id),
-                    actorIsGlobal,
+                    distributionPoints,
                 );
 
                 const result = await tx.staffScope.deleteMany({
@@ -1130,6 +1194,59 @@ export class StaffRepository {
 
     async deleteQualification(id: string): Promise<Qualification> {
         return await this.prisma.qualification.delete({ where: { id } });
+    }
+
+    private toScopedAccessActor(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+        }>,
+        market_ids: string[],
+    ): ScopedAccessActor {
+        return {
+            scopes,
+            market_ids,
+        };
+    }
+
+    private assertActorCanAccessWarehouses(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+        }>,
+        market_ids: string[],
+        warehouses: Array<{ id: string; market_id: string }>,
+    ): void {
+        const actor = this.toScopedAccessActor(scopes, market_ids);
+        for (const warehouse of warehouses) {
+            assertActorHasScopedAccess(actor, {
+                market_id: warehouse.market_id,
+                warehouse_id: warehouse.id,
+            });
+        }
+    }
+
+    private assertActorCanAccessDistributionPoints(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+        }>,
+        market_ids: string[],
+        points: Array<{ id: string; market_id: string }>,
+    ): void {
+        const actor = this.toScopedAccessActor(scopes, market_ids);
+        for (const point of points) {
+            assertActorHasScopedAccess(actor, {
+                market_id: point.market_id,
+                distribution_point_id: point.id,
+            });
+        }
     }
 
     private uniqueById<T extends { id: string }>(items: T[]): T[] {

@@ -24,6 +24,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { ApprovePaymentMethodDto } from './dto/approve-payment-method.dto.js';
 import { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import { FindPaymentAttemptDto } from './dto/find-payment-attempt.dto.js';
@@ -111,7 +112,10 @@ export class PaymentsController {
         @CurrentStaff() staff: StaffJwtPayload,
         @Query() query: FindPaymentAttemptsDto,
     ) {
-        return this.paymentsService.findAttempts(query, staff.market_ids);
+        return this.paymentsService.findAttempts(
+            query,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get('attempts/:id')

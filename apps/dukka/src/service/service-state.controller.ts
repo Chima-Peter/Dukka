@@ -23,6 +23,7 @@ import {
     type CustomerJwtPayload,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { AssignWarehouseServiceStateDto } from './dto/assign-warehouse-service-state.dto.js';
 import { CreateServiceStateDto } from './dto/create-service-state.dto.js';
 import { DeleteServiceStateDto } from './dto/delete-service-state.dto.js';
@@ -61,8 +62,14 @@ export class ServiceStateController {
 
     @Get('internal')
     @ResponseMessage('Service states retrieved successfully')
-    findAllForStaff(@Query() query: FindStaffServiceStatesDto) {
-        return this.serviceStateService.findAllForStaff(query);
+    findAllForStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindStaffServiceStatesDto,
+    ) {
+        return this.serviceStateService.findAllForStaff(
+            query,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch(':id')
@@ -126,7 +133,7 @@ export class ServiceStateController {
         return this.serviceStateService.assignWarehouse(
             id,
             data,
-            staff.market_ids,
+            toScopedAccessActor(staff),
         );
     }
 
@@ -142,7 +149,7 @@ export class ServiceStateController {
         return this.serviceStateService.unassignWarehouse(
             id,
             warehouseId,
-            staff.market_ids,
+            toScopedAccessActor(staff),
         );
     }
 }

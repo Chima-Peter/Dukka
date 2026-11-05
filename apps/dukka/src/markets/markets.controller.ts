@@ -21,6 +21,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CreateMarketDto } from './dto/create-market.dto.js';
 import { FindMarketsDto } from './dto/find-markets.dto.js';
 import { UpdateMarketDto } from './dto/update-market.dto.js';
@@ -77,26 +78,37 @@ export class MarketsController {
     @RequirePermission(StaffPermission.MarketsManage)
     @ResponseMessage('Market updated successfully')
     update(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateMarketDto,
     ) {
-        return this.marketsService.update(id, data);
+        return this.marketsService.update(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/open')
     @RequirePermission(StaffPermission.MarketsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market opened successfully')
-    open(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.open(id);
+    open(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.marketsService.open(id, toScopedAccessActor(staff));
     }
 
     @Post(':id/close')
     @RequirePermission(StaffPermission.MarketsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Market closed successfully')
-    close(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.close(id);
+    close(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.marketsService.close(id, toScopedAccessActor(staff));
     }
 
     @Delete(':id')

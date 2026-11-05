@@ -13,11 +13,13 @@ import {
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
     assertCanManageRole,
     assertOperableScopeFilters,
     hasGlobalScope,
     resolveQueriedRoleScopeTypes,
     resolveScopeMarketIds,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import { STAFF_INVITATION_TTL_SECONDS } from '../shared/invitation.constants.js';
 import { assertMarketsActive } from '../shared/assert-markets-active.js';
@@ -131,10 +133,10 @@ export class InvitationsRepository {
                 if (warehouses.length !== warehouse_ids.length) {
                     throw new Error(INVITATION_REPO_ERROR.WAREHOUSES_NOT_FOUND);
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessWarehouses(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    warehouses.map((warehouse) => warehouse.market_id),
-                    actorIsGlobal,
+                    warehouses,
                 );
                 invitationScopes = warehouse_ids.map((warehouse_id) => ({
                     scope_type: ScopeType.WAREHOUSE,
@@ -156,10 +158,10 @@ export class InvitationsRepository {
                         INVITATION_REPO_ERROR.DISTRIBUTION_POINTS_NOT_FOUND,
                     );
                 }
-                assertActorBelongsToMarkets(
+                this.assertActorCanAccessDistributionPoints(
+                    actor.staff_scopes,
                     actorMarketIds,
-                    distributionPoints.map((point) => point.market_id),
-                    actorIsGlobal,
+                    distributionPoints,
                 );
                 invitationScopes = distribution_point_ids.map(
                     (distribution_point_id) => ({
@@ -724,6 +726,64 @@ export class InvitationsRepository {
         }
 
         return [...auditMarkets.values()];
+    }
+
+    private toScopedAccessActor(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id?: string | null;
+            distribution_point_id?: string | null;
+        }>,
+        market_ids: string[],
+    ): ScopedAccessActor {
+        return {
+            scopes: scopes.map((scope) => ({
+                scope_type: scope.scope_type,
+                market_id: scope.market_id,
+                warehouse_id: scope.warehouse_id ?? null,
+                distribution_point_id: scope.distribution_point_id ?? null,
+            })),
+            market_ids,
+        };
+    }
+
+    private assertActorCanAccessWarehouses(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id?: string | null;
+            distribution_point_id?: string | null;
+        }>,
+        market_ids: string[],
+        warehouses: Array<{ id: string; market_id: string }>,
+    ): void {
+        const actor = this.toScopedAccessActor(scopes, market_ids);
+        for (const warehouse of warehouses) {
+            assertActorHasScopedAccess(actor, {
+                market_id: warehouse.market_id,
+                warehouse_id: warehouse.id,
+            });
+        }
+    }
+
+    private assertActorCanAccessDistributionPoints(
+        scopes: Array<{
+            scope_type: ScopeType;
+            market_id: string | null;
+            warehouse_id?: string | null;
+            distribution_point_id?: string | null;
+        }>,
+        market_ids: string[],
+        points: Array<{ id: string; market_id: string }>,
+    ): void {
+        const actor = this.toScopedAccessActor(scopes, market_ids);
+        for (const point of points) {
+            assertActorHasScopedAccess(actor, {
+                market_id: point.market_id,
+                distribution_point_id: point.id,
+            });
+        }
     }
 
     private buildInvitationScopeFilter(

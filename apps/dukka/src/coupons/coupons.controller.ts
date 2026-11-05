@@ -18,6 +18,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { CreateCouponDto } from './dto/create-coupon.dto.js';
 import { FindCouponUsagesDto } from './dto/find-coupon-usages.dto.js';
 import { FindCouponsDto } from './dto/find-coupons.dto.js';
@@ -32,15 +33,21 @@ export class CouponsController {
     @Post()
     @RequirePermission(StaffPermission.CouponsManage)
     @ResponseMessage('Coupon created successfully')
-    create(@Body() data: CreateCouponDto) {
-        return this.couponsService.create(data);
+    create(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreateCouponDto,
+    ) {
+        return this.couponsService.create(data, toScopedAccessActor(staff));
     }
 
     @Get()
     @RequirePermission(StaffPermission.CouponsRead)
     @ResponseMessage('Coupons retrieved successfully')
-    findAll(@Query() query: FindCouponsDto) {
-        return this.couponsService.findAll(query);
+    findAll(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindCouponsDto,
+    ) {
+        return this.couponsService.findAll(query, toScopedAccessActor(staff));
     }
 
     @Get('usages')
@@ -57,25 +64,36 @@ export class CouponsController {
     @RequirePermission(StaffPermission.CouponsManage)
     @ResponseMessage('Coupon updated successfully')
     update(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateCouponDto,
     ) {
-        return this.couponsService.update(id, data);
+        return this.couponsService.update(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/activate')
     @RequirePermission(StaffPermission.CouponsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Coupon activated successfully')
-    activate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.couponsService.activate(id);
+    activate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.couponsService.activate(id, toScopedAccessActor(staff));
     }
 
     @Post(':id/deactivate')
     @RequirePermission(StaffPermission.CouponsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Coupon deactivated successfully')
-    deactivate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.couponsService.deactivate(id);
+    deactivate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.couponsService.deactivate(id, toScopedAccessActor(staff));
     }
 }

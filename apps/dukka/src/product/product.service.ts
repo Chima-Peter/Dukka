@@ -38,6 +38,8 @@ import type { UploadFileDto } from './dto/upload-file.dto.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasMarketOrGlobalScope,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import { ProductRepository } from './product.repository.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
@@ -198,48 +200,23 @@ export class ProductService {
         }
     }
 
-    async findOneForStaff(
-        id: string,
-        query: FindStaffProductDto,
-        staffMarketIds: string[],
-    ) {
+    async findOneForStaff(id: string, query: FindStaffProductDto) {
         try {
-            const marketId = this.resolveStaffMarketId(
-                staffMarketIds,
-                query.market_id,
-            );
+            if (query.market_id === undefined) {
+                throw new BadRequestException('market_id is required');
+            }
             this.logger.log(
-                `Fetching product ${id} for staff in market ${marketId}`,
+                `Fetching product ${id} for staff in market ${query.market_id}`,
             );
             const product = await this.productRepository.findDetailedById(
                 id,
-                marketId,
+                query.market_id,
             );
-            this.logger.log(
-                `Fetched product ${id} for staff in market ${marketId}`,
-            );
+            this.logger.log(`Fetched product ${id} for staff`);
             return product;
         } catch (error) {
             this.handleError(error);
         }
-    }
-
-    private resolveStaffMarketId(
-        staffMarketIds: string[],
-        marketId?: string,
-    ): string {
-        if (marketId !== undefined) {
-            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
-            return marketId;
-        }
-
-        const defaultMarketId = staffMarketIds[0];
-        if (defaultMarketId === undefined) {
-            throw new BadRequestException(
-                'market_id is required when staff has no assigned markets',
-            );
-        }
-        return defaultMarketId;
     }
 
     async update(id: string, data: UpdateProductDto) {
@@ -278,9 +255,13 @@ export class ProductService {
         }
     }
 
-    async findPendingUpdatesForStaff(query: FindProductPendingUpdatesDto) {
+    async findPendingUpdatesForStaff(
+        query: FindProductPendingUpdatesDto,
+        actor: ScopedAccessActor,
+    ) {
         try {
             this.logger.log('Fetching product pending updates for staff');
+            assertActorHasMarketOrGlobalScope(actor);
             if (
                 query.from_date !== undefined &&
                 query.to_date !== undefined &&
@@ -299,9 +280,10 @@ export class ProductService {
         }
     }
 
-    async findPendingUpdateById(id: string) {
+    async findPendingUpdateById(id: string, actor: ScopedAccessActor) {
         try {
             this.logger.log(`Fetching product pending update ${id}`);
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdate =
                 await this.productRepository.findPendingUpdateById(id);
             if (!pendingUpdate) {
@@ -314,9 +296,14 @@ export class ProductService {
         }
     }
 
-    async updatePendingUpdate(id: string, data: UpdateProductDto) {
+    async updatePendingUpdate(
+        id: string,
+        data: UpdateProductDto,
+        actor: ScopedAccessActor,
+    ) {
         try {
             this.logger.log(`Updating product pending update ${id}`);
+            assertActorHasMarketOrGlobalScope(actor);
 
             if (
                 data.name === undefined &&
@@ -358,9 +345,11 @@ export class ProductService {
     async updatePendingUpdateImages(
         id: string,
         data: UpdateProductImagesDto,
+        actor: ScopedAccessActor,
     ) {
         try {
             this.logger.log(`Updating images on product pending update ${id}`);
+            assertActorHasMarketOrGlobalScope(actor);
 
             const desired = await this.resolveProductImages(data.images);
             const desiredUrls = new Set(desired.map((image) => image.image_url));
@@ -408,11 +397,15 @@ export class ProductService {
         }
     }
 
-    async approvePendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+    async approvePendingUpdates(
+        pendingUpdateIds: string[],
+        actor: ScopedAccessActor,
+    ): Promise<void> {
         try {
             this.logger.log(
                 `Approving ${pendingUpdateIds.length} product pending update(s)`,
             );
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdates =
                 await this.productRepository.findPendingUpdatesByIds(
                     pendingUpdateIds,
@@ -448,11 +441,15 @@ export class ProductService {
         }
     }
 
-    async rejectPendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+    async rejectPendingUpdates(
+        pendingUpdateIds: string[],
+        actor: ScopedAccessActor,
+    ): Promise<void> {
         try {
             this.logger.log(
                 `Rejecting ${pendingUpdateIds.length} product pending update(s)`,
             );
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdates =
                 await this.productRepository.findPendingUpdatesByIds(
                     pendingUpdateIds,
@@ -587,7 +584,11 @@ export class ProductService {
         return decodeURIComponent(publicUrl.slice(prefix.length));
     }
 
-    async approve(id: string): Promise<Product> {
+    async approve(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Product> {
+        assertActorHasMarketOrGlobalScope(actor);
         return this.transitionStatus(
             id,
             ProductStatus.ACTIVE,
@@ -598,7 +599,11 @@ export class ProductService {
         );
     }
 
-    async reject(id: string): Promise<Product> {
+    async reject(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Product> {
+        assertActorHasMarketOrGlobalScope(actor);
         return this.transitionStatus(
             id,
             ProductStatus.REJECTED,
@@ -685,10 +690,11 @@ export class ProductService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

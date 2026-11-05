@@ -19,6 +19,7 @@ import {
     StaffPermission,
     type StaffJwtPayload,
 } from '@app/common';
+import { toScopedAccessActor } from '../shared/access-control.js';
 import { AddPromotionMarketDto } from './dto/add-promotion-market.dto.js';
 import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { CreatePromotionDto } from './dto/create-promotion.dto.js';
@@ -39,8 +40,14 @@ export class PromotionsController {
     @Post()
     @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion created successfully')
-    create(@Body() data: CreatePromotionDto) {
-        return this.promotionsService.create(data);
+    create(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreatePromotionDto,
+    ) {
+        return this.promotionsService.create(
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get()
@@ -66,25 +73,38 @@ export class PromotionsController {
     @Get('discounts')
     @RequirePermission(StaffPermission.PromotionsRead)
     @ResponseMessage('Discounts retrieved successfully')
-    findAllDiscounts() {
-        return this.promotionsService.findAllDiscounts();
+    findAllDiscounts(@CurrentStaff() staff: StaffJwtPayload) {
+        return this.promotionsService.findAllDiscounts(
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post('discounts')
     @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Discount created successfully')
-    createDiscount(@Body() data: CreateDiscountDto) {
-        return this.promotionsService.createDiscount(data);
+    createDiscount(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Body() data: CreateDiscountDto,
+    ) {
+        return this.promotionsService.createDiscount(
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch('discounts/:id')
     @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Discount updated successfully')
     updateDiscount(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdateDiscountDto,
     ) {
-        return this.promotionsService.updateDiscount(id, data);
+        return this.promotionsService.updateDiscount(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/markets')
@@ -186,6 +206,7 @@ export class PromotionsController {
     @RequirePermission(StaffPermission.PromotionsRead)
     @ResponseMessage('Promotion market targets retrieved successfully')
     findMarketTargets(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Param('promotionMarketId', ParseUUIDPipe) promotionMarketId: string,
         @Query() query: FindPromotionMarketTargetsDto,
@@ -194,6 +215,7 @@ export class PromotionsController {
             id,
             promotionMarketId,
             query,
+            toScopedAccessActor(staff),
         );
     }
 
@@ -201,32 +223,52 @@ export class PromotionsController {
     @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion activated successfully')
-    activate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.promotionsService.activate(id);
+    activate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.promotionsService.activate(
+            id,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Post(':id/deactivate')
     @RequirePermission(StaffPermission.PromotionsReview)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Promotion deactivated successfully')
-    deactivate(@Param('id', ParseUUIDPipe) id: string) {
-        return this.promotionsService.deactivate(id);
+    deactivate(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.promotionsService.deactivate(
+            id,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Patch(':id')
     @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Promotion updated successfully')
     update(
+        @CurrentStaff() staff: StaffJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
         @Body() data: UpdatePromotionDto,
     ) {
-        return this.promotionsService.update(id, data);
+        return this.promotionsService.update(
+            id,
+            data,
+            toScopedAccessActor(staff),
+        );
     }
 
     @Get(':id')
     @RequirePermission(StaffPermission.PromotionsRead)
     @ResponseMessage('Promotion retrieved successfully')
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.promotionsService.findOne(id);
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.promotionsService.findOne(id, toScopedAccessActor(staff));
     }
 }

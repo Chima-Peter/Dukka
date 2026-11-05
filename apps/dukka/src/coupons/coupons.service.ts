@@ -21,6 +21,8 @@ import type { UpdateCouponDto } from './dto/update-coupon.dto.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasGlobalScope,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import { CouponsRepository } from './coupons.repository.js';
 import type { CouponPage, CouponUsagePage } from './types/coupon.type.js';
@@ -31,9 +33,13 @@ export class CouponsService {
 
     constructor(private readonly couponsRepository: CouponsRepository) {}
 
-    async create(data: CreateCouponDto): Promise<Coupon> {
+    async create(
+        data: CreateCouponDto,
+        actor: ScopedAccessActor,
+    ): Promise<Coupon> {
         try {
             this.logger.log(`Creating coupon ${data.code}`);
+            assertActorHasGlobalScope(actor);
             this.validateCouponValues(data.type, data.value);
             this.validateExpiresAt(data.expires_at);
 
@@ -45,9 +51,13 @@ export class CouponsService {
         }
     }
 
-    async findAll(query: FindCouponsDto): Promise<CouponPage> {
+    async findAll(
+        query: FindCouponsDto,
+        actor: ScopedAccessActor,
+    ): Promise<CouponPage> {
         try {
             this.logger.log('Fetching coupons');
+            assertActorHasGlobalScope(actor);
             const coupons = await this.couponsRepository.findAll(query);
             this.logger.log('Fetched coupons');
             return coupons;
@@ -84,9 +94,14 @@ export class CouponsService {
         }
     }
 
-    async update(id: string, data: UpdateCouponDto): Promise<Coupon> {
+    async update(
+        id: string,
+        data: UpdateCouponDto,
+        actor: ScopedAccessActor,
+    ): Promise<Coupon> {
         try {
             this.logger.log(`Updating coupon ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing = await this.couponsRepository.findById(id);
             if (!existing) {
                 throw new NotFoundException('Coupon not found');
@@ -111,9 +126,13 @@ export class CouponsService {
         }
     }
 
-    async activate(id: string): Promise<Coupon> {
+    async activate(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Coupon> {
         try {
             this.logger.log(`Activating coupon ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing = await this.couponsRepository.findStatus(id);
             if (!existing) {
                 throw new NotFoundException('Coupon not found');
@@ -138,9 +157,13 @@ export class CouponsService {
         }
     }
 
-    async deactivate(id: string): Promise<Coupon> {
+    async deactivate(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Coupon> {
         try {
             this.logger.log(`Deactivating coupon ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing = await this.couponsRepository.findStatus(id);
             if (!existing) {
                 throw new NotFoundException('Coupon not found');
@@ -198,10 +221,11 @@ export class CouponsService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

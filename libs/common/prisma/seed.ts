@@ -204,6 +204,7 @@ const DEFAULT_ROLES = [
             'service_states:assign',
             'inventory:manage',
             'market_variants:read',
+            'staff:read',
         ],
     },
     {

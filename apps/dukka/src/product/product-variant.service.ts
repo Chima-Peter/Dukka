@@ -21,6 +21,8 @@ import { MarketsService } from '../markets/markets.service.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasMarketOrGlobalScope,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
 import {
@@ -151,9 +153,13 @@ export class ProductVariantService {
         }
     }
 
-    async findPendingUpdatesForStaff(query: FindVariantPendingUpdatesDto) {
+    async findPendingUpdatesForStaff(
+        query: FindVariantPendingUpdatesDto,
+        actor: ScopedAccessActor,
+    ) {
         try {
             this.logger.log('Fetching variant pending updates for staff');
+            assertActorHasMarketOrGlobalScope(actor);
             if (
                 query.from_date !== undefined &&
                 query.to_date !== undefined &&
@@ -174,9 +180,10 @@ export class ProductVariantService {
         }
     }
 
-    async findPendingUpdateById(id: string) {
+    async findPendingUpdateById(id: string, actor: ScopedAccessActor) {
         try {
             this.logger.log(`Fetching variant pending update ${id}`);
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdate =
                 await this.productVariantRepository.findPendingUpdateById(id);
             if (!pendingUpdate) {
@@ -189,9 +196,14 @@ export class ProductVariantService {
         }
     }
 
-    async updatePendingUpdate(id: string, data: UpdateVariantDto) {
+    async updatePendingUpdate(
+        id: string,
+        data: UpdateVariantDto,
+        actor: ScopedAccessActor,
+    ) {
         try {
             this.logger.log(`Updating variant pending update ${id}`);
+            assertActorHasMarketOrGlobalScope(actor);
 
             const { image_path, ...fields } = data;
             if (
@@ -429,13 +441,9 @@ export class ProductVariantService {
         }
     }
 
-    async findMarketVariants(
-        query: FindMarketVariantsDto,
-        staffMarketIds: string[],
-    ) {
+    async findMarketVariants(query: FindMarketVariantsDto) {
         try {
             this.logger.log('Fetching market variants');
-            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
             const page = await this.productVariantRepository.findMarketVariants(
                 query,
                 [query.market_id],
@@ -478,7 +486,9 @@ export class ProductVariantService {
     async approveVariants(
         productId: string,
         variantIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<void> {
+        assertActorHasMarketOrGlobalScope(actor);
         return this.transitionVariantsStatus(
             productId,
             variantIds,
@@ -497,7 +507,9 @@ export class ProductVariantService {
     async rejectVariants(
         productId: string,
         variantIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<void> {
+        assertActorHasMarketOrGlobalScope(actor);
         return this.transitionVariantsStatus(
             productId,
             variantIds,
@@ -509,11 +521,15 @@ export class ProductVariantService {
         );
     }
 
-    async approvePendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+    async approvePendingUpdates(
+        pendingUpdateIds: string[],
+        actor: ScopedAccessActor,
+    ): Promise<void> {
         try {
             this.logger.log(
                 `Approving ${pendingUpdateIds.length} pending update(s)`,
             );
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdates =
                 await this.productVariantRepository.findPendingUpdatesByIds(
                     pendingUpdateIds,
@@ -550,11 +566,15 @@ export class ProductVariantService {
         }
     }
 
-    async rejectPendingUpdates(pendingUpdateIds: string[]): Promise<void> {
+    async rejectPendingUpdates(
+        pendingUpdateIds: string[],
+        actor: ScopedAccessActor,
+    ): Promise<void> {
         try {
             this.logger.log(
                 `Rejecting ${pendingUpdateIds.length} pending update(s)`,
             );
+            assertActorHasMarketOrGlobalScope(actor);
             const pendingUpdates =
                 await this.productVariantRepository.findPendingUpdatesByIds(
                     pendingUpdateIds,
@@ -678,10 +698,11 @@ export class ProductVariantService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

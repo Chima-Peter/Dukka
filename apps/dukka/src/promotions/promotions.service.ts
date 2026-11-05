@@ -29,6 +29,9 @@ import type { UpdatePromotionMarketDto } from './dto/update-promotion-market.dto
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasGlobalScope,
+    assertActorHasScopedAccess,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
@@ -53,9 +56,13 @@ export class PromotionsService {
         private readonly promotionsRepository: PromotionsRepository,
     ) {}
 
-    async create(data: CreatePromotionDto): Promise<PromotionWithDiscount> {
+    async create(
+        data: CreatePromotionDto,
+        actor: ScopedAccessActor,
+    ): Promise<PromotionWithDiscount> {
         try {
             this.logger.log(`Creating promotion ${data.code}`);
+            assertActorHasGlobalScope(actor);
             const promotion = await this.promotionsRepository.create(data);
             this.logger.log(`Promotion created ${promotion.id}`);
             return promotion;
@@ -64,9 +71,13 @@ export class PromotionsService {
         }
     }
 
-    async createDiscount(data: CreateDiscountDto): Promise<Discount> {
+    async createDiscount(
+        data: CreateDiscountDto,
+        actor: ScopedAccessActor,
+    ): Promise<Discount> {
         try {
             this.logger.log('Creating discount');
+            assertActorHasGlobalScope(actor);
             this.validateDiscountValues(data.type, data.value);
 
             const discount =
@@ -129,9 +140,12 @@ export class PromotionsService {
         }
     }
 
-    async findAllDiscounts(): Promise<DiscountSummary[]> {
+    async findAllDiscounts(
+        actor: ScopedAccessActor,
+    ): Promise<DiscountSummary[]> {
         try {
             this.logger.log('Fetching discounts');
+            assertActorHasGlobalScope(actor);
             const discounts =
                 await this.promotionsRepository.findAllDiscounts();
             this.logger.log('Fetched discounts');
@@ -171,9 +185,13 @@ export class PromotionsService {
         }
     }
 
-    async findOne(id: string): Promise<PromotionDetail> {
+    async findOne(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<PromotionDetail> {
         try {
             this.logger.log(`Fetching promotion ${id}`);
+            assertActorHasGlobalScope(actor);
             const promotion = await this.promotionsRepository.findById(id);
             if (!promotion) {
                 throw new NotFoundException('Promotion not found');
@@ -188,9 +206,11 @@ export class PromotionsService {
     async update(
         id: string,
         data: UpdatePromotionDto,
+        actor: ScopedAccessActor,
     ): Promise<Promotion> {
         try {
             this.logger.log(`Updating promotion ${id}`);
+            assertActorHasGlobalScope(actor);
             const promotion = await this.promotionsRepository.update(id, data);
             this.logger.log(`Promotion updated ${id}`);
             return promotion;
@@ -202,9 +222,11 @@ export class PromotionsService {
     async updateDiscount(
         id: string,
         data: UpdateDiscountDto,
+        actor: ScopedAccessActor,
     ): Promise<Discount> {
         try {
             this.logger.log(`Updating discount ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing =
                 await this.promotionsRepository.findDiscountById(id);
             if (!existing) {
@@ -366,9 +388,13 @@ export class PromotionsService {
         }
     }
 
-    async activate(id: string): Promise<Promotion> {
+    async activate(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Promotion> {
         try {
             this.logger.log(`Activating promotion ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing =
                 await this.promotionsRepository.findPromotionStatus(id);
             if (!existing) {
@@ -394,9 +420,13 @@ export class PromotionsService {
         }
     }
 
-    async deactivate(id: string): Promise<Promotion> {
+    async deactivate(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<Promotion> {
         try {
             this.logger.log(`Deactivating promotion ${id}`);
+            assertActorHasGlobalScope(actor);
             const existing =
                 await this.promotionsRepository.findPromotionStatus(id);
             if (!existing) {
@@ -515,6 +545,7 @@ export class PromotionsService {
         promotionId: string,
         promotionMarketId: string,
         query: FindPromotionMarketTargetsDto,
+        actor: ScopedAccessActor,
     ): Promise<PromotionTargetPage> {
         try {
             this.logger.log(
@@ -528,6 +559,9 @@ export class PromotionsService {
             if (!promotionMarket) {
                 throw new NotFoundException('Promotion market not found');
             }
+            assertActorHasScopedAccess(actor, {
+                market_id: promotionMarket.market_id,
+            });
             const targets = await this.promotionsRepository.findMarketTargets(
                 promotionMarket.id,
                 query,
@@ -633,10 +667,11 @@ export class PromotionsService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

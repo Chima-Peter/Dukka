@@ -18,6 +18,8 @@ import { MarketsService } from '../markets/markets.service.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
@@ -103,11 +105,17 @@ export class ServiceStateService {
         }
     }
 
-    async findAllForStaff(query: FindStaffServiceStatesDto) {
+    async findAllForStaff(
+        query: FindStaffServiceStatesDto,
+        actor: ScopedAccessActor,
+    ) {
         try {
             this.logger.log(
                 `Fetching staff service states for market ${query.market_id}`,
             );
+            assertActorHasScopedAccess(actor, {
+                market_id: query.market_id,
+            });
             const page =
                 await this.serviceStateRepository.findAllForStaff(query);
             this.logger.log(
@@ -259,7 +267,7 @@ export class ServiceStateService {
     async assignWarehouse(
         id: string,
         data: AssignWarehouseServiceStateDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<WarehouseServiceStateItem> {
         try {
             this.logger.log(
@@ -273,7 +281,10 @@ export class ServiceStateService {
                 );
             }
             const marketId = serviceState.market_id;
-            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
+            assertActorHasScopedAccess(actor, {
+                market_id: marketId,
+                warehouse_id: data.warehouse_id,
+            });
 
             const warehouse = await this.warehouseService.findOne(
                 data.warehouse_id,
@@ -305,7 +316,7 @@ export class ServiceStateService {
     async unassignWarehouse(
         id: string,
         warehouseId: string,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<WarehouseServiceStateItem> {
         try {
             this.logger.log(
@@ -314,7 +325,10 @@ export class ServiceStateService {
             const serviceState =
                 await this.serviceStateRepository.findByIdOrThrow(id);
             const marketId = serviceState.market_id;
-            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
+            assertActorHasScopedAccess(actor, {
+                market_id: marketId,
+                warehouse_id: warehouseId,
+            });
             const link = await this.serviceStateRepository.unassignWarehouse(
                 id,
                 warehouseId,
@@ -344,10 +358,11 @@ export class ServiceStateService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 

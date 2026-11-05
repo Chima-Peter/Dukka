@@ -21,6 +21,8 @@ import { MarketsService } from '../markets/markets.service.js';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorBelongsToMarkets,
+    assertActorHasScopedAccess,
+    type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
@@ -423,13 +425,18 @@ export class PaymentsService {
 
     async findAttempts(
         query: FindPaymentAttemptsDto,
-        staffMarketIds: string[],
+        actor: ScopedAccessActor,
     ): Promise<PaymentAttemptPage> {
         try {
             this.logger.log(
                 `Fetching payment attempts for market ${query.market_id}`,
             );
-            assertActorBelongsToMarkets(staffMarketIds, [query.market_id]);
+            assertActorHasScopedAccess(actor, {
+                market_id: query.market_id,
+                ...(query.warehouse_id !== undefined && {
+                    warehouse_id: query.warehouse_id,
+                }),
+            });
             this.assertPriceRange(query.min_price, query.max_price);
 
             const page = await this.paymentsRepository.findAttempts(query);
@@ -526,10 +533,11 @@ export class PaymentsService {
 
         if (
             error instanceof Error &&
-            error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS
+            (error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_MARKET_ACCESS ||
+                error.message === ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS)
         ) {
             throw new ForbiddenException(
-                'Cannot operate on markets outside your assigned markets',
+                'Cannot operate outside your assigned scope',
             );
         }
 
