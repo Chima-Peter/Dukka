@@ -20,6 +20,7 @@ export const GENERAL_JOBS = {
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
     STAFF_DEACTIVATED: 'staff-deactivated',
+    MARKET_DELETED: 'market-deleted',
     EXPIRE_PROMOTION_MARKET: 'expire-promotion-market',
     EXPIRE_COUPON: 'expire-coupon',
     EXPIRE_STAFF_INVITATION: 'expire-staff-invitation',

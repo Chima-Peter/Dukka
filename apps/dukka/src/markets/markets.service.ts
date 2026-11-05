@@ -9,7 +9,12 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
+import {
+    GENERAL_JOBS,
+    GeneralQueueService,
+    MAIL_TEMPLATES,
+    MailQueueService,
+} from '@app/queues';
 import {
     MarketStatus,
     NotificationPublisher,
@@ -37,6 +42,7 @@ export class MarketsService {
     constructor(
         private readonly marketsRepository: MarketsRepository,
         private readonly mailQueueService: MailQueueService,
+        private readonly generalQueueService: GeneralQueueService,
         private readonly notificationPublisher: NotificationPublisher,
         private readonly restCountriesIpService: RestCountriesIpService,
     ) {}
@@ -248,11 +254,14 @@ export class MarketsService {
         }
     }
 
-    async delete(id: string): Promise<object> {
+    async delete(id: string, performed_by_staff_id: string): Promise<object> {
         try {
-            this.logger.log(`Deleting market ${id}`);
-            const existing = await this.requireMarket(id);
-            if (existing.status !== MarketStatus.CLOSED) {
+            this.logger.log(`Queueing market deletion ${id}`);
+            const market = await this.marketsRepository.findById(id);
+            if (!market) {
+                throw new NotFoundException('Market not found');
+            }
+            if (market.status !== MarketStatus.CLOSED) {
                 throw new BadRequestException(
                     'Close the market before deleting it',
                 );
@@ -271,35 +280,15 @@ export class MarketsService {
                     'Market cannot be deleted while it still has warehouses',
                 );
             }
-            const contacts =
-                await this.marketsRepository.findStaffContactsByMarketId(id);
-            const market = await this.marketsRepository.delete(id);
-            this.logger.log(`Market deleted ${id}`);
 
-            await this.mailQueueService.enqueueSendMany(
-                contacts.map((contact) => ({
-                    to: contact.email,
-                    subject: 'A market you access was deleted',
-                    template: MAIL_TEMPLATES.MARKET_DELETED,
-                    context: {
-                        name: contact.name,
-                        email: contact.email,
-                        marketId: market.id,
-                        marketName: market.name,
-                        marketCode: market.code,
-                    },
-                })),
-            );
+            await this.generalQueueService.enqueue(GENERAL_JOBS.MARKET_DELETED, {
+                market_id: market.id,
+                name: market.name,
+                code: market.code,
+                performed_by_staff_id,
+            });
 
-            await Promise.all(
-                contacts.map((contact) =>
-                    this.notificationPublisher.notifyStaff(contact.id, {
-                        title: 'Market deleted',
-                        type: NotificationType.MARKET,
-                        text: `${market.name} (${market.code}) was deleted.`,
-                    }),
-                ),
-            );
+            this.logger.log(`Market deletion queued ${id}`);
 
             return { data: null };
         } catch (error) {

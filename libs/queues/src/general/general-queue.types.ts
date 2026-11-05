@@ -39,6 +39,13 @@ export type StaffDeactivatedJobPayload = {
     role_name: string | null;
 };
 
+export type MarketDeletedJobPayload = {
+    market_id: string;
+    name: string;
+    code: string;
+    performed_by_staff_id: string;
+};
+
 export type ExpirePromotionMarketJobPayload = {
     promotion_market_ids: string[];
 };

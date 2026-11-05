@@ -102,8 +102,11 @@ export class MarketsController {
     @Delete(':id')
     @RequirePermission(StaffPermission.MarketsProvision)
     @HttpCode(HttpStatus.OK)
-    @ResponseMessage('Market deleted successfully')
-    delete(@Param('id', ParseUUIDPipe) id: string) {
-        return this.marketsService.delete(id);
+    @ResponseMessage('Market deletion is in process')
+    delete(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentStaff() staff: StaffJwtPayload,
+    ) {
+        return this.marketsService.delete(id, staff.sub);
     }
 }

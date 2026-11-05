@@ -9,6 +9,7 @@ export type {
     InventoryStockReminderJobPayload,
     InventoryStockReminderKind,
     CustomerRegisteredJobPayload,
+    MarketDeletedJobPayload,
     OrderProcessingJobPayload,
     ReviewReminderJobPayload,
     StaffDeactivatedJobPayload,
