@@ -38,6 +38,7 @@ export class ProductVariantController {
     ) {}
 
     @Get('market-variants')
+    @RequirePermission(StaffPermission.MarketVariantsRead)
     @ResponseMessage('Market variants retrieved successfully')
     findMarketVariants(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -50,6 +51,7 @@ export class ProductVariantController {
     }
 
     @Get('variant-pending-updates')
+    @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Variant pending updates retrieved successfully')
     findPendingUpdates(@Query() query: FindVariantPendingUpdatesDto) {
         return this.productVariantService.findPendingUpdatesForStaff(query);
@@ -72,6 +74,7 @@ export class ProductVariantController {
     }
 
     @Get('variant-pending-updates/:id')
+    @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Variant pending update retrieved successfully')
     findPendingUpdate(@Param('id', ParseUUIDPipe) id: string) {
         return this.productVariantService.findPendingUpdateById(id);

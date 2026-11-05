@@ -40,6 +40,7 @@ export type {
 } from './interfaces/index.js';
 export { TransformResponseInterceptor } from './interceptors/index.js';
 export {
+    GLOBAL_SCOPE_ELEVATION_PERMISSIONS,
     MARKET_SCOPE_ELEVATION_PERMISSIONS,
     STAFF_ACCOUNT_PERMISSIONS,
     StaffPermission,

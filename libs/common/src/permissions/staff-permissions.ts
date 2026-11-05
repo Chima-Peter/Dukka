@@ -4,7 +4,19 @@ export type StaffPermissionScopeType =
     | 'WAREHOUSE'
     | 'DISTRIBUTION_POINT';
 
+/**
+ * Permission catalog. Same name may exist at multiple scopes so each role
+ * scope_type can be assigned a matching row. Endpoint checks match by name;
+ * higher scopes only pass lower-layer endpoints via explicit elevation grants.
+ */
 export const STAFF_ACCOUNT_PERMISSIONS = [
+    // --- Elevation markers ---
+    {
+        name: 'platform_admin',
+        description:
+            'Platform administrator; may access market, warehouse, and distribution-point endpoints without holding each lower-scope permission',
+        scope_type: 'GLOBAL',
+    },
     {
         name: 'market_admin',
         description:
@@ -17,6 +29,14 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
             'Technical support; may access warehouse and distribution-point endpoints within assigned markets',
         scope_type: 'MARKET',
     },
+
+    // --- Staff ---
+    {
+        name: 'staff:manage',
+        description:
+            'Invite and deactivate staff; assign or revoke roles and scopes',
+        scope_type: 'GLOBAL',
+    },
     {
         name: 'staff:manage',
         description:
@@ -26,7 +46,18 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'staff:read',
         description: 'View staff members and invitations',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'staff:read',
+        description: 'View staff members and invitations',
         scope_type: 'MARKET',
+    },
+    {
+        name: 'staff:technical_support',
+        description:
+            "Manage another staff member's profile, avatar, and qualifications",
+        scope_type: 'GLOBAL',
     },
     {
         name: 'staff:technical_support',
@@ -44,6 +75,8 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'View staff audit logs',
         scope_type: 'MARKET',
     },
+
+    // --- Roles & permissions ---
     {
         name: 'roles:manage',
         description:
@@ -66,6 +99,18 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'View roles',
         scope_type: 'MARKET',
     },
+    {
+        name: 'permissions:read',
+        description: 'View permissions',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'permissions:read',
+        description: 'View permissions',
+        scope_type: 'MARKET',
+    },
+
+    // --- Markets & currencies ---
     {
         name: 'markets:provision',
         description: 'Create and delete markets',
@@ -74,7 +119,17 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'markets:manage',
         description: 'Update, open, and close markets',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'markets:manage',
+        description: 'Update, open, and close markets',
         scope_type: 'MARKET',
+    },
+    {
+        name: 'markets:read',
+        description: 'View markets',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'markets:read',
@@ -86,6 +141,14 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'Create, update, and delete currencies',
         scope_type: 'GLOBAL',
     },
+
+    // --- Catalog ---
+    {
+        name: 'categories:manage',
+        description:
+            'Create, update, and delete product categories and market links',
+        scope_type: 'GLOBAL',
+    },
     {
         name: 'categories:manage',
         description:
@@ -95,7 +158,24 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'products:manage',
         description:
-            'Create, update, and archive products and variants (catalog)',
+            'Perform catalog actions: create, update, archive, and propose pending product/variant changes',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'products:review',
+        description:
+            'Review catalog actions: approve or reject products, variants, and pending updates',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'products:review',
+        description:
+            'Review catalog actions: approve or reject products, variants, and pending updates',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'market_variants:manage',
+        description: 'Assign, update, and remove market variants',
         scope_type: 'GLOBAL',
     },
     {
@@ -104,18 +184,40 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         scope_type: 'MARKET',
     },
     {
-        name: 'products:review',
-        description: 'Approve or reject products and variants',
+        name: 'market_variants:read',
+        description: 'View market variants',
         scope_type: 'GLOBAL',
     },
     {
-        name: 'products:review',
-        description: 'Approve or reject products and variants',
+        name: 'market_variants:read',
+        description: 'View market variants',
         scope_type: 'MARKET',
+    },
+    {
+        name: 'market_variants:read',
+        description: 'View market variants',
+        scope_type: 'WAREHOUSE',
+    },
+
+    // --- Warehouses, service states, inventory ---
+    {
+        name: 'warehouses:create',
+        description: 'Create warehouses',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'warehouses:create',
         description: 'Create warehouses',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'warehouses:manage',
+        description: 'Update, open, and close warehouses',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'warehouses:manage',
+        description: 'Update, open, and close warehouses',
         scope_type: 'MARKET',
     },
     {
@@ -126,6 +228,21 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'service_states:manage',
         description: 'Create, open, close, and delete service states',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'service_states:manage',
+        description: 'Create, open, close, and delete service states',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'service_states:assign',
+        description: 'Update service states and assign them to warehouses',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'service_states:assign',
+        description: 'Update service states and assign them to warehouses',
         scope_type: 'MARKET',
     },
     {
@@ -136,11 +253,28 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     {
         name: 'inventory:manage',
         description: 'Create and manage variant inventory',
-        scope_type: 'WAREHOUSE',
+        scope_type: 'GLOBAL',
     },
     {
+        name: 'inventory:manage',
+        description: 'Create and manage variant inventory',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'inventory:manage',
+        description: 'Create and manage variant inventory',
+        scope_type: 'WAREHOUSE',
+    },
+
+    // --- Payments ---
+    {
         name: 'payments:manage',
-        description: 'Create payment methods',
+        description: 'Perform payment-method setup: create payment methods',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'market_payments:manage',
+        description: 'Remove payment methods from markets',
         scope_type: 'GLOBAL',
     },
     {
@@ -150,28 +284,44 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     },
     {
         name: 'payments:review',
-        description: 'Approve payment methods for markets',
+        description:
+            'Review payment-method actions: approve payment methods for markets',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'payments:review',
+        description:
+            'Review payment-method actions: approve payment methods for markets',
         scope_type: 'MARKET',
+    },
+    {
+        name: 'payments:read',
+        description: 'View payment methods and payment attempts',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'payments:read',
         description: 'View payment methods and payment attempts',
         scope_type: 'MARKET',
     },
+
+    // --- Promotions ---
     {
-        name: 'permissions:read',
-        description: 'View permissions',
+        name: 'promotions:manage',
+        description:
+            'Perform promotion actions: create and update promotions and market rules',
         scope_type: 'GLOBAL',
     },
     {
-        name: 'permissions:read',
-        description: 'View permissions',
+        name: 'promotions:manage',
+        description:
+            'Perform promotion actions: create and update promotions and market rules',
         scope_type: 'MARKET',
     },
     {
-        name: 'promotions:manage',
-        description: 'Create and update promotions and promotion market rules',
-        scope_type: 'MARKET',
+        name: 'promotions:read',
+        description: 'View promotions',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'promotions:read',
@@ -180,13 +330,32 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     },
     {
         name: 'promotions:review',
-        description: 'Activate or deactivate promotions and promotion markets',
+        description:
+            'Review promotion actions: activate or deactivate promotions and markets',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'promotions:review',
+        description:
+            'Review promotion actions: activate or deactivate promotions and markets',
         scope_type: 'MARKET',
+    },
+
+    // --- Coupons ---
+    {
+        name: 'coupons:manage',
+        description: 'Perform coupon actions: create and update coupons',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'coupons:manage',
-        description: 'Create and update coupons',
+        description: 'Perform coupon actions: create and update coupons',
         scope_type: 'MARKET',
+    },
+    {
+        name: 'coupons:read',
+        description: 'View coupons',
+        scope_type: 'GLOBAL',
     },
     {
         name: 'coupons:read',
@@ -195,7 +364,12 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
     },
     {
         name: 'coupons:review',
-        description: 'Activate or deactivate coupons',
+        description: 'Review coupon actions: activate or deactivate coupons',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'coupons:review',
+        description: 'Review coupon actions: activate or deactivate coupons',
         scope_type: 'MARKET',
     },
 ] as const;
@@ -204,6 +378,7 @@ export type StaffAccountPermissionName =
     (typeof STAFF_ACCOUNT_PERMISSIONS)[number]['name'];
 
 export const StaffPermission = {
+    PlatformAdmin: 'platform_admin',
     MarketAdmin: 'market_admin',
     TechnicalSupport: 'technical_support',
     StaffManage: 'staff:manage',
@@ -219,6 +394,7 @@ export const StaffPermission = {
     CategoriesManage: 'categories:manage',
     ProductsManage: 'products:manage',
     MarketVariantsManage: 'market_variants:manage',
+    MarketVariantsRead: 'market_variants:read',
     ProductsReview: 'products:review',
     WarehousesCreate: 'warehouses:create',
     WarehousesManage: 'warehouses:manage',
@@ -238,7 +414,12 @@ export const StaffPermission = {
     CouponsReview: 'coupons:review',
 } as const satisfies Record<string, StaffAccountPermissionName>;
 
-/** MARKET staff may satisfy lower-scope endpoint permissions with either of these. */
+/** GLOBAL staff may satisfy WAREHOUSE / DP endpoint permissions with this. */
+export const GLOBAL_SCOPE_ELEVATION_PERMISSIONS = [
+    StaffPermission.PlatformAdmin,
+] as const;
+
+/** MARKET staff may satisfy WAREHOUSE / DP endpoint permissions with either of these. */
 export const MARKET_SCOPE_ELEVATION_PERMISSIONS = [
     StaffPermission.MarketAdmin,
     StaffPermission.TechnicalSupport,
@@ -256,18 +437,19 @@ const PERMISSION_LAYERS_BY_NAME = STAFF_ACCOUNT_PERMISSIONS.reduce(
     new Map<string, StaffPermissionScopeType[]>(),
 );
 
-function marketStaffHasElevation(permissions: ReadonlySet<string>): boolean {
-    return MARKET_SCOPE_ELEVATION_PERMISSIONS.some((permission) =>
-        permissions.has(permission),
-    );
+function hasAnyPermission(
+    granted: ReadonlySet<string>,
+    permissions: readonly string[],
+): boolean {
+    return permissions.some((permission) => granted.has(permission));
 }
 
 /**
- * Exact match at the same layer, plus higher scopes for lower-layer permissions:
- * - GLOBAL permission → GLOBAL only (exact)
- * - MARKET permission → GLOBAL, or MARKET with exact permission
- * - WAREHOUSE / DISTRIBUTION_POINT → GLOBAL; MARKET with market_admin|technical_support;
- *   same-layer with exact permission
+ * Access requires the exact permission name, or an explicit elevation grant:
+ * - exact match → allow (role already constrained to assignable scope rows)
+ * - GLOBAL + platform_admin → may satisfy WAREHOUSE / DP-layer permissions only
+ * - MARKET + market_admin|technical_support → may satisfy WAREHOUSE / DP-layer permissions
+ * MARKET-layer and review endpoints always need the exact permission (no silent bypass).
  */
 export function staffHasRequiredPermission(
     requiredPermission: string,
@@ -277,44 +459,41 @@ export function staffHasRequiredPermission(
     },
 ): boolean {
     const granted = new Set(staff.permissions);
-    const layers = PERMISSION_LAYERS_BY_NAME.get(requiredPermission);
-
-    if (layers === undefined || layers.length === 0) {
-        return granted.has(requiredPermission);
-    }
-
     const scope = staff.scope_type;
     if (scope == null) {
         return false;
     }
 
-    const hasExact = granted.has(requiredPermission);
+    if (granted.has(requiredPermission)) {
+        return true;
+    }
 
-    return layers.some((layer) => {
-        switch (layer) {
-            case 'GLOBAL':
-                return scope === 'GLOBAL' && hasExact;
-            case 'MARKET':
-                if (scope === 'GLOBAL') {
-                    return true;
-                }
-                return scope === 'MARKET' && hasExact;
-            case 'WAREHOUSE':
-                if (scope === 'GLOBAL') {
-                    return true;
-                }
-                if (scope === 'MARKET') {
-                    return marketStaffHasElevation(granted);
-                }
-                return scope === 'WAREHOUSE' && hasExact;
-            case 'DISTRIBUTION_POINT':
-                if (scope === 'GLOBAL') {
-                    return true;
-                }
-                if (scope === 'MARKET') {
-                    return marketStaffHasElevation(granted);
-                }
-                return scope === 'DISTRIBUTION_POINT' && hasExact;
-        }
-    });
+    const layers = PERMISSION_LAYERS_BY_NAME.get(requiredPermission);
+    if (layers === undefined || layers.length === 0) {
+        return false;
+    }
+
+    const touchesWarehouseOrBelow = layers.some(
+        (layer) =>
+            layer === 'WAREHOUSE' || layer === 'DISTRIBUTION_POINT',
+    );
+    if (!touchesWarehouseOrBelow) {
+        return false;
+    }
+
+    if (
+        scope === 'GLOBAL' &&
+        hasAnyPermission(granted, GLOBAL_SCOPE_ELEVATION_PERMISSIONS)
+    ) {
+        return true;
+    }
+
+    if (
+        scope === 'MARKET' &&
+        hasAnyPermission(granted, MARKET_SCOPE_ELEVATION_PERMISSIONS)
+    ) {
+        return true;
+    }
+
+    return false;
 }

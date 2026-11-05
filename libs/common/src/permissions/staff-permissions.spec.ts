@@ -5,7 +5,7 @@ import {
 } from './staff-permissions.js';
 
 describe('staffHasRequiredPermission', () => {
-    it('allows GLOBAL only for GLOBAL-layer permissions with exact match', () => {
+    it('requires exact permission for GLOBAL-only permissions', () => {
         expect(
             staffHasRequiredPermission(StaffPermission.CurrenciesManage, {
                 scope_type: 'GLOBAL',
@@ -14,23 +14,35 @@ describe('staffHasRequiredPermission', () => {
         ).toBe(true);
         expect(
             staffHasRequiredPermission(StaffPermission.CurrenciesManage, {
-                scope_type: 'MARKET',
-                permissions: [StaffPermission.CurrenciesManage],
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.PlatformAdmin],
             }),
         ).toBe(false);
         expect(
             staffHasRequiredPermission(StaffPermission.CurrenciesManage, {
-                scope_type: 'GLOBAL',
-                permissions: [],
+                scope_type: 'MARKET',
+                permissions: [StaffPermission.CurrenciesManage],
             }),
-        ).toBe(false);
+        ).toBe(true);
     });
 
-    it('allows GLOBAL or exact MARKET for MARKET-layer permissions', () => {
+    it('blocks MARKET permissions without the exact grant', () => {
         expect(
             staffHasRequiredPermission(StaffPermission.MarketsManage, {
                 scope_type: 'GLOBAL',
                 permissions: [],
+            }),
+        ).toBe(false);
+        expect(
+            staffHasRequiredPermission(StaffPermission.MarketsManage, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.PlatformAdmin],
+            }),
+        ).toBe(false);
+        expect(
+            staffHasRequiredPermission(StaffPermission.MarketsManage, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.MarketsManage],
             }),
         ).toBe(true);
         expect(
@@ -45,19 +57,46 @@ describe('staffHasRequiredPermission', () => {
                 permissions: [StaffPermission.MarketAdmin],
             }),
         ).toBe(false);
-        expect(
-            staffHasRequiredPermission(StaffPermission.MarketsManage, {
-                scope_type: 'WAREHOUSE',
-                permissions: [StaffPermission.MarketsManage],
-            }),
-        ).toBe(false);
     });
 
-    it('allows GLOBAL, elevated MARKET, or exact WAREHOUSE for warehouse permissions', () => {
+    it('does not let manage or platform_admin imply review', () => {
+        expect(
+            staffHasRequiredPermission(StaffPermission.ProductsReview, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.ProductsManage],
+            }),
+        ).toBe(false);
+        expect(
+            staffHasRequiredPermission(StaffPermission.ProductsReview, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.PlatformAdmin],
+            }),
+        ).toBe(false);
+        expect(
+            staffHasRequiredPermission(StaffPermission.ProductsReview, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.ProductsReview],
+            }),
+        ).toBe(true);
+    });
+
+    it('allows warehouse permissions via exact grant or elevation only', () => {
         expect(
             staffHasRequiredPermission(StaffPermission.InventoryManage, {
                 scope_type: 'GLOBAL',
                 permissions: [],
+            }),
+        ).toBe(false);
+        expect(
+            staffHasRequiredPermission(StaffPermission.InventoryManage, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.InventoryManage],
+            }),
+        ).toBe(true);
+        expect(
+            staffHasRequiredPermission(StaffPermission.InventoryManage, {
+                scope_type: 'GLOBAL',
+                permissions: [StaffPermission.PlatformAdmin],
             }),
         ).toBe(true);
         expect(
@@ -90,12 +129,6 @@ describe('staffHasRequiredPermission', () => {
                 permissions: [],
             }),
         ).toBe(false);
-        expect(
-            staffHasRequiredPermission(StaffPermission.InventoryManage, {
-                scope_type: 'DISTRIBUTION_POINT',
-                permissions: [StaffPermission.InventoryManage],
-            }),
-        ).toBe(false);
     });
 
     it('falls back to exact match for unknown permission names', () => {
@@ -108,7 +141,7 @@ describe('staffHasRequiredPermission', () => {
         expect(
             staffHasRequiredPermission('custom:perm', {
                 scope_type: 'GLOBAL',
-                permissions: [],
+                permissions: [StaffPermission.PlatformAdmin],
             }),
         ).toBe(false);
     });

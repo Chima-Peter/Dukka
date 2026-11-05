@@ -88,6 +88,7 @@ export class ProductController {
     }
 
     @Get('product-pending-updates')
+    @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Product pending updates retrieved successfully')
     findPendingUpdates(@Query() query: FindProductPendingUpdatesDto) {
         return this.productService.findPendingUpdatesForStaff(query);
@@ -110,6 +111,7 @@ export class ProductController {
     }
 
     @Get('product-pending-updates/:id')
+    @RequirePermission(StaffPermission.ProductsReview)
     @ResponseMessage('Product pending update retrieved successfully')
     findPendingUpdate(@Param('id', ParseUUIDPipe) id: string) {
         return this.productService.findPendingUpdateById(id);
