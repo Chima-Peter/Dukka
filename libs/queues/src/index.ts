@@ -22,6 +22,7 @@ export {
     type ExpiredReservationsJobPayload,
     type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,
+    type ExpireStaffInvitationJobPayload,
     type InventoryStockReminderJobPayload,
     type InventoryStockReminderKind,
     type CustomerRegisteredJobPayload,

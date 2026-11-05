@@ -5,6 +5,7 @@ export type {
     ExpiredReservationsJobPayload,
     ExpireCouponJobPayload,
     ExpirePromotionMarketJobPayload,
+    ExpireStaffInvitationJobPayload,
     InventoryStockReminderJobPayload,
     InventoryStockReminderKind,
     CustomerRegisteredJobPayload,

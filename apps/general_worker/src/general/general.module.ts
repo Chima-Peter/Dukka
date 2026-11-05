@@ -12,6 +12,7 @@ import { CustomerAccountDeletedService } from './handlers/customer-account-delet
 import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
 import { ExpireCouponService } from './handlers/expire-coupon.service.js';
 import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
+import { ExpireStaffInvitationService } from './handlers/expire-staff-invitation.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { OrderProcessingService } from './handlers/order-processing.service.js';
@@ -37,6 +38,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
         StaffDeactivatedService,
         ExpirePromotionMarketService,
         ExpireCouponService,
+        ExpireStaffInvitationService,
         ReviewReminderService,
         GeneralProcessor,
         GeneralScheduler,

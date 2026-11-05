@@ -7,6 +7,7 @@ import {
     Prisma,
     PrismaService,
     PromotionMarketStatus,
+    StaffInvitationStatus,
 } from '@app/common';
 import {
     GENERAL_JOBS,
@@ -111,6 +112,41 @@ export class GeneralScheduler {
 
         this.logger.log(
             `Enqueued ${batches.length} expire-coupon batch job(s) for ${coupons.length} coupon(s)`,
+        );
+    }
+
+    @Cron(CronExpression.EVERY_HOUR)
+    async expireStaffInvitations(): Promise<void> {
+        this.logger.log('Scanning for staff invitations to expire');
+
+        const invitations = await this.prisma.staffInvitation.findMany({
+            where: {
+                expires_at: { lte: new Date() },
+                status: StaffInvitationStatus.PENDING,
+            },
+            take: 100,
+            orderBy: { expires_at: 'asc' },
+            select: { id: true },
+        });
+
+        if (invitations.length === 0) {
+            this.logger.log('No staff invitations to expire');
+            return;
+        }
+
+        const batches = chunkIds(
+            invitations.map((invitation) => invitation.id),
+            EXPIRY_BATCH_SIZE,
+        );
+        await this.generalQueueService.enqueueMany(
+            batches.map((invitation_ids) => ({
+                name: GENERAL_JOBS.EXPIRE_STAFF_INVITATION,
+                payload: { invitation_ids },
+            })),
+        );
+
+        this.logger.log(
+            `Enqueued ${batches.length} expire-staff-invitation batch job(s) for ${invitations.length} invitation(s)`,
         );
     }
 

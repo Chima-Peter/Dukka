@@ -11,6 +11,7 @@ import {
     type ExpiredReservationsJobPayload,
     type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,
+    type ExpireStaffInvitationJobPayload,
     type InventoryStockReminderJobPayload,
     type OrderProcessingJobPayload,
     type ReviewReminderJobPayload,
@@ -21,6 +22,7 @@ import { CustomerAccountDeletedService } from './handlers/customer-account-delet
 import { CustomerRegisteredService } from './handlers/customer-registered.service.js';
 import { ExpireCouponService } from './handlers/expire-coupon.service.js';
 import { ExpirePromotionMarketService } from './handlers/expire-promotion-market.service.js';
+import { ExpireStaffInvitationService } from './handlers/expire-staff-invitation.service.js';
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { OrderProcessingService } from './handlers/order-processing.service.js';
@@ -41,6 +43,7 @@ export class GeneralProcessor extends WorkerHost {
         private readonly staffDeactivatedService: StaffDeactivatedService,
         private readonly expirePromotionMarketService: ExpirePromotionMarketService,
         private readonly expireCouponService: ExpireCouponService,
+        private readonly expireStaffInvitationService: ExpireStaffInvitationService,
         private readonly reviewReminderService: ReviewReminderService,
     ) {
         super();
@@ -95,6 +98,11 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.EXPIRE_COUPON:
                 await this.expireCouponService.process(
                     job.data as ExpireCouponJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.EXPIRE_STAFF_INVITATION:
+                await this.expireStaffInvitationService.process(
+                    job.data as ExpireStaffInvitationJobPayload,
                 );
                 return;
             case GENERAL_JOBS.REVIEW_REMINDER:

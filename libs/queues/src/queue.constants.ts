@@ -22,6 +22,7 @@ export const GENERAL_JOBS = {
     STAFF_DEACTIVATED: 'staff-deactivated',
     EXPIRE_PROMOTION_MARKET: 'expire-promotion-market',
     EXPIRE_COUPON: 'expire-coupon',
+    EXPIRE_STAFF_INVITATION: 'expire-staff-invitation',
     REVIEW_REMINDER: 'review-reminder',
 } as const;
 
