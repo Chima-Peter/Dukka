@@ -623,6 +623,54 @@ export class ProductVariantRepository {
         });
     }
 
+    async findMarketVariantDetailsById(marketVariantId: string) {
+        return await this.prisma.marketVariant.findUnique({
+            where: { id: marketVariantId },
+            select: {
+                id: true,
+                price: true,
+                currency: true,
+                sold_out: true,
+                status: true,
+                market_id: true,
+                variant_id: true,
+                created_at: true,
+                updated_at: true,
+                promotion_market_variants: {
+                    orderBy: [{ created_at: 'desc' }],
+                    select: {
+                        promotion_market: {
+                            select: {
+                                id: true,
+                                status: true,
+                                start_date: true,
+                                end_date: true,
+                            },
+                        },
+                    },
+                },
+                variant: {
+                    select: {
+                        id: true,
+                        variant_code: true,
+                        color: true,
+                        size: true,
+                        status: true,
+                        product_id: true,
+                        image: { select: { image_url: true } },
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                status: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
     async findMarketVariantByIdOrThrow(marketVariantId: string) {
         const marketVariant = await this.findMarketVariantById(marketVariantId);
         if (!marketVariant) {

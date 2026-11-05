@@ -48,7 +48,6 @@ export class MarketsController {
     }
 
     @Get()
-    @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Markets retrieved successfully')
     findAll(
         @CurrentStaff() staff: StaffJwtPayload,
@@ -65,7 +64,6 @@ export class MarketsController {
     }
 
     @Get(':id')
-    @RequirePermission(StaffPermission.MarketsRead)
     @ResponseMessage('Market retrieved successfully')
     findOne(
         @CurrentStaff() staff: StaffJwtPayload,

@@ -27,6 +27,7 @@ import { CategoryService } from './category.service.js';
 import { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { FindCategoriesDto } from './dto/find-categories.dto.js';
+import { FindStaffCategoriesDto } from './dto/find-staff-categories.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
 
 @Auth('staff')
@@ -68,6 +69,18 @@ export class CategoryController {
         @Query() query: FindCategoriesDto,
     ) {
         return this.categoryService.findAll(customer?.sub, query);
+    }
+
+    @Get('internal')
+    @ResponseMessage('Categories retrieved successfully')
+    findAllForStaff(@Query() query: FindStaffCategoriesDto) {
+        return this.categoryService.findAllForStaff(query);
+    }
+
+    @Get('internal/:id')
+    @ResponseMessage('Category retrieved successfully')
+    findOneForStaff(@Param('id', ParseUUIDPipe) id: string) {
+        return this.categoryService.findOneForStaff(id);
     }
 
     @Patch(':id')

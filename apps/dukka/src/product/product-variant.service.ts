@@ -483,6 +483,34 @@ export class ProductVariantService {
         }
     }
 
+    async getMarketVariantById(id: string) {
+        try {
+            this.logger.log(`Fetching market variant ${id}`);
+            const marketVariant =
+                await this.productVariantRepository.findMarketVariantDetailsById(
+                    id,
+                );
+            if (!marketVariant) {
+                throw new NotFoundException('Market variant not found');
+            }
+            this.logger.log(`Fetched market variant ${id}`);
+            const { promotion_market_variants, ...rest } = marketVariant;
+            return {
+                ...rest,
+                promotions: promotion_market_variants.map(
+                    ({ promotion_market }) => ({
+                        promotion_market_id: promotion_market.id,
+                        status: promotion_market.status,
+                        start_date: promotion_market.start_date,
+                        end_date: promotion_market.end_date,
+                    }),
+                ),
+            };
+        } catch (error) {
+            this.handleError(error, 'Market variant not found');
+        }
+    }
+
     async approveVariants(
         productId: string,
         variantIds: string[],

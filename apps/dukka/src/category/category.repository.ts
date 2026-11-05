@@ -52,6 +52,32 @@ export class CategoryRepository {
         };
     }
 
+    async findAllForStaff(query: { cursor?: string; limit?: number }) {
+        const limit = query.limit ?? 50;
+        const rows = await this.prisma.category.findMany({
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
+        };
+    }
+
+    async findById(id: string): Promise<Category | null> {
+        return await this.prisma.category.findUnique({
+            where: { id },
+        });
+    }
+
     async findAllByMarket(query: FindCategoriesDto & { market_id: string }) {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.marketCategory.findMany({

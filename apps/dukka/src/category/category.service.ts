@@ -23,6 +23,7 @@ import { CategoryRepository } from './category.repository.js';
 import type { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
 import type { CreateCategoryDto } from './dto/create-category.dto.js';
 import type { FindCategoriesDto } from './dto/find-categories.dto.js';
+import type { FindStaffCategoriesDto } from './dto/find-staff-categories.dto.js';
 import type { UpdateCategoryDto } from './dto/update-category.dto.js';
 import type { MarketCategoryItem } from './types/market-category.type.js';
 import type { PrismaErrorMap } from './types/prisma-error.type.js';
@@ -146,6 +147,34 @@ export class CategoryService {
                 items: page.items,
                 next_cursor: page.next_cursor,
             };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findAllForStaff(query: FindStaffCategoriesDto) {
+        try {
+            this.logger.log('Fetching categories for staff');
+            const page = await this.categoryRepository.findAllForStaff(query);
+            this.logger.log('Fetched categories for staff');
+            return {
+                items: page.items,
+                next_cursor: page.next_cursor,
+            };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOneForStaff(id: string): Promise<Category> {
+        try {
+            this.logger.log(`Fetching category ${id} for staff`);
+            const category = await this.categoryRepository.findById(id);
+            if (!category) {
+                throw new NotFoundException('Category not found');
+            }
+            this.logger.log(`Fetched category ${id} for staff`);
+            return category;
         } catch (error) {
             this.handleError(error);
         }

@@ -32,6 +32,8 @@ describe('CategoryController', () => {
                         create: vi.fn(),
                         addToMarket: vi.fn(),
                         findAll: vi.fn(),
+                        findAllForStaff: vi.fn(),
+                        findOneForStaff: vi.fn(),
                         update: vi.fn(),
                         removeFromMarket: vi.fn(),
                         delete: vi.fn(),

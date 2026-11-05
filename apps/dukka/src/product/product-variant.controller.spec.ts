@@ -48,6 +48,7 @@ describe('ProductVariantController', () => {
                     provide: ProductVariantService,
                     useValue: {
                         findMarketVariants: vi.fn(),
+                        getMarketVariantById: vi.fn(),
                         findPendingUpdatesForStaff: vi.fn(),
                         findPendingUpdateById: vi.fn(),
                         updatePendingUpdate: vi.fn(),

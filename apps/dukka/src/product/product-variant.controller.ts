@@ -39,10 +39,15 @@ export class ProductVariantController {
     ) {}
 
     @Get('market-variants')
-    @RequirePermission(StaffPermission.MarketVariantsRead)
     @ResponseMessage('Market variants retrieved successfully')
     findMarketVariants(@Query() query: FindMarketVariantsDto) {
         return this.productVariantService.findMarketVariants(query);
+    }
+
+    @Get('market-variants/:id')
+    @ResponseMessage('Market variant retrieved successfully')
+    getMarketVariantById(@Param('id', ParseUUIDPipe) id: string) {
+        return this.productVariantService.getMarketVariantById(id);
     }
 
     @Get('variant-pending-updates')
