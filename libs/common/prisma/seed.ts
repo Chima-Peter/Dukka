@@ -110,7 +110,7 @@ const DEFAULT_ROLES = [
         name: 'Platform Reviewer',
         description:
             'Review platform and market actions for approval or rejection (does not perform them)',
-        hierarchy: 1,
+        hierarchy: 2,
         scope_type: ScopeType.GLOBAL,
         permission_names: [
             'markets:read',
@@ -128,7 +128,7 @@ const DEFAULT_ROLES = [
         name: 'Catalog Editor',
         description:
             'Perform catalog actions: create and propose product/variant changes',
-        hierarchy: 2,
+        hierarchy: 3,
         scope_type: ScopeType.GLOBAL,
         permission_names: ['products:manage'],
     },
@@ -136,16 +136,29 @@ const DEFAULT_ROLES = [
         name: 'Catalog Reviewer',
         description:
             'Review catalog actions: approve or reject products, variants, and pending updates',
-        hierarchy: 2,
+        hierarchy: 4,
         scope_type: ScopeType.GLOBAL,
         permission_names: ['products:review'],
     },
     {
         name: 'Payments Admin',
         description: 'Perform payment-method setup (create payment methods)',
-        hierarchy: 2,
+        hierarchy: 5,
         scope_type: ScopeType.GLOBAL,
         permission_names: ['payments:manage', 'payments:read'],
+    },
+    {
+        name: 'Warehouse Manager',
+        description: 'Manage warehouses, inventory, and fulfillment',
+        hierarchy: 1,
+        scope_type: ScopeType.WAREHOUSE,
+        permission_names: [
+            'warehouses:manage',
+            'service_states:assign',
+            'inventory:manage',
+            'market_variants:read',
+            'staff:read',
+        ],
     },
     {
         name: 'Market Admin',
@@ -180,7 +193,7 @@ const DEFAULT_ROLES = [
         name: 'Market Reviewer',
         description:
             'Review market actions for approval or rejection (does not perform them)',
-        hierarchy: 1,
+        hierarchy: 2,
         scope_type: ScopeType.MARKET,
         permission_names: [
             'markets:read',
@@ -192,19 +205,6 @@ const DEFAULT_ROLES = [
             'payments:read',
             'payments:review',
             'permissions:read',
-        ],
-    },
-    {
-        name: 'Warehouse Manager',
-        description: 'Manage warehouses, inventory, and fulfillment',
-        hierarchy: 2,
-        scope_type: ScopeType.WAREHOUSE,
-        permission_names: [
-            'warehouses:manage',
-            'service_states:assign',
-            'inventory:manage',
-            'market_variants:read',
-            'staff:read',
         ],
     },
     {
@@ -428,6 +428,7 @@ async function seedSuperAdminStaff(role_id: string) {
             name,
             email,
             password: hashedPassword,
+            staff_number: 'STF-SUPERADMIN',
             role_id,
             is_active: true,
             phone_number: '+2348000000001',
@@ -507,6 +508,7 @@ async function seedDemoStaff(
         {
             email: 'warehouse.ng@dukka.local',
             name: 'Ada Okonkwo',
+            staff_number: 'STF-WAREHOUSENG',
             phone_number: '+2348011111111',
             role_id: warehouseRole.id,
             market_ids: [ngMarket.id],
@@ -529,6 +531,7 @@ async function seedDemoStaff(
         {
             email: 'support.gh@dukka.local',
             name: 'Kwame Mensah',
+            staff_number: 'STF-SUPPORTGH',
             phone_number: '+233201111111',
             role_id: supportRole.id,
             market_ids: [ghMarket.id, ngMarket.id],
@@ -558,6 +561,7 @@ async function seedDemoStaff(
                 name: staffDef.name,
                 email: staffDef.email,
                 password: hashedPassword,
+                staff_number: staffDef.staff_number,
                 phone_number: staffDef.phone_number,
                 role_id: staffDef.role_id,
                 is_active: true,
