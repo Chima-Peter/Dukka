@@ -33,6 +33,11 @@ export type ShipmentOrderSummary = {
     warehouse_id: string;
 };
 
+export type ShipmentOrderPaymentSummary = {
+    status: string;
+    payment_method_name: string;
+} | null;
+
 export type ShipmentForMove = Shipment & {
     current_location: ShipmentLocationSummary;
     order: {
@@ -41,6 +46,7 @@ export type ShipmentForMove = Shipment & {
         market_id: string;
         customer_id: string | null;
         warehouse_id: string;
+        order_payment_attempt: ShipmentOrderPaymentSummary;
     };
 };
 
@@ -56,6 +62,17 @@ export type MoveShipmentInput = {
     metadata?: Prisma.InputJsonValue;
 };
 
+export type DeliverShipmentInput = {
+    from_location_id: string;
+    to_location_id: string;
+    logistics_partner_id: string;
+    expected_departure_date: Date;
+    expected_arrival_date: Date;
+    occurred_at: Date;
+    performed_by: string;
+    metadata?: Prisma.InputJsonValue;
+};
+
 export type MoveShipmentResult = {
     shipment: Shipment;
     leg: ShipmentLeg;
@@ -64,6 +81,8 @@ export type MoveShipmentResult = {
     from_location: ShipmentLocationSummary;
     to_location: ShipmentLocationSummary;
 };
+
+export type DeliverShipmentResult = MoveShipmentResult;
 
 export type AcknowledgeShipmentInput = {
     occurred_at: Date;
@@ -162,6 +181,14 @@ export const ALLOWED_SHIPMENT_MOVE_ROUTES: ReadonlyArray<{
     { from: 'DISTRIBUTION_POINT', to: 'DISTRIBUTION_POINT' },
 ] as const;
 
+export const ALLOWED_CUSTOMER_DELIVERY_ROUTES: ReadonlyArray<{
+    from: LogisticsLocationType;
+    to: LogisticsLocationType;
+}> = [
+    { from: 'WAREHOUSE', to: 'CUSTOMER' },
+    { from: 'DISTRIBUTION_POINT', to: 'CUSTOMER' },
+] as const;
+
 export const shipmentLocationSelect = {
     id: true,
     type: true,
@@ -217,6 +244,12 @@ export const shipmentForMoveInclude = {
             market_id: true,
             customer_id: true,
             warehouse_id: true,
+            order_payment_attempt: {
+                select: {
+                    status: true,
+                    payment_method_name: true,
+                },
+            },
         },
     },
 } as const;

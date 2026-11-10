@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
     LogisticsLocationType,
+    OrderPaymentAttemptStatus,
     ShipmentStatus,
     WarehouseStatus,
     type Prisma,
@@ -28,13 +29,16 @@ import {
 } from '../shared/prisma-relation-error.js';
 import type { AcknowledgeShipmentDto } from './dto/acknowledge-shipment.dto.js';
 import type { CancelShipmentMovementDto } from './dto/cancel-shipment-movement.dto.js';
+import type { DeliverShipmentDto } from './dto/deliver-shipment.dto.js';
 import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import type { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsRepository } from './shipments.repository.js';
 import {
+    ALLOWED_CUSTOMER_DELIVERY_ROUTES,
     ALLOWED_SHIPMENT_MOVE_ROUTES,
     type AcknowledgeShipmentResult,
     type CancelShipmentMovementResult,
+    type DeliverShipmentResult,
     type LogisticsPartnerForMove,
     type MoveShipmentResult,
     type ShipmentDetail,
@@ -171,6 +175,99 @@ export class ShipmentsService {
             this.logger.log(
                 `Moved shipment ${shipmentId} ${result.from_location.type} -> ${result.to_location.type}`,
             );
+            return result;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async deliverToCustomer(
+        shipmentId: string,
+        data: DeliverShipmentDto,
+        actor: ScopedAccessActor,
+        performedBy: string,
+    ): Promise<DeliverShipmentResult> {
+        try {
+            this.logger.log(`Delivering shipment ${shipmentId} to customer`);
+
+            const shipment = await this.shipmentsRepository.findForMove(
+                shipmentId,
+            );
+            if (!shipment) {
+                throw new NotFoundException('Shipment not found');
+            }
+
+            this.assertShipmentMovable(shipment);
+            this.assertActorCanMoveFrom(actor, shipment);
+            this.assertLocationActive(shipment.current_location, 'origin');
+            this.assertCashOrderPaid(shipment);
+
+            const openDispatch =
+                await this.shipmentsRepository.findOpenDispatch(
+                    shipment.id,
+                    shipment.current_location_id,
+                );
+            if (openDispatch) {
+                throw new BadRequestException(
+                    'Cannot deliver a shipment that is already in transit; acknowledge or cancel first',
+                );
+            }
+
+            if (shipment.current_location_id === data.to_location_id) {
+                throw new BadRequestException(
+                    'Destination must differ from the current location',
+                );
+            }
+
+            const toLocation = await this.shipmentsRepository.findLocation(
+                data.to_location_id,
+            );
+            if (!toLocation) {
+                throw new NotFoundException('Logistics location not found');
+            }
+            this.assertCustomerDeliveryRoute(
+                shipment.current_location,
+                toLocation,
+            );
+            this.assertCustomerDestination(shipment, toLocation);
+
+            const partner = await this.shipmentsRepository.findPartner(
+                data.logistics_partner_id,
+            );
+            if (!partner) {
+                throw new NotFoundException('Logistics partner not found');
+            }
+            this.assertPartnerActive(partner);
+
+            const expectedDeparture = new Date(data.expected_departure_date);
+            const expectedArrival = new Date(data.expected_arrival_date);
+            if (expectedArrival < expectedDeparture) {
+                throw new BadRequestException(
+                    'expected_arrival_date must be on or after expected_departure_date',
+                );
+            }
+
+            const occurredAt = data.occurred_at
+                ? new Date(data.occurred_at)
+                : new Date();
+
+            const result = await this.shipmentsRepository.deliverToCustomer(
+                shipmentId,
+                {
+                    from_location_id: shipment.current_location_id,
+                    to_location_id: data.to_location_id,
+                    logistics_partner_id: data.logistics_partner_id,
+                    expected_departure_date: expectedDeparture,
+                    expected_arrival_date: expectedArrival,
+                    occurred_at: occurredAt,
+                    performed_by: performedBy,
+                    ...(data.metadata !== undefined && {
+                        metadata: data.metadata as Prisma.InputJsonValue,
+                    }),
+                },
+            );
+
+            this.logger.log(`Delivered shipment ${shipmentId} to customer`);
             return result;
         } catch (error) {
             this.handleError(error);
@@ -445,6 +542,65 @@ export class ShipmentsService {
         if (!allowed) {
             throw new BadRequestException(
                 `Invalid move route: ${from.type} -> ${to.type}. Allowed: warehouse→DB, DB→DB`,
+            );
+        }
+    }
+
+    private assertCustomerDeliveryRoute(
+        from: ShipmentLocationSummary,
+        to: ShipmentLocationSummary,
+    ): void {
+        const allowed = ALLOWED_CUSTOMER_DELIVERY_ROUTES.some(
+            (route) => route.from === from.type && route.to === to.type,
+        );
+        if (!allowed) {
+            throw new BadRequestException(
+                `Invalid delivery route: ${from.type} -> ${to.type}. Allowed: warehouse→customer, DB→customer`,
+            );
+        }
+    }
+
+    private assertCustomerDestination(
+        shipment: ShipmentForMove,
+        to: ShipmentLocationSummary,
+    ): void {
+        if (to.type !== LogisticsLocationType.CUSTOMER) {
+            throw new BadRequestException(
+                'Delivery destination must be a customer location',
+            );
+        }
+
+        if (shipment.order.customer_id === null) {
+            return;
+        }
+
+        if (
+            to.customer_id !== null &&
+            to.customer_id !== shipment.order.customer_id
+        ) {
+            throw new BadRequestException(
+                'Customer destination does not match the order customer',
+            );
+        }
+    }
+
+    private assertCashOrderPaid(shipment: ShipmentForMove): void {
+        const attempt = shipment.order.order_payment_attempt;
+        if (!attempt) {
+            throw new BadRequestException(
+                'Order has no payment attempt; cannot deliver',
+            );
+        }
+
+        const isCash =
+            attempt.payment_method_name.toLowerCase() === 'cash';
+        if (!isCash) {
+            return;
+        }
+
+        if (attempt.status !== OrderPaymentAttemptStatus.SUCCESS) {
+            throw new BadRequestException(
+                'Cash order must be paid before delivery to customer',
             );
         }
     }

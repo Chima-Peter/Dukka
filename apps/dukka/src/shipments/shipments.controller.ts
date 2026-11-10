@@ -20,6 +20,7 @@ import {
 import { toScopedAccessActor } from '../shared/access-control.js';
 import { AcknowledgeShipmentDto } from './dto/acknowledge-shipment.dto.js';
 import { CancelShipmentMovementDto } from './dto/cancel-shipment-movement.dto.js';
+import { DeliverShipmentDto } from './dto/deliver-shipment.dto.js';
 import { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsService } from './shipments.service.js';
@@ -62,6 +63,23 @@ export class ShipmentsController {
         @Body() data: MoveShipmentDto,
     ) {
         return this.shipmentsService.move(
+            id,
+            data,
+            toScopedAccessActor(staff),
+            staff.sub,
+        );
+    }
+
+    @Post(':id/deliver')
+    @RequirePermission(StaffPermission.ShipmentsManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Shipment delivered to customer successfully')
+    deliverToCustomer(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: DeliverShipmentDto,
+    ) {
+        return this.shipmentsService.deliverToCustomer(
             id,
             data,
             toScopedAccessActor(staff),
