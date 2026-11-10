@@ -38,6 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
             const data = this.extractErrorData(exceptionResponse);
 
             response.status(statusCode).json(errorResponse(message, data));
+            console.log(rawMessage)
             return;
         }
 

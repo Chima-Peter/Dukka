@@ -385,7 +385,7 @@ export class CartRepository {
             if (items.length != itemIds.length) {
                 throw new NotFoundException('One or more cart items not found');
             }
-            await this.prisma.cartItems.deleteMany({
+            await tx.cartItems.deleteMany({
                 where: {
                     cart_id: cartId,
                     id: { in: itemIds },
