@@ -26,6 +26,13 @@ async function bootstrap() {
         defaultVersion: '1/dukka',
         prefix: 'api/v',
     });
+    const configService = app.get(ConfigService<ConfigType, true>);
+    const corsOrigins = configService
+        .getOrThrow('CORS_ORIGINS', { infer: true })
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+
     app.enableCors({
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: [
@@ -34,8 +41,9 @@ async function bootstrap() {
             'Last-Event-ID',
             'X-Request-ID',
             'X-Idempotency-Key',
+            'X-Refresh-Token',
         ],
-        origin: ['http://localhost:3000'],
+        origin: corsOrigins,
         exposedHeaders: ['X-Request-ID'],
         credentials: true,
     });
@@ -60,7 +68,6 @@ async function bootstrap() {
 
     app.enableShutdownHooks();
 
-    const configService = app.get(ConfigService<ConfigType, true>);
     const port = configService.getOrThrow('DUKKA_PORT', {
         infer: true,
     });

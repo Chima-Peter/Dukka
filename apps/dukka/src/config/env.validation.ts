@@ -28,4 +28,5 @@ export const envValidationSchema = Joi.object({
     PAYSTACK_BASE_URL: Joi.string()
         .uri()
         .default('https://api.paystack.co'),
+    CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
 });

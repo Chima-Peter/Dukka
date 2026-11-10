@@ -22,4 +22,5 @@ export interface ConfigType {
     PAYSTACK_SECRET_KEY: string;
     PAYSTACK_PUBLIC_KEY: string;
     PAYSTACK_BASE_URL: string;
+    CORS_ORIGINS: string;
 }
