@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    LogisticsLocationType,
+    MarketStatus,
     PrismaService,
     RestCountriesIpService,
-    MarketStatus,
 } from '@app/common';
 import type { CustomerRegisteredJobPayload } from '@app/queues';
 
@@ -35,8 +36,9 @@ export class CustomerRegisteredService {
             await this.assignActiveMarketFromIp(customer_id, client_ip),
             await this.matchGuestOrders(customer_id, email),
             await this.resolveGuestCouponUsages(customer_id, email),
+            await this.resolveGuestLogisticsLocation(customer_id, email),
             await this.matchAddressesFromOrders(customer_id),
-        ])
+        ]);
     }
 
     private async matchGuestOrders(
@@ -89,6 +91,105 @@ export class CustomerRegisteredService {
         this.logger.log(
             `Linked ${result.count} coupon usage(s) to customer ${customerId}`,
         );
+    }
+
+    private async resolveGuestLogisticsLocation(
+        customerId: string,
+        email: string,
+    ): Promise<void> {
+        this.logger.log(
+            `Resolving guest logistics location for customer ${customerId} email=${email}`,
+        );
+
+        const customer = await this.prisma.customer.findUnique({
+            where: { id: customerId },
+            select: {
+                id: true,
+                logistics_location: {
+                    select: {
+                        id: true,
+                        phone: true,
+                        address: true,
+                        city: true,
+                        zip: true,
+                        state: true,
+                        country: true,
+                    },
+                },
+            },
+        });
+        if (!customer) {
+            this.logger.warn(
+                `Customer ${customerId} not found while resolving logistics location`,
+            );
+            return;
+        }
+
+        const guestLocation = await this.prisma.logisticsLocation.findFirst({
+            where: {
+                type: LogisticsLocationType.CUSTOMER,
+                customer_id: null,
+                email: {
+                    equals: email,
+                    mode: 'insensitive',
+                },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+
+        if (!guestLocation) {
+            this.logger.log(
+                `No guest logistics location to resolve for email=${email}`,
+            );
+            return;
+        }
+
+        if (!customer.logistics_location) {
+            await this.prisma.logisticsLocation.update({
+                where: { id: guestLocation.id },
+                data: { customer_id: customerId },
+            });
+            this.logger.log(
+                `Linked logistics location ${guestLocation.id} to customer ${customerId}`,
+            );
+            return;
+        }
+
+        const current = customer.logistics_location;
+        const enrichment = {
+            ...(current.phone == null && guestLocation.phone != null
+                ? { phone: guestLocation.phone }
+                : {}),
+            ...(current.address == null && guestLocation.address != null
+                ? { address: guestLocation.address }
+                : {}),
+            ...(current.city == null && guestLocation.city != null
+                ? { city: guestLocation.city }
+                : {}),
+            ...(current.zip == null && guestLocation.zip != null
+                ? { zip: guestLocation.zip }
+                : {}),
+            ...(current.state == null && guestLocation.state != null
+                ? { state: guestLocation.state }
+                : {}),
+            ...(current.country == null && guestLocation.country != null
+                ? { country: guestLocation.country }
+                : {}),
+        };
+
+        if (Object.keys(enrichment).length > 0) {
+            await this.prisma.logisticsLocation.update({
+                where: { id: current.id },
+                data: enrichment,
+            });
+            this.logger.log(
+                `Enriched logistics location ${current.id} for customer ${customerId} from guest location ${guestLocation.id}`,
+            );
+        } else {
+            this.logger.log(
+                `Customer ${customerId} logistics location ${current.id} already complete; left guest location ${guestLocation.id} unlinked`,
+            );
+        }
     }
 
     private async matchAddressesFromOrders(
