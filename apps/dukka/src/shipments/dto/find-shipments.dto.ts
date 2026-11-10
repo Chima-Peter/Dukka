@@ -24,12 +24,6 @@ export class FindShipmentsDto {
     tracking_number?: string;
 
     @IsOptional()
-    @IsString()
-    @MinLength(1)
-    @MaxLength(128)
-    carrier?: string;
-
-    @IsOptional()
     @IsUUID()
     order_id?: string;
 

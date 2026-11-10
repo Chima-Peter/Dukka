@@ -31,6 +31,7 @@ export type ShipmentOrderSummary = {
     market_id: string;
     customer_id: string | null;
     warehouse_id: string;
+    shipping_address: Prisma.JsonValue;
 };
 
 export type ShipmentOrderPaymentSummary = {
@@ -120,7 +121,6 @@ export type LogisticsPartnerForMove = Pick<
 export type ShipmentSummary = {
     id: string;
     tracking_number: string;
-    carrier: string;
     status: ShipmentStatus;
     estimated_delivery_date: Date | null;
     actual_delivery_date: Date | null;
@@ -135,7 +135,6 @@ export type ShipmentSummary = {
 export type ShipmentDetail = {
     id: string;
     tracking_number: string;
-    carrier: string;
     status: ShipmentStatus;
     estimated_delivery_date: Date | null;
     actual_delivery_date: Date | null;
@@ -219,7 +218,6 @@ export const shipmentLocationBriefSelect = {
 export const shipmentSummarySelect = {
     id: true,
     tracking_number: true,
-    carrier: true,
     status: true,
     estimated_delivery_date: true,
     actual_delivery_date: true,
@@ -272,6 +270,7 @@ export const shipmentDetailInclude = {
             market_id: true,
             customer_id: true,
             warehouse_id: true,
+            shipping_address: true,
         },
     },
     shipment_legs: {

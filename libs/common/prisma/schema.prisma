@@ -1223,7 +1223,6 @@ enum ShipmentStatus {
 model Shipment {
   id String @id @default(uuid())
   tracking_number String @unique
-  carrier String
   status ShipmentStatus @default(PENDING)
   estimated_delivery_date DateTime?
   actual_delivery_date DateTime?

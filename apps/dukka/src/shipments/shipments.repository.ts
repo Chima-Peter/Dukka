@@ -118,14 +118,6 @@ export class ShipmentsRepository {
                 },
             });
         }
-        if (query.carrier !== undefined) {
-            andFilters.push({
-                carrier: {
-                    contains: query.carrier,
-                    mode: 'insensitive',
-                },
-            });
-        }
         if (query.order_id !== undefined) {
             andFilters.push({ order_id: query.order_id });
         }

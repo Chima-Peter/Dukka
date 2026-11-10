@@ -110,7 +110,6 @@ const shipmentMovementDetailSelect = {
 const orderShipmentDetailSelect = {
     id: true,
     tracking_number: true,
-    carrier: true,
     status: true,
     created_at: true,
     updated_at: true,
