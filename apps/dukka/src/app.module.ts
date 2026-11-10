@@ -29,6 +29,7 @@ import { StaffModule } from './staff/staff.module.js';
 import { ProductModule } from './product/product.module.js';
 import { WarehouseModule } from './warehouse/warehouse.module.js';
 import { DistributionPointsModule } from './distribution-points/distribution-points.module.js';
+import { LogisticsPartnersModule } from './logistics-partners/logistics-partners.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { CategoryModule } from './category/category.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
@@ -157,6 +158,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         ProductModule,
         WarehouseModule,
         DistributionPointsModule,
+        LogisticsPartnersModule,
         InventoryModule,
         CategoryModule,
         ReviewsModule,

@@ -371,6 +371,48 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         scope_type: 'MARKET',
     },
 
+    // --- Logistics partners ---
+    {
+        name: 'logistics_partners:create',
+        description: 'Create logistics partners',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'logistics_partners:create',
+        description: 'Create logistics partners',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'logistics_partners:manage',
+        description: 'Update and activate or deactivate logistics partners',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'logistics_partners:manage',
+        description: 'Update and activate or deactivate logistics partners',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'logistics_partners:read',
+        description: 'View logistics partners',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'logistics_partners:read',
+        description: 'View logistics partners',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'logistics_partners:read',
+        description: 'View logistics partners',
+        scope_type: 'WAREHOUSE',
+    },
+    {
+        name: 'logistics_partners:read',
+        description: 'View logistics partners',
+        scope_type: 'DISTRIBUTION_POINT',
+    },
+
     // --- Coupons ---
     {
         name: 'coupons:manage',
@@ -430,6 +472,9 @@ export const StaffPermission = {
     WarehousesManage: 'warehouses:manage',
     DistributionPointsCreate: 'distribution_points:create',
     DistributionPointsManage: 'distribution_points:manage',
+    LogisticsPartnersCreate: 'logistics_partners:create',
+    LogisticsPartnersManage: 'logistics_partners:manage',
+    LogisticsPartnersRead: 'logistics_partners:read',
     ServiceStatesManage: 'service_states:manage',
     ServiceStatesAssign: 'service_states:assign',
     InventoryManage: 'inventory:manage',
