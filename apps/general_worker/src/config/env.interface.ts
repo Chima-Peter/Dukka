@@ -6,4 +6,6 @@ export interface ConfigType {
     SUPABASE_SERVICE_ROLE_KEY: string;
     SUPABASE_BUCKETS: string;
     REST_COUNTRIES_API_KEY: string;
+    PAYSTACK_SECRET_KEY: string;
+    PAYSTACK_BASE_URL: string;
 }

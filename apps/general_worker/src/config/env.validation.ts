@@ -10,4 +10,8 @@ export const envValidationSchema = Joi.object({
     SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),
     SUPABASE_BUCKETS: Joi.string().required(),
     REST_COUNTRIES_API_KEY: Joi.string().required(),
+    PAYSTACK_SECRET_KEY: Joi.string().required(),
+    PAYSTACK_BASE_URL: Joi.string()
+        .uri()
+        .default('https://api.paystack.co'),
 });

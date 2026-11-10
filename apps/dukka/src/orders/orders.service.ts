@@ -248,16 +248,32 @@ export class OrdersService {
                 );
             }
 
+            const transition = await this.ordersRepository.transitionStatus({
+                order_id: orderId,
+                customer_id: customerId,
+                from_statuses: [
+                    OrderStatus.PENDING,
+                    OrderStatus.PROCESSING,
+                ],
+                to_status: OrderStatus.CANCELLED,
+            });
+
+            if (!transition.ok) {
+                if (transition.reason === 'not_found') {
+                    throw new NotFoundException('Order not found');
+                }
+                throw new BadRequestException(
+                    `${transition.current_status} orders are not eligible for cancellation`,
+                );
+            }
+
             await this.generalQueueService.enqueue(
                 GENERAL_JOBS.CANCEL_ORDER,
                 { order_id: orderId },
                 { jobId: `cancel-order-${orderId}` },
             );
 
-            return {
-                id: orderId,
-                status: OrderStatus.CANCELLED,
-            };
+            return transition.order;
         } catch (error) {
             this.handleError(error);
         }

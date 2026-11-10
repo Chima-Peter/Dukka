@@ -5,6 +5,7 @@ import {
     NotificationPublisherModule,
     RestCountriesIpService,
 } from '@app/common';
+import { PaystackModule } from '../paystack/index.js';
 import { GeneralProcessor } from './general.processor.js';
 import { GeneralScheduler } from './general.scheduler.js';
 import { CancelOrderService } from './handlers/cancel-order.service.js';
@@ -24,6 +25,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
     imports: [
         ScheduleModule.forRoot(),
         NotificationPublisherModule,
+        PaystackModule,
         HttpClientModule.register({
             timeout: 5000,
         }),
