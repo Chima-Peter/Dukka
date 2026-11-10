@@ -18,6 +18,7 @@ import {
     type StaffJwtPayload,
 } from '@app/common';
 import { toScopedAccessActor } from '../shared/access-control.js';
+import { AcknowledgeShipmentDto } from './dto/acknowledge-shipment.dto.js';
 import { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsService } from './shipments.service.js';
@@ -60,6 +61,23 @@ export class ShipmentsController {
         @Body() data: MoveShipmentDto,
     ) {
         return this.shipmentsService.move(
+            id,
+            data,
+            toScopedAccessActor(staff),
+            staff.sub,
+        );
+    }
+
+    @Post(':id/acknowledge')
+    @RequirePermission(StaffPermission.ShipmentsManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Shipment receipt acknowledged successfully')
+    acknowledge(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: AcknowledgeShipmentDto,
+    ) {
+        return this.shipmentsService.acknowledge(
             id,
             data,
             toScopedAccessActor(staff),

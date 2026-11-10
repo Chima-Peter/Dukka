@@ -8,14 +8,19 @@ import {
 } from '@app/common';
 import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import {
+    openDispatchInclude,
     shipmentDetailInclude,
     shipmentForMoveInclude,
     shipmentLocationSelect,
     shipmentSummarySelect,
+    type AcknowledgeShipmentInput,
+    type AcknowledgeShipmentResult,
     type LogisticsPartnerForMove,
     type MoveShipmentInput,
     type MoveShipmentResult,
+    type OpenDispatchMovement,
     type ShipmentDetail,
+    type ShipmentForAcknowledge,
     type ShipmentForMove,
     type ShipmentListScope,
     type ShipmentLocationSummary,
@@ -31,6 +36,43 @@ export class ShipmentsRepository {
         return await this.prisma.shipment.findUnique({
             where: { id },
             include: shipmentForMoveInclude,
+        });
+    }
+
+    async findForAcknowledge(
+        id: string,
+    ): Promise<ShipmentForAcknowledge | null> {
+        const shipment = await this.prisma.shipment.findUnique({
+            where: { id },
+            include: shipmentForMoveInclude,
+        });
+        if (!shipment) {
+            return null;
+        }
+
+        const openDispatch = await this.findOpenDispatch(
+            shipment.id,
+            shipment.current_location_id,
+        );
+
+        return {
+            ...shipment,
+            open_dispatch: openDispatch,
+        };
+    }
+
+    async findOpenDispatch(
+        shipmentId: string,
+        fromLocationId: string,
+    ): Promise<OpenDispatchMovement | null> {
+        return await this.prisma.shipmentMovement.findFirst({
+            where: {
+                shipment_id: shipmentId,
+                movement_type: ShipmentMovementType.DISPATCH,
+                from_location_id: fromLocationId,
+            },
+            include: openDispatchInclude,
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         });
     }
 
@@ -84,18 +126,28 @@ export class ShipmentsRepository {
             andFilters.push({ order_id: query.order_id });
         }
         if (query.market_id !== undefined) {
-            andFilters.push({ order: { market_id: query.market_id } });
-        }
-        if (query.warehouse_id !== undefined) {
             andFilters.push({
                 OR: [
-                    { order: { warehouse_id: query.warehouse_id } },
                     {
                         current_location: {
-                            warehouse_id: query.warehouse_id,
+                            warehouse: { market_id: query.market_id },
+                        },
+                    },
+                    {
+                        current_location: {
+                            distribution_point: {
+                                market_id: query.market_id,
+                            },
                         },
                     },
                 ],
+            });
+        }
+        if (query.warehouse_id !== undefined) {
+            andFilters.push({
+                current_location: {
+                    warehouse_id: query.warehouse_id,
+                },
             });
         }
         if (query.distribution_point_id !== undefined) {
@@ -172,9 +224,6 @@ export class ShipmentsRepository {
         const shipment = await this.prisma.shipment.update({
             where: { id: shipmentId },
             data: {
-                current_location: {
-                    connect: { id: input.to_location_id },
-                },
                 ...(input.mark_as_shipped && {
                     status: ShipmentStatus.SHIPPED,
                     order: {
@@ -273,31 +322,104 @@ export class ShipmentsRepository {
         };
     }
 
+    async acknowledge(
+        shipmentId: string,
+        openDispatch: OpenDispatchMovement,
+        input: AcknowledgeShipmentInput,
+    ): Promise<AcknowledgeShipmentResult> {
+        const shipment = await this.prisma.shipment.update({
+            where: { id: shipmentId },
+            data: {
+                current_location: {
+                    connect: { id: openDispatch.to_location_id },
+                },
+                shipment_movements: {
+                    update: {
+                        where: { id: openDispatch.id },
+                        data: {
+                            movement_type: ShipmentMovementType.RECEIVED,
+                            performed_by: input.performed_by,
+                            occurred_at: input.occurred_at,
+                            recorded_at: new Date(),
+                            ...(input.metadata !== undefined && {
+                                metadata: input.metadata,
+                            }),
+                        },
+                    },
+                },
+                shipment_legs: {
+                    update: {
+                        where: { id: openDispatch.shipment_leg_id },
+                        data: {
+                            actual_arrival_date: input.occurred_at,
+                        },
+                    },
+                },
+            },
+            include: {
+                current_location: { select: shipmentLocationSelect },
+                shipment_movements: {
+                    where: { id: openDispatch.id },
+                    take: 1,
+                },
+                shipment_legs: {
+                    where: { id: openDispatch.shipment_leg_id },
+                    take: 1,
+                },
+            },
+        });
+
+        const movement = shipment.shipment_movements[0];
+        const leg = shipment.shipment_legs[0];
+        if (!movement || !leg) {
+            throw new Error('SHIPMENT_ACKNOWLEDGE_FAILED');
+        }
+
+        const {
+            current_location: _current,
+            shipment_movements: _movements,
+            shipment_legs: _legs,
+            ...shipmentRecord
+        } = shipment;
+
+        return {
+            shipment: shipmentRecord,
+            leg,
+            movement,
+            from_location: openDispatch.from_location,
+            to_location: openDispatch.to_location,
+        };
+    }
+
     private buildScopeWhere(
         scope: ShipmentListScope,
     ): Prisma.ShipmentWhereInput {
         if (scope.market_ids !== undefined) {
             return {
-                order: {
-                    market_id: { in: scope.market_ids },
-                },
+                OR: [
+                    {
+                        current_location: {
+                            warehouse: {
+                                market_id: { in: scope.market_ids },
+                            },
+                        },
+                    },
+                    {
+                        current_location: {
+                            distribution_point: {
+                                market_id: { in: scope.market_ids },
+                            },
+                        },
+                    },
+                ],
             };
         }
 
         if (scope.warehouse_ids !== undefined) {
             return {
-                OR: [
-                    {
-                        order: {
-                            warehouse_id: { in: scope.warehouse_ids },
-                        },
-                    },
-                    {
-                        current_location: {
-                            warehouse_id: { in: scope.warehouse_ids },
-                        },
-                    },
-                ],
+                current_location: {
+                    warehouse_id: { in: scope.warehouse_ids },
+                },
             };
         }
 

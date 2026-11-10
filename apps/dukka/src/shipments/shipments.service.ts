@@ -26,11 +26,13 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import type { AcknowledgeShipmentDto } from './dto/acknowledge-shipment.dto.js';
 import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import type { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsRepository } from './shipments.repository.js';
 import {
     ALLOWED_SHIPMENT_MOVE_ROUTES,
+    type AcknowledgeShipmentResult,
     type LogisticsPartnerForMove,
     type MoveShipmentResult,
     type ShipmentDetail,
@@ -102,6 +104,17 @@ export class ShipmentsService {
             this.assertActorCanMoveFrom(actor, shipment);
             this.assertLocationActive(shipment.current_location, 'origin');
 
+            const openDispatch =
+                await this.shipmentsRepository.findOpenDispatch(
+                    shipment.id,
+                    shipment.current_location_id,
+                );
+            if (openDispatch) {
+                throw new BadRequestException(
+                    'Cannot move a shipment that is already in transit; acknowledge receipt first',
+                );
+            }
+
             if (shipment.current_location_id === data.to_location_id) {
                 throw new BadRequestException(
                     'Destination must differ from the current location',
@@ -155,6 +168,62 @@ export class ShipmentsService {
 
             this.logger.log(
                 `Moved shipment ${shipmentId} ${result.from_location.type} -> ${result.to_location.type}`,
+            );
+            return result;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async acknowledge(
+        shipmentId: string,
+        data: AcknowledgeShipmentDto,
+        actor: ScopedAccessActor,
+        performedBy: string,
+    ): Promise<AcknowledgeShipmentResult> {
+        try {
+            this.logger.log(`Acknowledging shipment ${shipmentId}`);
+
+            const shipment =
+                await this.shipmentsRepository.findForAcknowledge(shipmentId);
+            if (!shipment) {
+                throw new NotFoundException('Shipment not found');
+            }
+
+            this.assertShipmentMovable(shipment);
+
+            const openDispatch = shipment.open_dispatch;
+            if (!openDispatch) {
+                throw new BadRequestException(
+                    'No in-transit dispatch found to acknowledge',
+                );
+            }
+
+            this.assertActorCanReceiveAt(
+                actor,
+                shipment.order.market_id,
+                openDispatch.to_location,
+            );
+            this.assertLocationActive(openDispatch.to_location, 'destination');
+
+            const occurredAt = data.occurred_at
+                ? new Date(data.occurred_at)
+                : new Date();
+
+            const result = await this.shipmentsRepository.acknowledge(
+                shipmentId,
+                openDispatch,
+                {
+                    occurred_at: occurredAt,
+                    performed_by: performedBy,
+                    ...(data.metadata !== undefined && {
+                        metadata: data.metadata as Prisma.InputJsonValue,
+                    }),
+                },
+            );
+
+            this.logger.log(
+                `Acknowledged shipment ${shipmentId} at ${result.to_location.type}`,
             );
             return result;
         } catch (error) {
@@ -258,34 +327,56 @@ export class ShipmentsService {
         actor: ScopedAccessActor,
         shipment: ShipmentForMove,
     ): void {
-        const from = shipment.current_location;
-        const marketId = shipment.order.market_id;
-
-        if (
-            from.type === LogisticsLocationType.WAREHOUSE &&
-            from.warehouse_id
-        ) {
-            assertActorHasScopedAccess(actor, {
-                market_id: marketId,
-                warehouse_id: from.warehouse_id,
-            });
-            return;
-        }
-
-        if (
-            from.type === LogisticsLocationType.DISTRIBUTION_POINT &&
-            from.distribution_point_id
-        ) {
-            assertActorHasScopedAccess(actor, {
-                market_id: marketId,
-                distribution_point_id: from.distribution_point_id,
-            });
-            return;
-        }
-
-        throw new BadRequestException(
+        this.assertActorCanAccessLocation(
+            actor,
+            shipment.order.market_id,
+            shipment.current_location,
             'Shipment cannot be moved from its current location type',
         );
+    }
+
+    private assertActorCanReceiveAt(
+        actor: ScopedAccessActor,
+        marketId: string,
+        location: ShipmentLocationSummary,
+    ): void {
+        this.assertActorCanAccessLocation(
+            actor,
+            marketId,
+            location,
+            'Shipment can only be acknowledged at a warehouse or distribution point',
+        );
+    }
+
+    private assertActorCanAccessLocation(
+        actor: ScopedAccessActor,
+        marketId: string,
+        location: ShipmentLocationSummary,
+        unsupportedMessage: string,
+    ): void {
+        if (
+            location.type === LogisticsLocationType.WAREHOUSE &&
+            location.warehouse_id
+        ) {
+            assertActorHasScopedAccess(actor, {
+                market_id: marketId,
+                warehouse_id: location.warehouse_id,
+            });
+            return;
+        }
+
+        if (
+            location.type === LogisticsLocationType.DISTRIBUTION_POINT &&
+            location.distribution_point_id
+        ) {
+            assertActorHasScopedAccess(actor, {
+                market_id: marketId,
+                distribution_point_id: location.distribution_point_id,
+            });
+            return;
+        }
+
+        throw new BadRequestException(unsupportedMessage);
     }
 
     private assertAllowedRoute(

@@ -182,6 +182,114 @@ export const staffOrderDetailSelect = {
     coupon_usages: {
         select: couponUsageSelect,
     },
+    shipment: {
+        select: {
+            id: true,
+            tracking_number: true,
+            carrier: true,
+            status: true,
+            estimated_delivery_date: true,
+            actual_delivery_date: true,
+            created_at: true,
+            updated_at: true,
+            origin_location: {
+                select: {
+                    id: true,
+                    type: true,
+                    name: true,
+                    warehouse_id: true,
+                    distribution_point_id: true,
+                    customer_id: true,
+                },
+            },
+            destination_location: {
+                select: {
+                    id: true,
+                    type: true,
+                    name: true,
+                    warehouse_id: true,
+                    distribution_point_id: true,
+                    customer_id: true,
+                },
+            },
+            current_location: {
+                select: {
+                    id: true,
+                    type: true,
+                    name: true,
+                    warehouse_id: true,
+                    distribution_point_id: true,
+                    customer_id: true,
+                },
+            },
+            shipment_legs: {
+                orderBy: [
+                    { created_at: 'asc' as const },
+                    { id: 'asc' as const },
+                ],
+                select: {
+                    id: true,
+                    expected_departure_date: true,
+                    actual_departure_date: true,
+                    expected_arrival_date: true,
+                    actual_arrival_date: true,
+                    created_at: true,
+                    updated_at: true,
+                    origin_location: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                        },
+                    },
+                    destination_location: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                        },
+                    },
+                    logistics_partner: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true,
+                        },
+                    },
+                },
+            },
+            shipment_movements: {
+                orderBy: [
+                    { occurred_at: 'asc' as const },
+                    { id: 'asc' as const },
+                ],
+                select: {
+                    id: true,
+                    movement_type: true,
+                    performed_by: true,
+                    occurred_at: true,
+                    recorded_at: true,
+                    metadata: true,
+                    from_location: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                        },
+                    },
+                    to_location: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                        },
+                    },
+                    shipment_leg_id: true,
+                    created_at: true,
+                },
+            },
+        },
+    },
 } satisfies Prisma.OrderSelect;
 
 type OrderSummaryRow = Prisma.OrderGetPayload<{

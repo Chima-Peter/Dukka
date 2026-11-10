@@ -65,6 +65,30 @@ export type MoveShipmentResult = {
     to_location: ShipmentLocationSummary;
 };
 
+export type AcknowledgeShipmentInput = {
+    occurred_at: Date;
+    performed_by: string;
+    metadata?: Prisma.InputJsonValue;
+};
+
+export type AcknowledgeShipmentResult = {
+    shipment: Shipment;
+    leg: ShipmentLeg;
+    movement: ShipmentMovement;
+    from_location: ShipmentLocationSummary;
+    to_location: ShipmentLocationSummary;
+};
+
+export type OpenDispatchMovement = ShipmentMovement & {
+    from_location: ShipmentLocationSummary;
+    to_location: ShipmentLocationSummary;
+    shipment_leg: ShipmentLeg;
+};
+
+export type ShipmentForAcknowledge = ShipmentForMove & {
+    open_dispatch: OpenDispatchMovement | null;
+};
+
 export type LogisticsPartnerForMove = Pick<
     LogisticsPartner,
     'id' | 'name' | 'code' | 'is_active'
@@ -191,6 +215,12 @@ export const shipmentForMoveInclude = {
             warehouse_id: true,
         },
     },
+} as const;
+
+export const openDispatchInclude = {
+    from_location: { select: shipmentLocationSelect },
+    to_location: { select: shipmentLocationSelect },
+    shipment_leg: true,
 } as const;
 
 export const shipmentDetailInclude = {
