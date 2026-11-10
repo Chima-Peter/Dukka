@@ -12,7 +12,10 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    NotificationPublisher,
+    NotificationType,
     OrderPaymentAttemptStatus,
+    OrderRefundStatus,
     OrderStatus,
     Prisma,
     RedisService,
@@ -40,22 +43,32 @@ import type { ApprovePaymentMethodDto } from './dto/approve-payment-method.dto.j
 import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
+import type { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
 import type { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsRepository } from './payments.repository.js';
 import {
     PaystackService,
+    type PaystackWebhookChargeData,
     type PaystackWebhookEvent,
+    type PaystackWebhookRefundData,
 } from './providers/index.js';
 import type {
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
+    OrderRefundDetail,
     PaymentAttemptDetail,
     PaymentAttemptPage,
     PaymentErrorMessages,
     PaymentMethodDetail,
     StaffPaystackPayResult,
+    StaffRetryRefundResult,
     UpdatePaymentIntentInput,
 } from './types/payment.type.js';
+
+const PAYSTACK_REFUND_TERMINAL_EVENTS = new Set([
+    'refund.processed',
+    'refund.failed',
+]);
 
 @Injectable()
 export class PaymentsService {
@@ -67,6 +80,7 @@ export class PaymentsService {
         private readonly paystackService: PaystackService,
         private readonly generalQueueService: GeneralQueueService,
         private readonly redisService: RedisService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethod> {
@@ -304,65 +318,387 @@ export class PaymentsService {
             }
 
             const event = this.parseWebhookEvent(input.body);
-            if (!event || event.event !== 'charge.success') {
-                this.logger.log(
-                    `Ignoring Paystack webhook event=${event?.event ?? 'unknown'}`,
-                );
+            if (!event) {
+                this.logger.log('Ignoring Paystack webhook event=unknown');
                 return { received: true };
             }
 
-            const attempt = await this.resolvePaymentAttempt(event);
-            if (!attempt) {
-                this.logger.warn(
-                    `No payment attempt for Paystack reference=${event.data.reference ?? 'missing'}`,
-                );
-                return { received: true };
+            if (event.event === 'charge.success') {
+                return await this.handleChargeSuccessWebhook(event);
             }
 
-            if (attempt.status === OrderPaymentAttemptStatus.SUCCESS) {
-                this.logger.log(
-                    `Payment attempt ${attempt.id} already success; acknowledging webhook`,
-                );
-                return { received: true };
+            if (PAYSTACK_REFUND_TERMINAL_EVENTS.has(event.event)) {
+                return await this.handleRefundWebhook(event);
             }
-
-            const metadata = this.parseWebhookMetadata(event.data.metadata);
-            if (this.isCashStaffPaystackPayment(metadata, attempt)) {
-                await this.paymentsRepository.markAttemptSuccess(attempt.id);
-                this.logger.log(
-                    `Paystack charge.success for cash staff payment attempt ${attempt.id}; marked success without order transition`,
-                );
-                return { received: true };
-            }
-
-            const transition =
-                await this.paymentsRepository.completeSuccessfulPayment(
-                    attempt.id,
-                    attempt.order_id,
-                );
-            if (!transition.ok) {
-                if (transition.reason === 'not_found') {
-                    throw new NotFoundException('Order not found');
-                }
-                throw new BadRequestException(
-                    `Cannot transition order from ${transition.current_status} to ${OrderStatus.PROCESSING}`,
-                );
-            }
-
-            await this.generalQueueService.enqueue(
-                GENERAL_JOBS.ORDER_PROCESSING,
-                { order_id: attempt.order_id },
-                { jobId: `order-processing-${attempt.order_id}` },
-            );
 
             this.logger.log(
-                `Paystack charge.success processed for payment attempt ${attempt.id} order ${attempt.order_id}`,
+                `Ignoring Paystack webhook event=${event.event}`,
             );
             return { received: true };
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
             });
+        }
+    }
+
+    private async handleChargeSuccessWebhook(
+        event: PaystackWebhookEvent,
+    ): Promise<{ received: true }> {
+        const attempt = await this.resolvePaymentAttempt(event);
+        if (!attempt) {
+            const reference =
+                this.asChargeData(event.data).reference ?? 'missing';
+            this.logger.warn(
+                `No payment attempt for Paystack reference=${reference}`,
+            );
+            return { received: true };
+        }
+
+        if (attempt.status === OrderPaymentAttemptStatus.SUCCESS) {
+            this.logger.log(
+                `Payment attempt ${attempt.id} already success; acknowledging webhook`,
+            );
+            return { received: true };
+        }
+
+        const metadata = this.parseWebhookMetadata(
+            this.asChargeData(event.data).metadata,
+        );
+        if (this.isCashStaffPaystackPayment(metadata, attempt)) {
+            await this.paymentsRepository.markAttemptSuccess(attempt.id);
+            this.logger.log(
+                `Paystack charge.success for cash staff payment attempt ${attempt.id}; marked success without order transition`,
+            );
+            return { received: true };
+        }
+
+        const transition =
+            await this.paymentsRepository.completeSuccessfulPayment(
+                attempt.id,
+                attempt.order_id,
+            );
+        if (!transition.ok) {
+            if (transition.reason === 'not_found') {
+                throw new NotFoundException('Order not found');
+            }
+            throw new BadRequestException(
+                `Cannot transition order from ${transition.current_status} to ${OrderStatus.PROCESSING}`,
+            );
+        }
+
+        await this.generalQueueService.enqueue(
+            GENERAL_JOBS.ORDER_PROCESSING,
+            { order_id: attempt.order_id },
+            { jobId: `order-processing-${attempt.order_id}` },
+        );
+
+        this.logger.log(
+            `Paystack charge.success processed for payment attempt ${attempt.id} order ${attempt.order_id}`,
+        );
+        return { received: true };
+    }
+
+    private async handleRefundWebhook(
+        event: PaystackWebhookEvent,
+    ): Promise<{ received: true }> {
+        const data = this.asRefundData(event.data);
+        const nextStatus =
+            event.event === 'refund.processed'
+                ? OrderRefundStatus.PROCESSED
+                : OrderRefundStatus.FAILED;
+
+        const refundId = data.refund_reference?.trim();
+        if (!refundId) {
+            this.logger.warn(
+                `Paystack refund event=${event.event} missing refund_reference; acknowledging`,
+            );
+            return { received: true };
+        }
+
+        const refund =
+            await this.paymentsRepository.findRefundById(refundId);
+        if (!refund) {
+            this.logger.warn(
+                `No OrderRefund for Paystack refund event=${event.event} refund_id=${refundId}`,
+            );
+            return { received: true };
+        }
+
+        if (refund.status !== OrderRefundStatus.PENDING) {
+            this.logger.log(
+                `OrderRefund ${refund.id} already ${refund.status}; acknowledging webhook`,
+            );
+            return { received: true };
+        }
+
+        const updated = await this.paymentsRepository.markRefundStatusIfPending({
+            id: refund.id,
+            status: nextStatus,
+            refunded_at:
+                nextStatus === OrderRefundStatus.PROCESSED ? new Date() : null,
+        });
+
+        if (!updated) {
+            this.logger.log(
+                `OrderRefund ${refund.id} was no longer PENDING; acknowledging webhook`,
+            );
+            return { received: true };
+        }
+
+        await this.notifyCustomerRefund(updated, nextStatus);
+
+        this.logger.log(
+            `Paystack ${event.event} processed for OrderRefund ${updated.id} order ${updated.order_id}`,
+        );
+        return { received: true };
+    }
+
+    private async notifyCustomerRefund(
+        refund: OrderRefundDetail,
+        status: Extract<OrderRefundStatus, 'PROCESSED' | 'FAILED'>,
+    ): Promise<void> {
+        const customerId = refund.order.customer_id;
+        if (!customerId) {
+            this.logger.log(
+                `OrderRefund ${refund.id} has no customer to notify`,
+            );
+            return;
+        }
+
+        const orderNumber = refund.order.order_number;
+        if (status === OrderRefundStatus.PROCESSED) {
+            await this.notificationPublisher.notifyCustomer(customerId, {
+                title: 'Refund processed',
+                type: NotificationType.ORDER,
+                text: `Your refund for order #${orderNumber} has been processed.`,
+            });
+            return;
+        }
+
+        await this.notificationPublisher.notifyCustomer(customerId, {
+            title: 'Refund failed',
+            type: NotificationType.ORDER,
+            text: `We could not process the refund for order #${orderNumber}. Please contact support.`,
+        });
+    }
+
+    async retryFailedRefund(
+        orderId: string,
+        data: RetryOrderRefundDto,
+        actor: ScopedAccessActor,
+        staffId: string,
+    ): Promise<StaffRetryRefundResult> {
+        try {
+            this.logger.log(
+                `Staff ${staffId} retrying failed refunds for order ${orderId}`,
+            );
+            assertActorHasScopedAccess(actor, {
+                market_id: data.market_id,
+            });
+
+            const [attempt] = await Promise.all([
+                this.paymentsRepository.findAttemptByOrderId(orderId),
+                this.requireOpenMarket(data.market_id),
+            ]);
+
+            if (!attempt || attempt.order.market_id !== data.market_id) {
+                throw new NotFoundException('Order refund not found');
+            }
+
+            const paymentReference = attempt.payment_intent_id?.trim();
+            if (!paymentReference) {
+                throw new BadRequestException(
+                    'Refund is missing payment transaction reference and cannot be retried',
+                );
+            }
+
+            const currency = attempt.order.currency;
+            const [refunds, paystackRefunds] = await Promise.all([
+                this.paymentsRepository.findRefundsByOrderId(orderId),
+                this.listPaystackRefundsForTransaction(
+                    paymentReference,
+                    currency,
+                ),
+            ]);
+
+            const scoped = refunds.filter(
+                (refund) =>
+                    refund.order.market_id === data.market_id &&
+                    refund.payment_reference === paymentReference,
+            );
+            if (scoped.length === 0) {
+                throw new NotFoundException('Order refund not found');
+            }
+
+            Promise.all([
+                this.assertLocalTxnRefundsAreAllFailed(scoped),
+                this.assertPaystackTxnRefundsAreAllFailed(paystackRefunds),
+            ]);
+
+            const template = scoped[0];
+            if (template.provider.toLowerCase() !== 'paystack') {
+                throw new BadRequestException(
+                    'Only Paystack refunds can be retried',
+                );
+            }
+
+            const created = await this.paymentsRepository.createRefund({
+                amount: template.amount,
+                currency: template.currency,
+                provider: template.provider,
+                payment_reference: paymentReference,
+                order_id: orderId,
+                order_payment_attempt_id:
+                    template.order_payment_attempt_id ?? attempt.id,
+                customer_note: template.customer_note,
+                merchant_note: template.merchant_note,
+            });
+
+            let paystackRefund;
+            try {
+                paystackRefund = await this.paystackService.createRefund({
+                    transaction: paymentReference,
+                    reference: created.id,
+                    currency: created.currency,
+                    ...(created.customer_note
+                        ? { customer_note: created.customer_note }
+                        : {}),
+                    ...(created.merchant_note
+                        ? { merchant_note: created.merchant_note }
+                        : {}),
+                });
+            } catch (error) {
+                await this.paymentsRepository.markRefundStatusIfPending({
+                    id: created.id,
+                    status: OrderRefundStatus.FAILED,
+                });
+                this.logger.error(
+                    `Paystack refund retry failed for new OrderRefund ${created.id} on order ${orderId}: ${error}`,
+                );
+                throw new InternalServerErrorException(
+                    'Paystack refund retry failed. Try again later',
+                );
+            }
+
+            const updated = await this.paymentsRepository.attachProviderRefundId(
+                created.id,
+                String(paystackRefund.id),
+            );
+
+            this.logger.log(
+                `Created OrderRefund ${updated.id} for order ${orderId} via Paystack transaction=${paymentReference} reference=${updated.id} id=${updated.provider_refund_id}; waiting for webhook`,
+            );
+
+            return {
+                refund_id: updated.id,
+                order_id: updated.order_id,
+                provider_refund_id: updated.provider_refund_id,
+                payment_reference: updated.payment_reference,
+                status: updated.status,
+            };
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Order refund not found',
+            });
+        }
+    }
+
+    private assertLocalTxnRefundsAreAllFailed(
+        refunds: OrderRefundDetail[],
+    ): void {
+        if (
+            refunds.some(
+                (refund) => refund.status === OrderRefundStatus.PENDING,
+            )
+        ) {
+            throw new ConflictException(
+                'A pending refund already exists for this payment',
+            );
+        }
+
+        if (
+            refunds.some(
+                (refund) => refund.status === OrderRefundStatus.PROCESSED,
+            )
+        ) {
+            throw new BadRequestException(
+                'A successful refund already exists for this payment',
+            );
+        }
+
+        if (
+            refunds.some(
+                (refund) => refund.status !== OrderRefundStatus.FAILED,
+            )
+        ) {
+            throw new BadRequestException(
+                'Only failed refunds can be retried',
+            );
+        }
+    }
+
+    private async listPaystackRefundsForTransaction(
+        paymentReference: string,
+        currency: string,
+    ) {
+        try {
+            return (
+                (await this.paystackService.listRefunds({
+                    transaction: paymentReference,
+                    currency,
+                    perPage: 50,
+                    page: 1,
+                })) ?? []
+            );
+        } catch (error) {
+            this.logger.error(
+                `Failed listing Paystack refunds for transaction=${paymentReference}: ${error}`,
+            );
+            throw new InternalServerErrorException(
+                'Unable to verify Paystack refunds. Try again later',
+            );
+        }
+    }
+
+    private assertPaystackTxnRefundsAreAllFailed(
+        paystackRefunds: Array<{ status: string }>,
+    ): void {
+        if (paystackRefunds.length === 0) {
+            return;
+        }
+
+        const statuses = paystackRefunds.map((refund) =>
+            refund.status.toLowerCase(),
+        );
+
+        if (
+            statuses.some(
+                (status) =>
+                    status === 'pending' ||
+                    status === 'processing' ||
+                    status === 'needs-attention',
+            )
+        ) {
+            throw new ConflictException(
+                'A pending refund already exists for this payment on Paystack',
+            );
+        }
+
+        if (
+            statuses.some(
+                (status) => status === 'processed' || status === 'success',
+            )
+        ) {
+            throw new BadRequestException(
+                'A successful refund already exists for this payment on Paystack',
+            );
+        }
+
+        if (statuses.some((status) => status !== 'failed')) {
+            throw new BadRequestException(
+                'Only failed Paystack refunds can be retried',
+            );
         }
     }
 
@@ -615,7 +951,8 @@ export class PaymentsService {
     private async resolvePaymentAttempt(
         event: PaystackWebhookEvent,
     ): Promise<PaymentAttemptDetail | null> {
-        const reference = event.data.reference?.trim();
+        const data = this.asChargeData(event.data);
+        const reference = data.reference?.trim();
         if (reference) {
             const byReference =
                 await this.paymentsRepository.findAttemptByPaymentIntentId(
@@ -626,9 +963,7 @@ export class PaymentsService {
             }
         }
 
-        const paymentAttemptId = this.extractPaymentAttemptId(
-            event.data.metadata,
-        );
+        const paymentAttemptId = this.extractPaymentAttemptId(data.metadata);
         if (!paymentAttemptId) {
             return null;
         }
@@ -638,8 +973,20 @@ export class PaymentsService {
         );
     }
 
+    private asChargeData(
+        data: PaystackWebhookEvent['data'],
+    ): PaystackWebhookChargeData {
+        return data as PaystackWebhookChargeData;
+    }
+
+    private asRefundData(
+        data: PaystackWebhookEvent['data'],
+    ): PaystackWebhookRefundData {
+        return data as PaystackWebhookRefundData;
+    }
+
     private extractPaymentAttemptId(
-        metadata: PaystackWebhookEvent['data']['metadata'],
+        metadata: PaystackWebhookChargeData['metadata'],
     ): string | null {
         const parsed = this.parseWebhookMetadata(metadata);
         if (!parsed) {
@@ -672,7 +1019,7 @@ export class PaymentsService {
     }
 
     private parseWebhookMetadata(
-        metadata: PaystackWebhookEvent['data']['metadata'],
+        metadata: PaystackWebhookChargeData['metadata'],
     ): Record<string, unknown> | null {
         if (!metadata) {
             return null;
@@ -861,6 +1208,8 @@ export class PaymentsService {
                 return new NotFoundException('Market not found');
             case 'orderpaymentattempt':
                 return new NotFoundException('Payment attempt not found');
+            case 'orderrefund':
+                return new NotFoundException('Order refund not found');
         }
 
         if (prismaHintIncludes(error, 'order_id')) {

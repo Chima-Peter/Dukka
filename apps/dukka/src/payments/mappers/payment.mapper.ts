@@ -99,3 +99,28 @@ export const paymentAttemptDetailSelect = {
         },
     },
 } satisfies Prisma.OrderPaymentAttemptSelect;
+
+export const orderRefundDetailSelect = {
+    id: true,
+    amount: true,
+    currency: true,
+    status: true,
+    provider: true,
+    provider_refund_id: true,
+    payment_reference: true,
+    customer_note: true,
+    merchant_note: true,
+    refunded_at: true,
+    order_id: true,
+    order_payment_attempt_id: true,
+    created_at: true,
+    updated_at: true,
+    order: {
+        select: {
+            id: true,
+            order_number: true,
+            customer_id: true,
+            market_id: true,
+        },
+    },
+} satisfies Prisma.OrderRefundSelect;

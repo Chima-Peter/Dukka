@@ -53,7 +53,7 @@ export class PaystackService {
 
     async createRefund(input: CreateRefundInput): Promise<CreateRefundResult> {
         this.logger.log(
-            `Creating Paystack refund transaction=${input.transaction}`,
+            `Creating Paystack refund transaction=${input.transaction} reference=${input.reference ?? 'auto'}`,
         );
         return this.request<CreateRefundResult>('POST', '/refund', {
             json: {
@@ -67,6 +67,9 @@ export class PaystackService {
                 }),
                 ...(input.merchant_note !== undefined && {
                     merchant_note: input.merchant_note,
+                }),
+                ...(input.reference !== undefined && {
+                    reference: input.reference,
                 }),
             },
         });

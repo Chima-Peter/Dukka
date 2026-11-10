@@ -13,6 +13,7 @@ export type {
     PaystackApiResponse,
     PaystackWebhookChargeData,
     PaystackWebhookEvent,
+    PaystackWebhookRefundData,
     RetryRefundAccountDetails,
     RetryRefundInput,
     RetryRefundResult,

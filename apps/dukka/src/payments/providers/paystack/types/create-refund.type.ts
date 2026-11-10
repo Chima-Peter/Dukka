@@ -6,6 +6,8 @@ export type CreateRefundInput = {
     currency?: string;
     customer_note?: string;
     merchant_note?: string;
+    /** Our idempotent refund reference (e.g. OrderRefund.id). */
+    reference?: string;
 };
 
 export type CreateRefundResult = {
@@ -24,6 +26,7 @@ export type CreateRefundResult = {
     customer_note: string | null;
     merchant_note: string | null;
     fully_deducted: boolean | number | null;
+    reference?: string | null;
     createdAt?: string;
     updatedAt?: string;
     created_at?: string;

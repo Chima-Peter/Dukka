@@ -4,6 +4,7 @@ import {
     NotificationType,
     OrderInventoryStatus,
     OrderPaymentAttemptStatus,
+    OrderRefundStatus,
     OrderStatus,
     Prisma,
     PrismaService,
@@ -20,11 +21,13 @@ type LockedOrder = {
     id: string;
     order_number: string;
     currency: string;
+    total_amount: Prisma.Decimal;
     inventory_id: string | null;
     warehouse_id: string | null;
     inventory_status: OrderInventoryStatus | null;
     status: OrderStatus;
     payment_method_name: string | null;
+    payment_attempt_id: string | null;
     payment_intent_id: string | null;
     payment_status: OrderPaymentAttemptStatus | null;
 };
@@ -38,6 +41,8 @@ type CancelResult =
           is_cash: boolean;
           is_paystack: boolean;
           currency: string;
+          total_amount: Prisma.Decimal;
+          payment_attempt_id: string | null;
           payment_intent_id: string | null;
           payment_status: OrderPaymentAttemptStatus | null;
       }
@@ -49,6 +54,8 @@ type CancelResult =
           status: OrderStatus;
           is_paystack: boolean;
           currency: string;
+          total_amount: Prisma.Decimal;
+          payment_attempt_id: string | null;
           payment_intent_id: string | null;
           payment_status: OrderPaymentAttemptStatus | null;
       };
@@ -77,10 +84,12 @@ export class CancelOrderService {
                 SELECT o.id,
                        o.order_number,
                        o.currency,
+                       o.total_amount,
                        oi.id AS inventory_id,
                        oi.warehouse_id,
                        oi.status AS inventory_status,
                        o.status,
+                       opa.id AS payment_attempt_id,
                        opa.payment_method_name,
                        opa.payment_intent_id,
                        opa.status AS payment_status
@@ -117,6 +126,8 @@ export class CancelOrderService {
                     status: order.status,
                     is_paystack: isPaystack,
                     currency: order.currency,
+                    total_amount: order.total_amount,
+                    payment_attempt_id: order.payment_attempt_id,
                     payment_intent_id: order.payment_intent_id,
                     payment_status: order.payment_status,
                 } satisfies CancelResult;
@@ -165,6 +176,8 @@ export class CancelOrderService {
                 is_cash: isCash,
                 is_paystack: isPaystack,
                 currency: order.currency,
+                total_amount: order.total_amount,
+                payment_attempt_id: order.payment_attempt_id,
                 payment_intent_id: order.payment_intent_id,
                 payment_status: order.payment_status,
             } satisfies CancelResult;
@@ -206,6 +219,8 @@ export class CancelOrderService {
         order_number: string;
         is_paystack: boolean;
         currency: string;
+        total_amount: Prisma.Decimal;
+        payment_attempt_id: string | null;
         payment_intent_id: string | null;
         payment_status: OrderPaymentAttemptStatus | null;
     }): Promise<'issued' | 'pending' | 'processed' | 'not_needed'> {
@@ -223,33 +238,67 @@ export class CancelOrderService {
             return 'not_needed';
         }
 
-        const reference = input.payment_intent_id;
-        const verified =
-            await this.paystackService.verifyTransaction(reference);
+        const transaction = input.payment_intent_id;
+        const customerNote = `Refund for cancelled order #${input.order_number}`;
+        const merchantNote = `Order #${input.order_number} cancelled`;
+
+        const [verified, localRefunds, paystackRefunds] = await Promise.all([
+            this.paystackService.verifyTransaction(transaction),
+            this.prisma.orderRefund.findMany({
+                where: {
+                    order_id: input.id,
+                    payment_reference: transaction,
+                },
+                select: {
+                    id: true,
+                    status: true,
+                },
+                orderBy: { created_at: 'desc' },
+            }),
+            this.paystackService.listRefunds({
+                transaction,
+                currency: input.currency,
+                perPage: 50,
+                page: 1,
+            }),
+        ]);
 
         if (verified.status.toLowerCase() !== 'success') {
             this.logger.log(
-                `Paystack txn ${reference} status=${verified.status}; skipping refund for order ${input.id}`,
+                `Paystack txn ${transaction} status=${verified.status}; skipping refund for order ${input.id}`,
             );
             return 'not_needed';
         }
 
-        const refunds =
-            (await this.paystackService.listRefunds({
-                transaction: reference,
-                currency: input.currency,
-                perPage: 50,
-                page: 1,
-            })) ?? [];
+        if (
+            localRefunds.some(
+                (refund) => refund.status === OrderRefundStatus.PENDING,
+            )
+        ) {
+            this.logger.log(
+                `Local pending OrderRefund already exists for order ${input.id}; skipping create`,
+            );
+            return 'pending';
+        }
 
-        const existing = refunds.find((refund) =>
+        if (
+            localRefunds.some(
+                (refund) => refund.status === OrderRefundStatus.PROCESSED,
+            )
+        ) {
+            this.logger.log(
+                `Local processed OrderRefund already exists for order ${input.id}; skipping create`,
+            );
+            return 'processed';
+        }
+
+        const existingPaystack = (paystackRefunds ?? []).find((refund) =>
             ACTIVE_REFUND_STATUSES.has(refund.status.toLowerCase()),
         );
-
-        if (existing) {
-            const status = existing.status.toLowerCase();
+        if (existingPaystack) {
+            const status = existingPaystack.status.toLowerCase();
             this.logger.log(
-                `Paystack refund already exists id=${existing.id} status=${existing.status} for order ${input.id}`,
+                `Paystack refund already exists id=${existingPaystack.id} status=${existingPaystack.status} for order ${input.id}`,
             );
             if (status === 'processed' || status === 'success') {
                 return 'processed';
@@ -257,22 +306,59 @@ export class CancelOrderService {
             return 'pending';
         }
 
-        const created = await this.paystackService.createRefund({
-            transaction: reference,
-            currency: input.currency,
-            merchant_note: `Order #${input.order_number} cancelled`,
-            customer_note: `Refund for cancelled order #${input.order_number}`,
+        const createdLocal = await this.prisma.orderRefund.create({
+            data: {
+                amount: input.total_amount,
+                currency: input.currency,
+                provider: 'paystack',
+                payment_reference: transaction,
+                order_id: input.id,
+                status: OrderRefundStatus.PENDING,
+                customer_note: customerNote,
+                merchant_note: merchantNote,
+                ...(input.payment_attempt_id
+                    ? { order_payment_attempt_id: input.payment_attempt_id }
+                    : {}),
+            },
+            select: { id: true },
         });
 
-        this.logger.log(
-            `Issued Paystack refund id=${created.id} status=${created.status} for order ${input.id}`,
-        );
+        try {
+            const created = await this.paystackService.createRefund({
+                transaction,
+                reference: createdLocal.id,
+                currency: input.currency,
+                merchant_note: merchantNote,
+                customer_note: customerNote,
+            });
 
-        const createdStatus = created.status.toLowerCase();
-        if (createdStatus === 'processed' || createdStatus === 'success') {
-            return 'processed';
+            await this.prisma.orderRefund.update({
+                where: { id: createdLocal.id },
+                data: { provider_refund_id: String(created.id) },
+            });
+
+            this.logger.log(
+                `Issued Paystack refund id=${created.id} reference=${createdLocal.id} status=${created.status} for order ${input.id}`,
+            );
+
+            const createdStatus = created.status.toLowerCase();
+            if (createdStatus === 'processed' || createdStatus === 'success') {
+                return 'processed';
+            }
+            return 'issued';
+        } catch (error) {
+            await this.prisma.orderRefund.updateMany({
+                where: {
+                    id: createdLocal.id,
+                    status: OrderRefundStatus.PENDING,
+                },
+                data: { status: OrderRefundStatus.FAILED },
+            });
+            this.logger.error(
+                `Paystack refund create failed for OrderRefund ${createdLocal.id} order ${input.id}: ${error}`,
+            );
+            throw error;
         }
-        return 'issued';
     }
 
     private async cancelShipmentIfNeeded(

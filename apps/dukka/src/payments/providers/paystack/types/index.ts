@@ -26,4 +26,5 @@ export type {
 export type {
     PaystackWebhookChargeData,
     PaystackWebhookEvent,
+    PaystackWebhookRefundData,
 } from './webhook.type.js';

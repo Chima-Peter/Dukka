@@ -1,6 +1,11 @@
-import type { OrderPaymentAttemptStatus, Prisma } from '@app/common';
+import type {
+    OrderPaymentAttemptStatus,
+    OrderRefundStatus,
+    Prisma,
+} from '@app/common';
 import type {
     marketPaymentMethodSelect,
+    orderRefundDetailSelect,
     paymentAttemptDetailSelect,
     paymentAttemptSummarySelect,
     paymentMethodDetailSelect,
@@ -25,6 +30,39 @@ export type PaymentAttemptDetail = Prisma.OrderPaymentAttemptGetPayload<{
 export type PaymentAttemptPage = {
     items: PaymentAttemptSummary[];
     next_cursor: string | null;
+};
+
+export type OrderRefundDetail = Prisma.OrderRefundGetPayload<{
+    select: typeof orderRefundDetailSelect;
+}>;
+
+export type MarkRefundStatusInput = {
+    id: string;
+    status: Extract<
+        OrderRefundStatus,
+        'PROCESSED' | 'FAILED'
+    >;
+    refunded_at?: Date | null;
+};
+
+export type CreateOrderRefundInput = {
+    amount: Prisma.Decimal | number | string;
+    currency: string;
+    provider: string;
+    payment_reference: string;
+    order_id: string;
+    order_payment_attempt_id?: string | null;
+    customer_note?: string | null;
+    merchant_note?: string | null;
+    provider_refund_id?: string | null;
+};
+
+export type StaffRetryRefundResult = {
+    refund_id: string;
+    order_id: string;
+    provider_refund_id: string | null;
+    payment_reference: string | null;
+    status: OrderRefundStatus;
 };
 
 export type CreatePaymentAttemptInput = {

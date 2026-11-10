@@ -18,6 +18,7 @@ export type CreateRefundInput = {
     currency?: string;
     customer_note?: string;
     merchant_note?: string;
+    reference?: string;
 };
 
 export type CreateRefundResult = {
@@ -26,6 +27,7 @@ export type CreateRefundResult = {
     amount: number;
     currency: string;
     transaction: number | { id: number; reference: string; amount: number };
+    reference?: string | null;
 };
 
 export type ListRefundsInput = {

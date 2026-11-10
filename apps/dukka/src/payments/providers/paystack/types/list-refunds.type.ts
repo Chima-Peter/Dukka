@@ -1,8 +1,9 @@
 import type { CreateRefundResult } from './create-refund.type.js';
 
 export type ListRefundsInput = {
-    transaction: string;
-    currency: string;
+    transaction?: string;
+    currency?: string;
+    reference?: string;
     from?: string;
     to?: string;
     perPage?: number;

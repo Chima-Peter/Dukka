@@ -30,6 +30,7 @@ import { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import { FindPaymentAttemptDto } from './dto/find-payment-attempt.dto.js';
 import { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
+import { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
 import { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsService } from './payments.service.js';
 
@@ -122,6 +123,23 @@ export class PaymentsController {
             toScopedAccessActor(staff),
             staff.sub,
             idempotencyKey,
+        );
+    }
+
+    @Post('orders/:orderId/refunds/retry')
+    @RequirePermission(StaffPermission.PaymentsManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Failed refund retried successfully')
+    retryFailedRefund(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('orderId', ParseUUIDPipe) orderId: string,
+        @Body() data: RetryOrderRefundDto,
+    ) {
+        return this.paymentsService.retryFailedRefund(
+            orderId,
+            data,
+            toScopedAccessActor(staff),
+            staff.sub,
         );
     }
 

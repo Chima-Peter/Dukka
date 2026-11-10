@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
     OrderPaymentAttemptStatus,
+    OrderRefundStatus,
     OrderStatus,
     type PaymentMethod,
     type Prisma,
@@ -13,14 +14,18 @@ import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js'
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import {
     marketPaymentMethodSelect,
+    orderRefundDetailSelect,
     paymentAttemptDetailSelect,
     paymentAttemptSummarySelect,
     paymentMethodDetailSelect,
 } from './mappers/payment.mapper.js';
 import type {
     ConvertCashAttemptToPaystackInput,
+    CreateOrderRefundInput,
     CreatePaymentAttemptInput,
+    MarkRefundStatusInput,
     MarketPaymentMethodDetail,
+    OrderRefundDetail,
     PaymentAttemptDetail,
     PaymentAttemptPage,
     PaymentMethodDetail,
@@ -276,6 +281,87 @@ export class PaymentsRepository {
             where: { payment_intent_id: paymentIntentId },
             select: paymentAttemptDetailSelect,
         });
+    }
+
+    async findRefundById(
+        refundId: string,
+    ): Promise<OrderRefundDetail | null> {
+        return await this.prisma.orderRefund.findUnique({
+            where: { id: refundId },
+            select: orderRefundDetailSelect,
+        });
+    }
+
+    async findRefundsByOrderId(
+        orderId: string,
+    ): Promise<OrderRefundDetail[]> {
+        return await this.prisma.orderRefund.findMany({
+            where: { order_id: orderId },
+            select: orderRefundDetailSelect,
+            orderBy: { created_at: 'desc' },
+        });
+    }
+
+    async createRefund(
+        input: CreateOrderRefundInput,
+    ): Promise<OrderRefundDetail> {
+        return await this.prisma.orderRefund.create({
+            data: {
+                amount: input.amount,
+                currency: input.currency,
+                provider: input.provider,
+                payment_reference: input.payment_reference,
+                order_id: input.order_id,
+                status: OrderRefundStatus.PENDING,
+                ...(input.order_payment_attempt_id
+                    ? {
+                          order_payment_attempt_id:
+                              input.order_payment_attempt_id,
+                      }
+                    : {}),
+                ...(input.customer_note !== undefined && {
+                    customer_note: input.customer_note,
+                }),
+                ...(input.merchant_note !== undefined && {
+                    merchant_note: input.merchant_note,
+                }),
+                ...(input.provider_refund_id !== undefined && {
+                    provider_refund_id: input.provider_refund_id,
+                }),
+            },
+            select: orderRefundDetailSelect,
+        });
+    }
+
+    async attachProviderRefundId(
+        id: string,
+        providerRefundId: string,
+    ): Promise<OrderRefundDetail> {
+        return await this.prisma.orderRefund.update({
+            where: { id },
+            data: { provider_refund_id: providerRefundId },
+            select: orderRefundDetailSelect,
+        });
+    }
+
+    async markRefundStatusIfPending(
+        input: MarkRefundStatusInput,
+    ): Promise<OrderRefundDetail | null> {
+        const updated = await this.prisma.orderRefund.updateManyAndReturn({
+            where: {
+                id: input.id,
+                status: OrderRefundStatus.PENDING,
+            },
+            data: {
+                status: input.status,
+                ...(input.refunded_at !== undefined && {
+                    refunded_at: input.refunded_at,
+                }),
+            },
+            select: orderRefundDetailSelect,
+        });
+
+        return updated[0] ?? null;
     }
 
     private buildMethodWhere(
