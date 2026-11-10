@@ -19,6 +19,7 @@ import {
     type StaffJwtPayload,
 } from '@app/common';
 import { toScopedAccessActor } from '../shared/access-control.js';
+import { AssignWarehouseStaffDto } from './dto/assign-warehouse-staff.dto.js';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
@@ -122,5 +123,25 @@ export class WarehouseController {
         @Param('id', ParseUUIDPipe) id: string,
     ) {
         return this.warehouseService.open(id, toScopedAccessActor(staff));
+    }
+
+    @Post(':id/staff')
+    @RequirePermission(StaffPermission.WarehousesManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Staff assigned to warehouse successfully')
+    assignStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: AssignWarehouseStaffDto,
+    ) {
+        return this.warehouseService.assignStaff(
+            id,
+            data,
+            toScopedAccessActor(staff),
+            {
+                id: staff.sub,
+                name: staff.name,
+            },
+        );
     }
 }

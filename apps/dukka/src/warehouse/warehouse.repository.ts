@@ -8,11 +8,13 @@ import {
 } from '@app/common';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
-import type {
-    CreateWarehouseRecord,
-    WarehouseAuditActor,
-    WarehouseRecord,
-    WarehouseWithAuditRelations,
+import {
+    warehouseStaffSelect,
+    type CreateWarehouseRecord,
+    type WarehouseAuditActor,
+    type WarehouseRecord,
+    type WarehouseStaffMember,
+    type WarehouseWithAuditRelations,
 } from './types/warehouse.type.js';
 
 @Injectable()
@@ -225,6 +227,69 @@ export class WarehouseRepository {
         return await this.prisma.warehouse.update({
             where: { id },
             data: { status: WarehouseStatus.OPEN },
+        });
+    }
+
+    async assignStaff(
+        warehouseId: string,
+        staffMembers: WarehouseAuditActor[],
+        performed_by: WarehouseAuditActor,
+        market: WarehouseAuditActor,
+    ): Promise<WarehouseStaffMember[]> {
+        const staffIds = staffMembers.map((member) => member.id);
+
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.staffScope.findMany({
+                where: {
+                    warehouse_id: warehouseId,
+                    staff_id: { in: staffIds },
+                    scope_type: ScopeType.WAREHOUSE,
+                },
+                select: { staff_id: true },
+            });
+            const alreadyAssigned = new Set(
+                existing.map((scope) => scope.staff_id),
+            );
+            const toAssign = staffMembers.filter(
+                (member) => !alreadyAssigned.has(member.id),
+            );
+
+            if (toAssign.length > 0) {
+                await tx.staffScope.createMany({
+                    data: toAssign.map((member) => ({
+                        staff_id: member.id,
+                        scope_type: ScopeType.WAREHOUSE,
+                        warehouse_id: warehouseId,
+                    })),
+                });
+
+                await tx.staffAudit.createMany({
+                    data: toAssign.map((member) => ({
+                        action: StaffAuditAction.SCOPE_ASSIGNED,
+                        staff_id: member.id,
+                        staff_name: member.name,
+                        performed_by_staff_id: performed_by.id,
+                        performed_by_staff_name: performed_by.name,
+                        market_id: market.id,
+                        market_name: market.name,
+                    })),
+                });
+            }
+
+            const scopes = await tx.staffScope.findMany({
+                where: {
+                    warehouse_id: warehouseId,
+                    staff_id: { in: staffIds },
+                    scope_type: ScopeType.WAREHOUSE,
+                },
+                select: warehouseStaffSelect,
+                orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            });
+
+            return scopes.map((scope) => ({
+                ...scope,
+                warehouse_id: scope.warehouse_id ?? warehouseId,
+            }));
         });
     }
 }

@@ -40,8 +40,16 @@ describe('WarehouseService', () => {
     let service: WarehouseService;
     let warehouseRepository: {
         findByIdOrThrow: ReturnType<typeof vi.fn>;
+        findByIdWithAuditRelationsOrThrow: ReturnType<typeof vi.fn>;
         close: ReturnType<typeof vi.fn>;
         findAll: ReturnType<typeof vi.fn>;
+        assignStaff: ReturnType<typeof vi.fn>;
+    };
+    let staffService: {
+        validateIds: ReturnType<typeof vi.fn>;
+    };
+    let notificationPublisher: {
+        notifyStaff: ReturnType<typeof vi.fn>;
     };
 
     beforeEach(async () => {
@@ -54,10 +62,18 @@ describe('WarehouseService', () => {
             create: vi.fn(),
             findAll: vi.fn(),
             findByIdOrThrow: vi.fn(),
+            findByIdWithAuditRelationsOrThrow: vi.fn(),
             updateManager: vi.fn(),
             close: vi.fn(),
             open: vi.fn(),
+            assignStaff: vi.fn(),
         } as typeof warehouseRepository & Record<string, ReturnType<typeof vi.fn>>;
+        staffService = {
+            validateIds: vi.fn(),
+        };
+        notificationPublisher = {
+            notifyStaff: vi.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -68,9 +84,7 @@ describe('WarehouseService', () => {
                 },
                 {
                     provide: StaffService,
-                    useValue: {
-                        validateIds: vi.fn(),
-                    },
+                    useValue: staffService,
                 },
                 {
                     provide: MarketsService,
@@ -80,10 +94,7 @@ describe('WarehouseService', () => {
                 },
                 {
                     provide: NotificationPublisher,
-                    useValue: {
-                        notifyCustomer: vi.fn(),
-                        notifyStaff: vi.fn(),
-                    },
+                    useValue: notificationPublisher,
                 },
             ],
         }).compile();
@@ -150,5 +161,77 @@ describe('WarehouseService', () => {
 
         await service.close('wh-2', marketActor);
         expect(warehouseRepository.close).toHaveBeenCalledWith('wh-2');
+    });
+
+    it('assigns warehouse-scoped staff to a warehouse', async () => {
+        const marketActor: ScopedAccessActor = {
+            scopes: [
+                {
+                    scope_type: 'MARKET',
+                    market_id: 'market-1',
+                    warehouse_id: null,
+                    distribution_point_id: null,
+                },
+            ],
+            market_ids: ['market-1'],
+        };
+        warehouseRepository.findByIdWithAuditRelationsOrThrow.mockResolvedValue({
+            id: 'wh-1',
+            market_id: 'market-1',
+            status: 'OPEN',
+            manager_id: 'manager-1',
+            name: 'Lagos Hub',
+            market: { id: 'market-1', name: 'Nigeria' },
+            manager: { id: 'manager-1', name: 'Manager' },
+        });
+        staffService.validateIds.mockResolvedValue({
+            valid: true,
+            staff: {
+                'staff-2': {
+                    id: 'staff-2',
+                    name: 'Worker',
+                    exists: true,
+                    is_active: true,
+                    has_permissions: true,
+                    has_scope: true,
+                    valid: true,
+                },
+            },
+        });
+        warehouseRepository.assignStaff.mockResolvedValue([
+            {
+                id: 'scope-1',
+                staff_id: 'staff-2',
+                warehouse_id: 'wh-1',
+                created_at: new Date(),
+                staff: {
+                    id: 'staff-2',
+                    name: 'Worker',
+                    email: 'worker@dukka.local',
+                    is_active: true,
+                },
+            },
+        ]);
+
+        const result = await service.assignStaff(
+            'wh-1',
+            { staff_ids: ['staff-2'] },
+            marketActor,
+            { id: 'actor-1', name: 'Actor' },
+        );
+
+        expect(warehouseRepository.assignStaff).toHaveBeenCalledWith(
+            'wh-1',
+            [{ id: 'staff-2', name: 'Worker' }],
+            { id: 'actor-1', name: 'Actor' },
+            { id: 'market-1', name: 'Nigeria' },
+        );
+        expect(notificationPublisher.notifyStaff).toHaveBeenCalledWith(
+            'staff-2',
+            expect.objectContaining({
+                title: 'Warehouse assigned',
+            }),
+        );
+        expect(result).toHaveLength(1);
     });
 });

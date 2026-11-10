@@ -29,6 +29,7 @@ import {
 } from '../shared/prisma-relation-error.js';
 import { StaffService } from '../staff/staff.service.js';
 import { WAREHOUSE_MANAGER_PERMISSIONS } from './constants/warehouse.constants.js';
+import type { AssignWarehouseStaffDto } from './dto/assign-warehouse-staff.dto.js';
 import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
@@ -36,6 +37,7 @@ import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.d
 import type {
     WarehouseAuditActor,
     WarehouseRecord,
+    WarehouseStaffMember,
 } from './types/warehouse.type.js';
 import { WarehouseRepository } from './warehouse.repository.js';
 
@@ -258,6 +260,62 @@ export class WarehouseService {
         }
     }
 
+    async assignStaff(
+        id: string,
+        data: AssignWarehouseStaffDto,
+        actor: ScopedAccessActor,
+        performed_by: WarehouseAuditActor,
+    ): Promise<WarehouseStaffMember[]> {
+        try {
+            this.logger.log(
+                `Assigning ${data.staff_ids.length} staff to warehouse ${id}`,
+            );
+            const existing =
+                await this.warehouseRepository.findByIdWithAuditRelationsOrThrow(
+                    id,
+                );
+            assertActorHasScopedAccess(actor, {
+                market_id: existing.market_id,
+                warehouse_id: existing.id,
+            });
+            if (existing.status === WarehouseStatus.CLOSED) {
+                throw new BadRequestException(
+                    'Cannot assign staff to a closed warehouse',
+                );
+            }
+            if (data.staff_ids.includes(existing.manager_id)) {
+                throw new BadRequestException(
+                    'Warehouse manager already has access and cannot be assigned as warehouse staff',
+                );
+            }
+
+            const staffMembers = await this.assertWarehouseStaffValid(
+                data.staff_ids,
+            );
+            const assigned = await this.warehouseRepository.assignStaff(
+                id,
+                staffMembers,
+                performed_by,
+                existing.market,
+            );
+            this.logger.log(`Assigned staff to warehouse ${id}`);
+
+            await Promise.all(
+                staffMembers.map((member) =>
+                    this.notificationPublisher.notifyStaff(member.id, {
+                        title: 'Warehouse assigned',
+                        type: NotificationType.SYSTEM,
+                        text: `You have been assigned to ${existing.name}.`,
+                    }),
+                ),
+            );
+
+            return assigned;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     private resolveWarehouseListScope(
         query: FindWarehousesDto,
         actor: ScopedAccessActor,
@@ -330,6 +388,57 @@ export class WarehouseService {
         }
 
         return { id: manager.id, name: manager.name };
+    }
+
+    private async assertWarehouseStaffValid(
+        staffIds: string[],
+    ): Promise<WarehouseAuditActor[]> {
+        const result = await this.staffService.validateIds({
+            staff_ids: staffIds,
+            permissions: [],
+            scope: { scope_type: ScopeType.WAREHOUSE },
+        });
+
+        const invalid = staffIds.filter((id) => !result.staff[id]?.valid);
+        if (invalid.length > 0) {
+            const parts: string[] = [];
+            if (invalid.some((id) => !result.staff[id]?.exists)) {
+                parts.push('One or more staff members were not found');
+            }
+            if (
+                invalid.some(
+                    (id) =>
+                        result.staff[id]?.exists &&
+                        !result.staff[id]?.is_active,
+                )
+            ) {
+                parts.push('One or more staff accounts are inactive');
+            }
+            if (
+                invalid.some(
+                    (id) =>
+                        result.staff[id]?.exists &&
+                        result.staff[id]?.is_active &&
+                        !result.staff[id]?.has_scope,
+                )
+            ) {
+                parts.push(
+                    'One or more staff must have a warehouse-scoped role',
+                );
+            }
+            throw new BadRequestException({
+                message:
+                    parts.length > 0
+                        ? parts.join('; ')
+                        : 'Warehouse staff are invalid',
+                staff: result.staff,
+            });
+        }
+
+        return staffIds.map((id) => {
+            const staff = result.staff[id];
+            return { id: staff.id, name: staff.name! };
+        });
     }
 
     private handleError(error: unknown): never {
