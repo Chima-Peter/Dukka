@@ -346,7 +346,13 @@ export class ServiceStateService {
     async requireOpenInMarket(
         id: string,
         marketId: string,
-    ): Promise<{ id: string; market_id: string; status: ServiceStateStatus }> {
+    ): Promise<{
+        id: string;
+        market_id: string;
+        status: ServiceStateStatus;
+        state_name: string;
+        country: string;
+    }> {
         const existing =
             await this.serviceStateRepository.findByIdOrThrow(id);
         if (existing.market_id !== marketId) {
@@ -364,6 +370,8 @@ export class ServiceStateService {
             id: existing.id,
             market_id: existing.market_id,
             status: existing.status,
+            state_name: existing.state_name,
+            country: existing.market.iso2,
         };
     }
 

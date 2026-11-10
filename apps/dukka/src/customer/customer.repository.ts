@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { type Customer, PrismaService } from '@app/common';
+import {
+    type Customer,
+    LogisticsLocationType,
+    PrismaService,
+} from '@app/common';
 import type { CreateCustomerDto } from './dto/create-customer.dto.js';
 import type { UpdateCustomerDTO } from './dto/update-customer.dto.js';
 
@@ -15,6 +19,13 @@ export class CustomerRepository {
                 password: data.password,
                 cart: {
                     create: {},
+                },
+                logistics_locations: {
+                    create: {
+                        type: LogisticsLocationType.CUSTOMER,
+                        name: data.name,
+                        email: data.email,
+                    },
                 },
             },
         });

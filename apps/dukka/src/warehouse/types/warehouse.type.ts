@@ -7,6 +7,7 @@ export type CreateWarehouseRecord = {
     name: string;
     manager_id: string;
     address: string;
+    country: string;
 };
 
 export type WarehouseAuditActor = {

@@ -59,12 +59,17 @@ export class DistributionPointsService {
                 `Creating distribution point ${data.name} in market ${data.market_id}`,
             );
             assertActorHasScopedAccess(actor, { market_id: data.market_id });
-            await this.serviceStateService.requireOpenInMarket(
-                data.state_id,
-                data.market_id,
-            );
+            const serviceState =
+                await this.serviceStateService.requireOpenInMarket(
+                    data.state_id,
+                    data.market_id,
+                );
             const distributionPoint =
-                await this.distributionPointsRepository.create(data);
+                await this.distributionPointsRepository.create({
+                    ...data,
+                    state: serviceState.state_name,
+                    country: serviceState.country,
+                });
             this.logger.log(
                 `Distribution point created ${distributionPoint.id}`,
             );

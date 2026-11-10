@@ -19,7 +19,7 @@ type ServiceStateWithWarehouses = ServiceState & {
 };
 
 type ServiceStateWithRelations = ServiceStateWithWarehouses & {
-    market: { id: string; status: MarketStatus };
+    market: { id: string; status: MarketStatus; iso2: string };
 };
 
 @Injectable()
@@ -108,7 +108,7 @@ export class ServiceStateRepository {
         return await this.prisma.serviceState.findUnique({
             where: { id },
             include: {
-                market: { select: { id: true, status: true } },
+                market: { select: { id: true, status: true, iso2: true } },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },

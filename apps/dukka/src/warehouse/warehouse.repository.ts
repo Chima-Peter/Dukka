@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    LogisticsLocationType,
     Prisma,
     ScopeType,
     StaffAuditAction,
@@ -34,6 +35,14 @@ export class WarehouseRepository {
                     address: data.address,
                     market: { connect: { id: data.market_id } },
                     manager: { connect: { id: data.manager_id } },
+                    logistics_locations: {
+                        create: {
+                            type: LogisticsLocationType.WAREHOUSE,
+                            name: data.name,
+                            address: data.address,
+                            country: data.country,
+                        },
+                    },
                 },
             });
 

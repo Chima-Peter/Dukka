@@ -1,15 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    LogisticsLocationType,
     Prisma,
     PrismaService,
     ScopeType,
     StaffAuditAction,
 } from '@app/common';
-import type { CreateDistributionPointDto } from './dto/create-distribution-point.dto.js';
 import type { FindDistributionPointsDto } from './dto/find-distribution-points.dto.js';
 import type { UpdateDistributionPointDto } from './dto/update-distribution-point.dto.js';
 import {
     distributionPointStaffSelect,
+    type CreateDistributionPointRecord,
     type DistributionPointAuditActor,
     type DistributionPointRecord,
     type DistributionPointStaffMember,
@@ -21,7 +22,7 @@ export class DistributionPointsRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(
-        data: CreateDistributionPointDto,
+        data: CreateDistributionPointRecord,
     ): Promise<DistributionPointRecord> {
         return await this.prisma.distributionPoint.create({
             data: {
@@ -32,6 +33,18 @@ export class DistributionPointsRepository {
                 contact_phone: data.contact_phone,
                 market: { connect: { id: data.market_id } },
                 state: { connect: { id: data.state_id } },
+                logistics_locations: {
+                    create: {
+                        type: LogisticsLocationType.DISTRIBUTION_POINT,
+                        name: data.name,
+                        phone: data.contact_phone,
+                        address: data.address,
+                        city: data.city,
+                        zip: data.zip,
+                        state: data.state,
+                        country: data.country,
+                    },
+                },
             },
         });
     }

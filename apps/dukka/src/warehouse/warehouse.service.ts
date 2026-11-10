@@ -70,7 +70,10 @@ export class WarehouseService {
                 scope_type: ScopeType.WAREHOUSE,
             });
             const warehouse = await this.warehouseRepository.create(
-                data,
+                {
+                    ...data,
+                    country: market.iso2,
+                },
                 performed_by,
                 manager,
                 { id: market.id, name: market.name },

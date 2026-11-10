@@ -10,6 +10,8 @@ export type CreateDistributionPointRecord = {
     city: string;
     zip: string;
     contact_phone: string;
+    state: string;
+    country: string;
 };
 
 export type DistributionPointAuditActor = {
