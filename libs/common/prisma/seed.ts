@@ -1326,6 +1326,7 @@ async function upsertCatalogProduct(params: {
         product = await prisma.product.update({
             where: { id: product.id },
             data: {
+                name: params.name,
                 description: params.description,
                 specs: params.specs,
                 status: params.status,
@@ -1593,33 +1594,23 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
         });
     }
 
+    const bulkDefs = buildBulkCatalogDefs(categories);
+    const expectedBulkVariants = bulkDefs.reduce(
+        (sum, product) => sum + product.variants.length,
+        0,
+    );
     const existingBulkVariants = await prisma.variant.count({
         where: { variant_code: { startsWith: `${BULK_VARIANT_CODE_PREFIX}-` } },
     });
 
     let bulkProductCount = 0;
-    if (existingBulkVariants === 0) {
-        const bulkDefs = buildBulkCatalogDefs(categories);
-        const batchSize = 25;
-        for (let i = 0; i < bulkDefs.length; i += batchSize) {
-            const batch = bulkDefs.slice(i, i + batchSize);
-            for (const productDef of batch) {
-                await upsertCatalogProduct({
-                    ...productDef,
-                    marketByCode,
-                    seededMarketVariants,
-                });
-                bulkProductCount += 1;
-            }
-            console.log(
-                `Bulk catalog progress: ${Math.min(i + batchSize, bulkDefs.length)}/${bulkDefs.length} products`,
-            );
-        }
-    } else {
+    if (existingBulkVariants === expectedBulkVariants) {
         const existing = await prisma.marketVariant.findMany({
             where: {
                 variant: {
-                    variant_code: { startsWith: `${BULK_VARIANT_CODE_PREFIX}-` },
+                    variant_code: {
+                        startsWith: `${BULK_VARIANT_CODE_PREFIX}-`,
+                    },
                 },
             },
             select: {
@@ -1646,6 +1637,197 @@ async function seedCatalog(markets: { id: string; code: string }[]) {
         console.log(
             `Bulk catalog already present (${existingBulkVariants} variants); reusing existing rows`,
         );
+    } else {
+        if (existingBulkVariants > 0) {
+            const deleted = await prisma.product.deleteMany({
+                where: {
+                    specs: {
+                        path: ['seed_batch'],
+                        equals: 'catalog-bulk-v1',
+                    },
+                },
+            });
+            console.log(
+                `Reset incomplete bulk catalog (${existingBulkVariants}/${expectedBulkVariants} variants); deleted ${deleted.count} product(s)`,
+            );
+        }
+
+        const productBatchSize = 100;
+        const createdProducts: { id: string; name: string; category_id: string }[] =
+            [];
+
+        for (let i = 0; i < bulkDefs.length; i += productBatchSize) {
+            const batch = bulkDefs.slice(i, i + productBatchSize);
+            const created = await prisma.product.createManyAndReturn({
+                data: batch.map((product) => ({
+                    name: product.name,
+                    description: product.description,
+                    specs: product.specs,
+                    status: product.status,
+                    category_id: product.category_id,
+                })),
+            });
+            createdProducts.push(...created);
+            console.log(
+                `Bulk products: ${Math.min(i + productBatchSize, bulkDefs.length)}/${bulkDefs.length}`,
+            );
+        }
+
+        const productIdByKey = new Map(
+            createdProducts.map((product) => [
+                `${product.category_id}:${product.name}`,
+                product.id,
+            ]),
+        );
+
+        const productImages = bulkDefs.flatMap((product) => {
+            const productId = productIdByKey.get(
+                `${product.category_id}:${product.name}`,
+            );
+            if (!productId) {
+                return [];
+            }
+            return product.images.map((image) => ({
+                product_id: productId,
+                image_url: image.image_url,
+                sort_order: image.sort_order,
+            }));
+        });
+        for (let i = 0; i < productImages.length; i += 500) {
+            await prisma.productImage.createMany({
+                data: productImages.slice(i, i + 500),
+            });
+        }
+
+        const variantRows = bulkDefs.flatMap((product) => {
+            const productId = productIdByKey.get(
+                `${product.category_id}:${product.name}`,
+            );
+            if (!productId) {
+                return [];
+            }
+            return product.variants.map((variant) => ({
+                variant_code: variant.variant_code,
+                color: variant.color,
+                size: variant.size,
+                variant_info: variant.variant_info,
+                status:
+                    variant.markets.length > 0
+                        ? VariantStatus.ACTIVE
+                        : VariantStatus.PENDING_REVIEW,
+                product_id: productId,
+                image_url: variant.image_url,
+                markets: variant.markets,
+            }));
+        });
+
+        const createdVariants: { id: string; variant_code: string }[] = [];
+        for (let i = 0; i < variantRows.length; i += 200) {
+            const batch = variantRows.slice(i, i + 200);
+            const created = await prisma.variant.createManyAndReturn({
+                data: batch.map((variant) => ({
+                    variant_code: variant.variant_code,
+                    color: variant.color,
+                    size: variant.size,
+                    variant_info: variant.variant_info,
+                    status: variant.status,
+                    product_id: variant.product_id,
+                })),
+            });
+            createdVariants.push(...created);
+            console.log(
+                `Bulk variants: ${Math.min(i + 200, variantRows.length)}/${variantRows.length}`,
+            );
+        }
+
+        const variantIdByCode = new Map(
+            createdVariants.map((variant) => [variant.variant_code, variant.id]),
+        );
+
+        const variantImages = variantRows
+            .map((variant) => {
+                const variantId = variantIdByCode.get(variant.variant_code);
+                if (!variantId) {
+                    return null;
+                }
+                return {
+                    variant_id: variantId,
+                    image_url: variant.image_url,
+                };
+            })
+            .filter(
+                (row): row is { variant_id: string; image_url: string } =>
+                    row !== null,
+            );
+        for (let i = 0; i < variantImages.length; i += 500) {
+            await prisma.variantImage.createMany({
+                data: variantImages.slice(i, i + 500),
+            });
+        }
+
+        const marketVariantRows = variantRows.flatMap((variant) => {
+            const variantId = variantIdByCode.get(variant.variant_code);
+            if (!variantId) {
+                return [];
+            }
+            return variant.markets
+                .map((marketPrice) => {
+                    const market = marketByCode.get(marketPrice.market_code);
+                    if (!market) {
+                        return null;
+                    }
+                    return {
+                        market_id: market.id,
+                        variant_id: variantId,
+                        price: marketPrice.price,
+                        currency: marketPrice.currency,
+                        sold_out: false,
+                        status: 'ACTIVE' as const,
+                        variant_code: variant.variant_code,
+                        market_code: marketPrice.market_code,
+                    };
+                })
+                .filter(
+                    (
+                        row,
+                    ): row is {
+                        market_id: string;
+                        variant_id: string;
+                        price: number;
+                        currency: string;
+                        sold_out: boolean;
+                        status: 'ACTIVE';
+                        variant_code: string;
+                        market_code: string;
+                    } => row !== null,
+                );
+        });
+
+        for (let i = 0; i < marketVariantRows.length; i += 200) {
+            const batch = marketVariantRows.slice(i, i + 200);
+            const created = await prisma.marketVariant.createManyAndReturn({
+                data: batch.map((row) => ({
+                    market_id: row.market_id,
+                    variant_id: row.variant_id,
+                    price: row.price,
+                    currency: row.currency,
+                    sold_out: row.sold_out,
+                    status: row.status,
+                })),
+            });
+            for (const [index, marketVariant] of created.entries()) {
+                seededMarketVariants.push({
+                    id: marketVariant.id,
+                    variant_code: batch[index].variant_code,
+                    market_code: batch[index].market_code,
+                });
+            }
+            console.log(
+                `Bulk market variants: ${Math.min(i + 200, marketVariantRows.length)}/${marketVariantRows.length}`,
+            );
+        }
+
+        bulkProductCount = createdProducts.length;
     }
 
     console.log(
