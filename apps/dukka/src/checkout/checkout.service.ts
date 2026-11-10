@@ -361,36 +361,25 @@ export class CheckoutService {
         const resultKey = RedisKeys.orderIdempotency(idempotencyKey);
         const lockKey = RedisKeys.orderIdempotencyLock(idempotencyKey);
 
-        const existing =
-            await this.redisService.getObject<CheckoutResult>(resultKey);
-        if (existing) {
+        const outcome =
+            await this.redisService.getObjectOrLock<CheckoutResult>(
+                resultKey,
+                lockKey,
+                ORDER_IDEMPOTENCY_PROCESSING_TTL_SECONDS * 1000,
+            );
+
+        if (outcome.status === 'hit') {
             this.logger.log(
                 `Replaying checkout for idempotency key ${idempotencyKey}`,
             );
-            return existing;
+            return outcome.value;
         }
 
-        const lockToken = await this.redisService.lock(
-            lockKey,
-            ORDER_IDEMPOTENCY_PROCESSING_TTL_SECONDS * 1000,
-        );
-
-        if (!lockToken) {
-            const raced =
-                await this.redisService.getObject<CheckoutResult>(resultKey);
-            if (raced) {
-                return raced;
-            }
+        if (outcome.status === 'busy') {
             throw new ConflictException('Checkout already in progress');
         }
 
         try {
-            const afterLock =
-                await this.redisService.getObject<CheckoutResult>(resultKey);
-            if (afterLock) {
-                return afterLock;
-            }
-
             try {
                 const result = await run();
                 await this.redisService.setObject(
@@ -415,7 +404,7 @@ export class CheckoutService {
                 throw error;
             }
         } finally {
-            await this.redisService.unlock(lockKey, lockToken);
+            await this.redisService.unlock(lockKey, outcome.token);
         }
     }
 

@@ -30,6 +30,7 @@ import { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import { FindPaymentAttemptDto } from './dto/find-payment-attempt.dto.js';
 import { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
+import { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsService } from './payments.service.js';
 
 @Auth('staff')
@@ -102,6 +103,25 @@ export class PaymentsController {
             id,
             marketId,
             staff.market_ids,
+        );
+    }
+
+    @Post('orders/:orderId/paystack')
+    @RequirePermission(StaffPermission.PaymentsManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Paystack payment initialized for cash order successfully')
+    payCashOrderWithPaystack(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('orderId', ParseUUIDPipe) orderId: string,
+        @Body() data: StaffPaystackPayDto,
+        @Headers('x-idempotency-key') idempotencyKey?: string,
+    ) {
+        return this.paymentsService.payCashOrderWithPaystack(
+            orderId,
+            data,
+            toScopedAccessActor(staff),
+            staff.sub,
+            idempotencyKey,
         );
     }
 

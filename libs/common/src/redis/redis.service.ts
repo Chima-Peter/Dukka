@@ -23,6 +23,35 @@ const UNLOCK_SCRIPT = `
   end
 `;
 
+/**
+ * Atomically return a cached result, or acquire the lock if none exists.
+ * KEYS[1]=result key, KEYS[2]=lock key, ARGV[1]=token, ARGV[2]=lock TTL ms.
+ * Returns { "hit", value } | { "acquired", token } | { "busy" }.
+ */
+const GET_OR_LOCK_SCRIPT = `
+  local existing = redis.call("GET", KEYS[1])
+  if existing then
+    return { "hit", existing }
+  end
+
+  local ok = redis.call("SET", KEYS[2], ARGV[1], "PX", ARGV[2], "NX")
+  if ok then
+    return { "acquired", ARGV[1] }
+  end
+
+  return { "busy" }
+`;
+
+export type RedisGetOrLockResult =
+    | { status: 'hit'; value: string }
+    | { status: 'acquired'; token: string }
+    | { status: 'busy' };
+
+export type RedisGetObjectOrLockResult<T> =
+    | { status: 'hit'; value: T }
+    | { status: 'acquired'; token: string }
+    | { status: 'busy' };
+
 @Injectable()
 export class RedisService implements OnModuleDestroy {
     private readonly streamReaderPool: StreamReaderPool;
@@ -262,11 +291,75 @@ export class RedisService implements OnModuleDestroy {
     }
 
     /**
+     * Atomically GET `resultKey`, or SET NX lock on `lockKey` when missing.
+     * - `hit`: cached result string
+     * - `acquired`: caller owns the lock (`token`)
+     * - `busy`: another holder owns the lock and no result yet
+     */
+    async getOrLock(
+        resultKey: string,
+        lockKey: string,
+        ttlMs: number,
+    ): Promise<RedisGetOrLockResult> {
+        const token = randomBytes(16).toString('hex');
+        const result = await this.client.eval(
+            GET_OR_LOCK_SCRIPT,
+            2,
+            resultKey,
+            lockKey,
+            token,
+            ttlMs,
+        );
+
+        return this.parseGetOrLockResult(result);
+    }
+
+    /**
+     * Like {@link getOrLock}, but parses a JSON hit into `T`.
+     * Corrupt cached JSON is treated as `busy`.
+     */
+    async getObjectOrLock<T>(
+        resultKey: string,
+        lockKey: string,
+        ttlMs: number,
+    ): Promise<RedisGetObjectOrLockResult<T>> {
+        const outcome = await this.getOrLock(resultKey, lockKey, ttlMs);
+        if (outcome.status !== 'hit') {
+            return outcome;
+        }
+
+        try {
+            return {
+                status: 'hit',
+                value: JSON.parse(outcome.value) as T,
+            };
+        } catch {
+            return { status: 'busy' };
+        }
+    }
+
+    /**
      * Releases a lock only if `token` still owns it (Lua compare-and-delete).
      */
     async unlock(key: string, token: string): Promise<boolean> {
         const result = await this.client.eval(UNLOCK_SCRIPT, 1, key, token);
         return result === 1;
+    }
+
+    private parseGetOrLockResult(result: unknown): RedisGetOrLockResult {
+        if (!Array.isArray(result) || result.length === 0) {
+            return { status: 'busy' };
+        }
+
+        const status = result[0];
+        if (status === 'hit' && typeof result[1] === 'string') {
+            return { status: 'hit', value: result[1] };
+        }
+        if (status === 'acquired' && typeof result[1] === 'string') {
+            return { status: 'acquired', token: result[1] };
+        }
+
+        return { status: 'busy' };
     }
 
     private fieldsToRecord(fields: string[]): Record<string, string> {

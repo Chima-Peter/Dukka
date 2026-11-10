@@ -5,7 +5,11 @@ export {
     type RedisModuleOptions,
 } from './redis.module-definition.js';
 export { RedisModule } from './redis.module.js';
-export { RedisService } from './redis.service.js';
+export {
+    RedisService,
+    type RedisGetObjectOrLockResult,
+    type RedisGetOrLockResult,
+} from './redis.service.js';
 export {
     MAX_CONNECTIONS_PER_READER,
     MAX_SSE_CONNECTIONS_PER_USER,

@@ -18,6 +18,7 @@ import {
     paymentMethodDetailSelect,
 } from './mappers/payment.mapper.js';
 import type {
+    ConvertCashAttemptToPaystackInput,
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
     PaymentAttemptDetail,
@@ -73,6 +74,23 @@ export class PaymentsRepository {
             where: { market_id: marketId },
             select: marketPaymentMethodSelect,
             orderBy: { created_at: 'asc' },
+        });
+    }
+
+    async findPaystackMarketPaymentMethod(
+        marketId: string,
+    ): Promise<MarketPaymentMethodDetail | null> {
+        return await this.prisma.marketPaymentMethod.findFirst({
+            where: {
+                market_id: marketId,
+                payment_method: {
+                    name: {
+                        equals: 'paystack',
+                        mode: 'insensitive',
+                    },
+                },
+            },
+            select: marketPaymentMethodSelect,
         });
     }
 
@@ -192,6 +210,22 @@ export class PaymentsRepository {
                 ...(data.payment_intent_url !== undefined && {
                     payment_intent_url: data.payment_intent_url,
                 }),
+            },
+            select: paymentAttemptDetailSelect,
+        });
+    }
+
+    async convertCashAttemptToPaystack(
+        id: string,
+        data: ConvertCashAttemptToPaystackInput,
+    ): Promise<PaymentAttemptDetail> {
+        return await this.prisma.orderPaymentAttempt.update({
+            where: { id },
+            data: {
+                status: OrderPaymentAttemptStatus.PENDING,
+                payment_intent_id: data.payment_intent_id,
+                payment_intent_url: data.payment_intent_url,
+                expires_at: new Date(Date.now() + 14 * 60 * 1000),
             },
             select: paymentAttemptDetailSelect,
         });

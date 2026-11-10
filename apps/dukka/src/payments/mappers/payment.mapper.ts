@@ -73,6 +73,7 @@ export const paymentAttemptDetailSelect = {
             customer_id: true,
             guest_name: true,
             guest_email: true,
+            shipping_address: true,
             warehouse_id: true,
             market_id: true,
             warehouse: {

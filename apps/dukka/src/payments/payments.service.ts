@@ -1,4 +1,5 @@
 import {
+    BadGatewayException,
     BadRequestException,
     ConflictException,
     ForbiddenException,
@@ -14,6 +15,7 @@ import {
     OrderPaymentAttemptStatus,
     OrderStatus,
     Prisma,
+    RedisService,
     type PaymentMethod,
 } from '@app/common';
 import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
@@ -28,10 +30,17 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import {
+    ORDER_IDEMPOTENCY_COMPLETED_TTL_SECONDS,
+    ORDER_IDEMPOTENCY_KEY_MAX_LENGTH,
+    ORDER_IDEMPOTENCY_PROCESSING_TTL_SECONDS,
+    RedisKeys,
+} from '../shared/redis.constants.js';
 import type { ApprovePaymentMethodDto } from './dto/approve-payment-method.dto.js';
 import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
+import type { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsRepository } from './payments.repository.js';
 import {
     PaystackService,
@@ -44,6 +53,7 @@ import type {
     PaymentAttemptPage,
     PaymentErrorMessages,
     PaymentMethodDetail,
+    StaffPaystackPayResult,
     UpdatePaymentIntentInput,
 } from './types/payment.type.js';
 
@@ -56,6 +66,7 @@ export class PaymentsService {
         private readonly marketsService: MarketsService,
         private readonly paystackService: PaystackService,
         private readonly generalQueueService: GeneralQueueService,
+        private readonly redisService: RedisService,
     ) {}
 
     async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethod> {
@@ -315,6 +326,15 @@ export class PaymentsService {
                 return { received: true };
             }
 
+            const metadata = this.parseWebhookMetadata(event.data.metadata);
+            if (this.isCashStaffPaystackPayment(metadata, attempt)) {
+                await this.paymentsRepository.markAttemptSuccess(attempt.id);
+                this.logger.log(
+                    `Paystack charge.success for cash staff payment attempt ${attempt.id}; marked success without order transition`,
+                );
+                return { received: true };
+            }
+
             const transition =
                 await this.paymentsRepository.completeSuccessfulPayment(
                     attempt.id,
@@ -342,6 +362,233 @@ export class PaymentsService {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
             });
+        }
+    }
+
+    async payCashOrderWithPaystack(
+        orderId: string,
+        data: StaffPaystackPayDto,
+        actor: ScopedAccessActor,
+        staffId: string,
+        idempotencyKeyHeader?: string,
+    ): Promise<StaffPaystackPayResult> {
+        try {
+            const idempotencyKey =
+                this.requireIdempotencyKey(idempotencyKeyHeader);
+
+            return await this.withPaystackPayIdempotency(
+                idempotencyKey,
+                async () => {
+                    this.logger.log(
+                        `Staff ${staffId} initiating Paystack pay for cash order ${orderId}`,
+                    );
+                    assertActorHasScopedAccess(actor, {
+                        market_id: data.market_id,
+                    });
+                    await this.requireOpenMarket(data.market_id);
+
+                    const attempt =
+                        await this.paymentsRepository.findAttemptByOrderId(
+                            orderId,
+                        );
+                    if (!attempt || attempt.order.market_id !== data.market_id) {
+                        throw new NotFoundException('Order payment attempt not found');
+                    }
+
+                    if (attempt.order.status === OrderStatus.CANCELLED) {
+                        throw new BadRequestException(
+                            'Cannot pay for a cancelled order',
+                        );
+                    }
+
+                    if (attempt.payment_method_name.toLowerCase() !== 'cash') {
+                        throw new BadRequestException(
+                            'Only cash orders can be paid via Paystack',
+                        );
+                    }
+
+                    if (
+                        attempt.status === OrderPaymentAttemptStatus.PENDING &&
+                        attempt.payment_intent_url &&
+                        attempt.payment_intent_id
+                    ) {
+                        return {
+                            order_id: attempt.order_id,
+                            payment_attempt_id: attempt.id,
+                            authorization_url: attempt.payment_intent_url,
+                            reference: attempt.payment_intent_id,
+                            status: attempt.status,
+                        };
+                    }
+
+                    if (
+                        attempt.status === OrderPaymentAttemptStatus.SUCCESS &&
+                        attempt.payment_intent_id
+                    ) {
+                        throw new BadRequestException(
+                            'Cash order is already paid via Paystack',
+                        );
+                    }
+
+                    const paystackMethod =
+                        await this.paymentsRepository.findPaystackMarketPaymentMethod(
+                            data.market_id,
+                        );
+                    if (!paystackMethod) {
+                        throw new BadRequestException(
+                            'Paystack is not available for this market',
+                        );
+                    }
+
+                    const email = this.resolvePayerEmail(attempt);
+                    let init;
+                    try {
+                        init = await this.paystackService.initializeTransaction(
+                            {
+                                email,
+                                amount: Math.round(
+                                    Number(attempt.order.total_amount) * 100,
+                                ),
+                                currency: attempt.order.currency,
+                                metadata: {
+                                    order_id: attempt.order_id,
+                                    payment_attempt_id: attempt.id,
+                                    market_id: data.market_id,
+                                    staff_id: staffId,
+                                    idempotency_key: idempotencyKey,
+                                    payment_method: 'cash',
+                                    source: 'staff_cash_to_paystack',
+                                    ...(attempt.order.customer_id
+                                        ? {
+                                              customer_id:
+                                                  attempt.order.customer_id,
+                                          }
+                                        : {
+                                              guest_email: email,
+                                          }),
+                                },
+                            },
+                        );
+                    } catch (error) {
+                        this.logger.error(
+                            `Paystack initialize failed for order ${orderId}: ${error}`,
+                        );
+                        throw new InternalServerErrorException(
+                            'Paystack initialization failed. Try again later',
+                        );
+                    }
+
+                    if (!init.authorization_url || !init.reference) {
+                        throw new BadGatewayException(
+                            'Paystack initialization returned an incomplete response. Try again later',
+                        );
+                    }
+
+                    const updated =
+                        await this.paymentsRepository.convertCashAttemptToPaystack(
+                            attempt.id,
+                            {
+                                payment_intent_id: init.reference,
+                                payment_intent_url: init.authorization_url,
+                            },
+                        );
+
+                    this.logger.log(
+                        `Cash order ${orderId} Paystack payment initialized on attempt ${updated.id}`,
+                    );
+
+                    return {
+                        order_id: updated.order_id,
+                        payment_attempt_id: updated.id,
+                        authorization_url: init.authorization_url,
+                        reference: init.reference,
+                        status: updated.status,
+                    };
+                },
+            );
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Order payment attempt not found',
+            });
+        }
+    }
+
+    private resolvePayerEmail(attempt: PaymentAttemptDetail): string {
+        const shipping = attempt.order.shipping_address;
+        if (
+            shipping &&
+            typeof shipping === 'object' &&
+            !Array.isArray(shipping) &&
+            typeof (shipping as { email?: unknown }).email === 'string' &&
+            (shipping as { email: string }).email.trim().length > 0
+        ) {
+            return (shipping as { email: string }).email.trim();
+        }
+
+        const customerEmail = attempt.order.customer?.email?.trim();
+        if (customerEmail) {
+            return customerEmail;
+        }
+
+        const guestEmail = attempt.order.guest_email?.trim();
+        if (guestEmail) {
+            return guestEmail;
+        }
+
+        throw new BadRequestException(
+            'Order has no email available for Paystack payment',
+        );
+    }
+
+    private requireIdempotencyKey(header?: string): string {
+        const key = header?.trim();
+        if (!key) {
+            throw new BadRequestException('Idempotency-Key header is required');
+        }
+        if (key.length > ORDER_IDEMPOTENCY_KEY_MAX_LENGTH) {
+            throw new BadRequestException(
+                `Idempotency-Key must be at most ${ORDER_IDEMPOTENCY_KEY_MAX_LENGTH} characters`,
+            );
+        }
+        return key;
+    }
+
+    private async withPaystackPayIdempotency(
+        idempotencyKey: string,
+        run: () => Promise<StaffPaystackPayResult>,
+    ): Promise<StaffPaystackPayResult> {
+        const resultKey = RedisKeys.orderPaystackPayIdempotency(idempotencyKey);
+        const lockKey =
+            RedisKeys.orderPaystackPayIdempotencyLock(idempotencyKey);
+
+        const outcome =
+            await this.redisService.getObjectOrLock<StaffPaystackPayResult>(
+                resultKey,
+                lockKey,
+                ORDER_IDEMPOTENCY_PROCESSING_TTL_SECONDS * 1000,
+            );
+
+        if (outcome.status === 'hit') {
+            this.logger.log(
+                `Replaying staff Paystack pay for idempotency key ${idempotencyKey}`,
+            );
+            return outcome.value;
+        }
+
+        if (outcome.status === 'busy') {
+            throw new ConflictException('Paystack payment already in progress');
+        }
+
+        try {
+            const result = await run();
+            await this.redisService.setObject(
+                resultKey,
+                result,
+                ORDER_IDEMPOTENCY_COMPLETED_TTL_SECONDS,
+            );
+            return result;
+        } finally {
+            await this.redisService.unlock(lockKey, outcome.token);
         }
     }
 
@@ -393,20 +640,48 @@ export class PaymentsService {
     private extractPaymentAttemptId(
         metadata: PaystackWebhookEvent['data']['metadata'],
     ): string | null {
-        if (!metadata) {
-            return null;
-        }
-
-        const parsed =
-            typeof metadata === 'string'
-                ? this.tryParseMetadata(metadata)
-                : metadata;
+        const parsed = this.parseWebhookMetadata(metadata);
         if (!parsed) {
             return null;
         }
 
         const value = parsed.payment_attempt_id;
         return typeof value === 'string' && value.length > 0 ? value : null;
+    }
+
+    private isCashStaffPaystackPayment(
+        metadata: Record<string, unknown> | null,
+        attempt: PaymentAttemptDetail,
+    ): boolean {
+        const paymentMethod =
+            typeof metadata?.payment_method === 'string'
+                ? metadata.payment_method.toLowerCase()
+                : null;
+        const source =
+            typeof metadata?.source === 'string' ? metadata.source : null;
+
+        if (
+            paymentMethod === 'cash' ||
+            source === 'staff_cash_to_paystack'
+        ) {
+            return true;
+        }
+
+        return attempt.payment_method_name.toLowerCase() === 'cash';
+    }
+
+    private parseWebhookMetadata(
+        metadata: PaystackWebhookEvent['data']['metadata'],
+    ): Record<string, unknown> | null {
+        if (!metadata) {
+            return null;
+        }
+
+        if (typeof metadata === 'string') {
+            return this.tryParseMetadata(metadata);
+        }
+
+        return metadata;
     }
 
     private tryParseMetadata(

@@ -26,4 +26,8 @@ export const RedisKeys = {
         `customer:active_market:${customerId}`,
     orderIdempotency: (key: string) => `order:idempotency:${key}`,
     orderIdempotencyLock: (key: string) => `order:idempotency:lock:${key}`,
+    orderPaystackPayIdempotency: (key: string) =>
+        `order:paystack_pay:idempotency:${key}`,
+    orderPaystackPayIdempotencyLock: (key: string) =>
+        `order:paystack_pay:idempotency:lock:${key}`,
 } as const;

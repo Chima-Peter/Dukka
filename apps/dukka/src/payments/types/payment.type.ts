@@ -41,6 +41,19 @@ export type UpdatePaymentIntentInput = {
     payment_intent_url?: string;
 };
 
+export type ConvertCashAttemptToPaystackInput = {
+    payment_intent_id: string;
+    payment_intent_url: string;
+};
+
+export type StaffPaystackPayResult = {
+    order_id: string;
+    payment_attempt_id: string;
+    authorization_url: string;
+    reference: string;
+    status: OrderPaymentAttemptStatus;
+};
+
 export type PaymentErrorMessages = {
     conflict?: string;
     notFound?: string;
