@@ -147,7 +147,10 @@ export class MarketsService {
         this.logger.log(`Searching market by IP: ${clientIp}`);
         const iso2 = await this.restCountriesIpService.resolveIso2(clientIp);
         if (!iso2) {
-            return null;
+            this.logger.warn(
+                `REST Countries lookup failed for ${clientIp}; falling back to Nigerian market`,
+            );
+            return this.marketsRepository.findOpenByIso2('NG');
         }
 
         const match = await this.marketsRepository.findOpenByIso2(iso2);

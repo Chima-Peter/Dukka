@@ -77,12 +77,16 @@ describe('MarketsService', () => {
         findAll: ReturnType<typeof vi.fn>;
         findExistingByIds: ReturnType<typeof vi.fn>;
         findById: ReturnType<typeof vi.fn>;
+        findOpenByIso2: ReturnType<typeof vi.fn>;
         update: ReturnType<typeof vi.fn>;
         setStatus: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
         countServiceStates: ReturnType<typeof vi.fn>;
         countWarehouses: ReturnType<typeof vi.fn>;
         findStaffContactsByMarketId: ReturnType<typeof vi.fn>;
+    };
+    let restCountriesIpService: {
+        resolveIso2: ReturnType<typeof vi.fn>;
     };
 
     beforeEach(async () => {
@@ -95,12 +99,16 @@ describe('MarketsService', () => {
             findAll: vi.fn(),
             findExistingByIds: vi.fn(),
             findById: vi.fn(),
+            findOpenByIso2: vi.fn(),
             update: vi.fn(),
             setStatus: vi.fn(),
             delete: vi.fn(),
             countServiceStates: vi.fn().mockResolvedValue(0),
             countWarehouses: vi.fn().mockResolvedValue(0),
             findStaffContactsByMarketId: vi.fn().mockResolvedValue([]),
+        };
+        restCountriesIpService = {
+            resolveIso2: vi.fn(),
         };
         mailQueue = {
             enqueueSend: vi.fn(),
@@ -141,7 +149,7 @@ describe('MarketsService', () => {
                 },
                 {
                     provide: RestCountriesIpService,
-                    useValue: { resolveIso2: vi.fn() },
+                    useValue: restCountriesIpService,
                 },
             ],
         }).compile();
@@ -151,6 +159,25 @@ describe('MarketsService', () => {
 
     it('should be defined', () => {
         expect(service).toBeDefined();
+    });
+
+    it('falls back to Nigerian market when REST Countries lookup fails', async () => {
+        const nigeriaMarket = {
+            id: 'market-ng',
+            name: 'Nigeria',
+            code: 'NG',
+            iso2: 'NG',
+            iso3: 'NGA',
+            status: MarketStatus.OPEN,
+            currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+        };
+        restCountriesIpService.resolveIso2.mockResolvedValue(null);
+        marketsRepository.findOpenByIso2.mockResolvedValue(nigeriaMarket);
+
+        const result = await service.searchByIp('1.2.3.4');
+
+        expect(marketsRepository.findOpenByIso2).toHaveBeenCalledWith('NG');
+        expect(result).toEqual(nigeriaMarket);
     });
 
     it('rejects update when market is closed', async () => {
