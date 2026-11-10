@@ -46,6 +46,10 @@ export const MAIL_JOB_OPTIONS = {
         age: 24 * 60 * 60,
         count: 1_000,
     },
+    removeOnComplete: {
+        age: 24 * 60 * 60,
+        count: 1_000,
+    },
 };
 
 /**

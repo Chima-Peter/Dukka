@@ -2,6 +2,7 @@ export { GeneralQueueService } from './general-queue.service.js';
 export type {
     CancelOrderJobPayload,
     CustomerAccountDeletedJobPayload,
+    EnqueueGeneralJobInput,
     ExpiredReservationsJobPayload,
     ExpireCouponJobPayload,
     ExpirePromotionMarketJobPayload,

@@ -468,6 +468,7 @@ export class CustomerService {
                     email: customer.email,
                     name: customer.name,
                 },
+                { jobId: `customer-account-deleted-${customer_id}` },
             );
 
             this.logger.log(

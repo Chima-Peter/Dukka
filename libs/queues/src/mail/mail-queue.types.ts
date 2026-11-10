@@ -15,3 +15,12 @@ export type InventoryStockReminderMailPayload = {
     product_names: string[];
     kind: 'finished' | 'low';
 };
+
+export type EnqueueSendInput = SendMailJobPayload & {
+    jobId?: string;
+};
+
+export type EnqueueInventoryStockReminderInput =
+    InventoryStockReminderMailPayload & {
+        jobId?: string;
+    };

@@ -327,6 +327,7 @@ export class CheckoutService {
             await this.generalQueueService.enqueue(
                 GENERAL_JOBS.ORDER_PROCESSING,
                 { order_id: placed.order.id },
+                { jobId: `order-processing-${placed.order.id}` },
             );
         }
 

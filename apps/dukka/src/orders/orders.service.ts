@@ -43,7 +43,6 @@ import type {
     OrderSummaryPage,
     StaffOrderDetail,
     TransitionedOrder,
-    TransitionOrderStatusInput,
 } from './types/order.type.js';
 
 @Injectable()
@@ -224,47 +223,6 @@ export class OrdersService {
         }
     }
 
-    async transitionStatus(
-        data: TransitionOrderStatusInput,
-    ): Promise<TransitionedOrder> {
-        try {
-            this.logger.log(
-                `Transitioning order ${data.order_id} to ${data.to_status}`,
-            );
-            if (data.from_statuses.length === 0) {
-                throw new BadRequestException(
-                    'from_statuses must include at least one status',
-                );
-            }
-
-            const result =
-                await this.ordersRepository.transitionStatus(data);
-
-            if (!result.ok) {
-                if (result.reason === 'not_found') {
-                    throw new NotFoundException('Order not found');
-                }
-                throw new BadRequestException(
-                    `Cannot transition order from ${result.current_status} to ${data.to_status}`,
-                );
-            }
-
-            if (data.to_status === OrderStatus.PROCESSING) {
-                await this.generalQueueService.enqueue(
-                    GENERAL_JOBS.ORDER_PROCESSING,
-                    { order_id: result.order.id },
-                );
-            }
-
-            this.logger.log(
-                `Order ${result.order.id} transitioned to ${result.order.status}`,
-            );
-            return result.order;
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
     async cancelForCustomer(
         customerId: string,
         orderId: string,
@@ -290,9 +248,11 @@ export class OrdersService {
                 );
             }
 
-            await this.generalQueueService.enqueue(GENERAL_JOBS.CANCEL_ORDER, {
-                order_id: orderId,
-            });
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.CANCEL_ORDER,
+                { order_id: orderId },
+                { jobId: `cancel-order-${orderId}` },
+            );
 
             return {
                 id: orderId,

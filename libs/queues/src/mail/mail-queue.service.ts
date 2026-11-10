@@ -3,9 +3,12 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { MAIL_JOBS, MAIL_QUEUE } from '../queue.constants.js';
 import type {
+    EnqueueInventoryStockReminderInput,
+    EnqueueSendInput,
     InventoryStockReminderMailPayload,
     SendMailJobPayload,
 } from './mail-queue.types.js';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class MailQueueService {
@@ -16,20 +19,26 @@ export class MailQueueService {
     ) {}
 
     async enqueueSend(
-        payload: SendMailJobPayload,
+        input: EnqueueSendInput,
     ): Promise<Job<SendMailJobPayload>> {
+        const { jobId, ...payload } = input;
+
         this.logger.log(
-            `Enqueueing mail job to=${payload.to} subject=${payload.subject}`,
+            `Enqueueing mail job to=${payload.to} subject=${payload.subject}${jobId ? ` jobId=${jobId}` : ''}`,
         );
 
-        const job = await this.mailQueue.add(MAIL_JOBS.SEND, payload);
+        const job = await this.mailQueue.add(
+            MAIL_JOBS.SEND,
+            payload,
+            jobId ? { jobId } : { jobId: randomUUID().toString() },
+        );
 
         this.logger.log(`Mail job enqueued id=${job.id} name=${job.name}`);
         return job;
     }
 
     async enqueueSendMany(
-        payloads: SendMailJobPayload[],
+        payloads: EnqueueSendInput[],
     ): Promise<Job<SendMailJobPayload>[]> {
         if (payloads.length === 0) {
             return [];
@@ -41,15 +50,18 @@ export class MailQueueService {
     }
 
     async enqueueInventoryStockReminder(
-        payload: InventoryStockReminderMailPayload,
+        input: EnqueueInventoryStockReminderInput,
     ): Promise<Job<InventoryStockReminderMailPayload>> {
+        const { jobId, ...payload } = input;
+
         this.logger.log(
-            `Enqueueing inventory stock reminder mail to=${payload.to} warehouse=${payload.warehouse_id} products=${payload.product_names.length}`,
+            `Enqueueing inventory stock reminder mail to=${payload.to} warehouse=${payload.warehouse_id} products=${payload.product_names.length}${jobId ? ` jobId=${jobId}` : ''}`,
         );
 
         const job = await this.mailQueue.add(
             MAIL_JOBS.INVENTORY_STOCK_REMINDER,
             payload,
+            jobId ? { jobId } : { jobId: randomUUID().toString() },
         );
 
         this.logger.log(`Mail job enqueued id=${job.id} name=${job.name}`);

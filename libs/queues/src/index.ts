@@ -11,6 +11,8 @@ export {
     type MailTemplate,
 } from './queue.constants.js';
 export type {
+    EnqueueInventoryStockReminderInput,
+    EnqueueSendInput,
     InventoryStockReminderMailPayload,
     SendMailJobPayload,
 } from './mail/index.js';
@@ -19,6 +21,7 @@ export {
     GeneralQueueService,
     type CancelOrderJobPayload,
     type CustomerAccountDeletedJobPayload,
+    type EnqueueGeneralJobInput,
     type ExpiredReservationsJobPayload,
     type ExpireCouponJobPayload,
     type ExpirePromotionMarketJobPayload,

@@ -208,6 +208,7 @@ export class CancelOrderService {
             );
         } else {
             await this.mailQueueService.enqueueSend({
+                jobId: `cancel-order-${order.id}-cancelled`,
                 to: recipient.email,
                 subject: `Your order #${order.order_number} has been cancelled`,
                 template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCELLED,
@@ -248,6 +249,7 @@ export class CancelOrderService {
             );
         } else {
             await this.mailQueueService.enqueueSend({
+                jobId: `cancel-order-${order.id}-blocked`,
                 to: recipient.email,
                 subject: `We could not cancel your order #${order.order_number}`,
                 template: MAIL_TEMPLATES.CUSTOMER_ORDER_CANCEL_BLOCKED,

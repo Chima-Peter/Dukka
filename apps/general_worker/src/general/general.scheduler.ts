@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
@@ -32,6 +33,13 @@ function chunkIds(ids: string[], size: number): string[][] {
         chunks.push(ids.slice(i, i + size));
     }
     return chunks;
+}
+
+function idsFingerprint(ids: string[]): string {
+    return createHash('sha256')
+        .update([...ids].sort().join(','))
+        .digest('hex')
+        .slice(0, 16);
 }
 
 @Injectable()
@@ -75,6 +83,7 @@ export class GeneralScheduler {
             batches.map((promotion_market_ids) => ({
                 name: GENERAL_JOBS.EXPIRE_PROMOTION_MARKET,
                 payload: { promotion_market_ids },
+                jobId: `expire-promotion-market-${idsFingerprint(promotion_market_ids)}`,
             })),
         );
 
@@ -107,6 +116,7 @@ export class GeneralScheduler {
             batches.map((coupon_ids) => ({
                 name: GENERAL_JOBS.EXPIRE_COUPON,
                 payload: { coupon_ids },
+                jobId: `expire-coupon-${idsFingerprint(coupon_ids)}`,
             })),
         );
 
@@ -142,6 +152,7 @@ export class GeneralScheduler {
             batches.map((invitation_ids) => ({
                 name: GENERAL_JOBS.EXPIRE_STAFF_INVITATION,
                 payload: { invitation_ids },
+                jobId: `expire-staff-invitation-${idsFingerprint(invitation_ids)}`,
             })),
         );
 
@@ -173,6 +184,7 @@ export class GeneralScheduler {
             reservations.map((reservation) => ({
                 name: GENERAL_JOBS.EXPIRED_RESERVATIONS,
                 payload: { order_inventory_id: reservation.id },
+                jobId: `expired-reservations-${reservation.id}`,
             })),
         );
 
@@ -207,6 +219,7 @@ export class GeneralScheduler {
             orders.map((order) => ({
                 name: GENERAL_JOBS.REVIEW_REMINDER,
                 payload: { order_id: order.id },
+                jobId: `review-reminder-${order.id}`,
             })),
         );
 

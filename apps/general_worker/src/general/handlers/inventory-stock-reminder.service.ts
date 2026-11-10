@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
     NotificationPublisher,
@@ -17,6 +18,12 @@ const quantityFilter = (
     kind === 'finished'
         ? { equals: 0 }
         : { gt: 0, lte: 10 };
+
+const inventoryBatchFingerprint = (inventoryIds: string[]): string =>
+    createHash('sha256')
+        .update([...inventoryIds].sort().join(','))
+        .digest('hex')
+        .slice(0, 16);
 
 @Injectable()
 export class InventoryStockReminderService {
@@ -97,6 +104,7 @@ export class InventoryStockReminderService {
         const inventory_ids = inventories.map((row) => row.id);
 
         await this.mailQueueService.enqueueInventoryStockReminder({
+            jobId: `inventory-stock-reminder-${warehouse_id}-${kind}-${inventoryBatchFingerprint(inventory_ids)}`,
             to: warehouse.manager.email,
             manager_name: warehouse.manager.name,
             warehouse_id: warehouse.id,

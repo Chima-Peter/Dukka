@@ -98,6 +98,7 @@ export class CustomerAccountDeletedService {
                     `Skipped account deletion for ${customer_id}; order ${blocking.id} status=${blocking.status}`,
                 );
                 await this.mailQueueService.enqueueSend({
+                    jobId: `customer-account-deleted-${customer_id}-processing-${blocking.id}`,
                     to: email,
                     subject: 'Your order is still being processed',
                     template: MAIL_TEMPLATES.CUSTOMER_ORDER_PROCESSING,
@@ -110,6 +111,7 @@ export class CustomerAccountDeletedService {
                 `Skipped account deletion for ${customer_id}; order ${blocking.id} status=${blocking.status}`,
             );
             await this.mailQueueService.enqueueSend({
+                jobId: `customer-account-deleted-${customer_id}-shipped-${blocking.id}`,
                 to: email,
                 subject: 'Your order has been shipped',
                 template: MAIL_TEMPLATES.CUSTOMER_ORDER_SHIPPED,
@@ -167,6 +169,7 @@ export class CustomerAccountDeletedService {
         this.logger.log(`Customer deleted ${customer_id}`);
 
         await this.mailQueueService.enqueueSend({
+            jobId: `customer-account-deleted-${customer_id}`,
             to: email,
             subject: 'Your account has been deleted',
             template: MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETED,

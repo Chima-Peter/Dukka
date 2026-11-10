@@ -82,6 +82,7 @@ export class OrderProcessingService {
                 order.customer?.name ?? order.guest_name ?? email.split('@')[0];
 
             await this.mailQueueService.enqueueSend({
+                jobId: `order-processing-${order.id}`,
                 to: email,
                 subject: `Your order #${order.order_number} is being processed`,
                 template: MAIL_TEMPLATES.CUSTOMER_ORDER_PROCESSING,

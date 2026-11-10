@@ -1,3 +1,11 @@
+import type { GeneralJobName } from '../queue.constants.js';
+
+export type EnqueueGeneralJobInput = {
+    name: GeneralJobName;
+    payload: unknown;
+    jobId?: string;
+};
+
 export type ExpiredReservationsJobPayload = {
     order_inventory_id: string;
 };

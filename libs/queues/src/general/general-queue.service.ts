@@ -5,6 +5,8 @@ import {
     GENERAL_QUEUE,
     type GeneralJobName,
 } from '../queue.constants.js';
+import type { EnqueueGeneralJobInput } from './general-queue.types.js';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class GeneralQueueService {
@@ -17,24 +19,33 @@ export class GeneralQueueService {
     async enqueue(
         name: GeneralJobName,
         payload: unknown,
+        options?: { jobId?: string },
     ): Promise<Job> {
-        this.logger.log(`Enqueueing general job name=${name}`);
+        const jobId = options?.jobId;
 
-        const job = await this.generalQueue.add(name, payload);
+        this.logger.log(
+            `Enqueueing general job name=${name}${jobId ? ` jobId=${jobId}` : ''}`,
+        );
+
+        const job = await this.generalQueue.add(
+            name,
+            payload,
+            jobId ? { jobId } : { jobId: randomUUID().toString() },
+        );
 
         this.logger.log(`General job enqueued id=${job.id} name=${job.name}`);
         return job;
     }
 
-    async enqueueMany(
-        jobs: Array<{ name: GeneralJobName; payload: unknown }>,
-    ): Promise<Job[]> {
+    async enqueueMany(jobs: EnqueueGeneralJobInput[]): Promise<Job[]> {
         if (jobs.length === 0) {
             return [];
         }
 
         return Promise.all(
-            jobs.map(({ name, payload }) => this.enqueue(name, payload)),
+            jobs.map(({ name, payload, jobId }) =>
+                this.enqueue(name, payload, jobId ? { jobId } : undefined),
+            ),
         );
     }
 }

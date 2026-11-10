@@ -314,12 +314,16 @@ export class MarketsService {
                 );
             }
 
-            await this.generalQueueService.enqueue(GENERAL_JOBS.MARKET_DELETED, {
-                market_id: market.id,
-                name: market.name,
-                code: market.code,
-                performed_by_staff_id,
-            });
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.MARKET_DELETED,
+                {
+                    market_id: market.id,
+                    name: market.name,
+                    code: market.code,
+                    performed_by_staff_id,
+                },
+                { jobId: `market-deleted-${market.id}` },
+            );
 
             this.logger.log(`Market deletion queued ${id}`);
 

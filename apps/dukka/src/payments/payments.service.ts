@@ -352,6 +352,7 @@ export class PaymentsService {
             await this.generalQueueService.enqueue(
                 GENERAL_JOBS.ORDER_PROCESSING,
                 { order_id: attempt.order_id },
+                { jobId: `order-processing-${attempt.order_id}` },
             );
 
             this.logger.log(

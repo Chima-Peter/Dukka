@@ -640,6 +640,7 @@ export class StaffService {
                     role_id: staff.role_id,
                     role_name: staff.role_name,
                 },
+                { jobId: `staff-deactivated-${id}` },
             );
 
             this.logger.log(`Staff deactivation queued ${id}`);

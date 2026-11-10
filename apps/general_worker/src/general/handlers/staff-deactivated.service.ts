@@ -109,6 +109,7 @@ export class StaffDeactivatedService {
         this.logger.log(`Staff deactivated ${staff_id}`);
 
         await this.mailQueueService.enqueueSend({
+            jobId: `staff-deactivated-${staff_id}`,
             to: email,
             subject: 'Your staff account was deactivated',
             template: MAIL_TEMPLATES.STAFF_DEACTIVATED,

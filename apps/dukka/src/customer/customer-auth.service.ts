@@ -85,11 +85,15 @@ export class CustomerAuthService {
                     email: customer.email,
                 },
             }),
-            this.generalQueueService.enqueue(GENERAL_JOBS.CUSTOMER_REGISTERED, {
-                customer_id: customer.id,
-                email: customer.email,
-                client_ip: clientIp,
-            }),
+            this.generalQueueService.enqueue(
+                GENERAL_JOBS.CUSTOMER_REGISTERED,
+                {
+                    customer_id: customer.id,
+                    email: customer.email,
+                    client_ip: clientIp,
+                },
+                { jobId: `customer-registered-${customer.id}` },
+            ),
         ]);
 
         return publicCustomer;

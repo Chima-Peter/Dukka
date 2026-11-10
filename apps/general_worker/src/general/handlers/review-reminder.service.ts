@@ -117,6 +117,7 @@ export class ReviewReminderService {
         const { email, name } = order.customer;
         await this.mailQueueService.enqueueSendMany(
             pendingItems.map((item) => ({
+                jobId: `review-reminder-${order.id}-${item.market_variant_id}`,
                 to: email,
                 subject: `How was ${item.product_name}?`,
                 template: MAIL_TEMPLATES.CUSTOMER_REVIEW_REMINDER,

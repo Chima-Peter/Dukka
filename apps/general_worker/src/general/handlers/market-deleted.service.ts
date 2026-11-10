@@ -98,6 +98,7 @@ export class MarketDeletedService {
 
         await this.mailQueueService.enqueueSendMany(
             contacts.map((contact) => ({
+                jobId: `market-deleted-${market_id}-${contact.id}`,
                 to: contact.email,
                 subject: 'A market you access was deleted',
                 template: MAIL_TEMPLATES.MARKET_DELETED,

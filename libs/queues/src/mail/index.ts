@@ -1,4 +1,6 @@
 export type {
+    EnqueueInventoryStockReminderInput,
+    EnqueueSendInput,
     InventoryStockReminderMailPayload,
     SendMailJobPayload,
 } from './mail-queue.types.js';
