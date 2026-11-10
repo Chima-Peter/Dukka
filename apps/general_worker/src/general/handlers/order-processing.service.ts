@@ -10,6 +10,8 @@ import {
 } from '@app/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    GENERAL_JOBS,
+    GeneralQueueService,
     MAIL_TEMPLATES,
     MailQueueService,
     type OrderProcessingJobPayload,
@@ -22,6 +24,7 @@ export class OrderProcessingService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly mailQueueService: MailQueueService,
+        private readonly generalQueueService: GeneralQueueService,
         private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
@@ -57,6 +60,13 @@ export class OrderProcessingService {
                     select: {
                         id: true,
                         status: true,
+                        warehouse_id: true,
+                        line_items: {
+                            select: {
+                                market_variant_id: true,
+                                quantity: true,
+                            },
+                        },
                     },
                 },
             },
@@ -69,8 +79,36 @@ export class OrderProcessingService {
             return;
         }
 
+        const inventory = order.order_inventory;
+        if (!inventory) {
+            this.logger.warn(
+                `No order inventory for order ${order.id}; blocking order-processing`,
+            );
+            return;
+        }
+
+        if (inventory.status === OrderInventoryStatus.CLOSED) {
+            await this.enqueueCancelForRefund(order.id);
+            this.logger.warn(
+                `Order inventory ${inventory.id} is CLOSED; enqueued cancel/refund for order ${order.id}`,
+            );
+            return;
+        }
+
+        if (inventory.status === OrderInventoryStatus.EXPIRED) {
+            const reopened = await this.reReserveExpiredInventory(order);
+            if (!reopened) {
+                await this.enqueueCancelForRefund(order.id);
+                this.logger.warn(
+                    `Re-reserve failed for expired inventory ${inventory.id}; enqueued cancel for order ${order.id}`,
+                );
+                return;
+            }
+        } else {
+            await this.completeOrderInventory(order);
+        }
+
         await this.ensureGuestLogisticsLocation(order);
-        await this.completeOrderInventory(order);
 
         const email = order.customer?.email ?? order.guest_email;
         if (!email) {
@@ -118,6 +156,14 @@ export class OrderProcessingService {
         }
 
         await this.createShipmentForOrder(order);
+    }
+
+    private async enqueueCancelForRefund(orderId: string): Promise<void> {
+        await this.generalQueueService.enqueue(
+            GENERAL_JOBS.CANCEL_ORDER,
+            { order_id: orderId },
+            { jobId: `cancel-order-inventory-blocked-${orderId}` },
+        );
     }
 
     private async completeOrderInventory(order: {
@@ -195,6 +241,93 @@ export class OrderProcessingService {
         this.logger.log(
             `Completed order inventory ${inventory.id} for order #${order.order_number}`,
         );
+    }
+
+    private async reReserveExpiredInventory(order: {
+        id: string;
+        order_number: string;
+        order_inventory: {
+            id: string;
+            status: OrderInventoryStatus;
+            warehouse_id: string;
+            line_items: { market_variant_id: string; quantity: number }[];
+        } | null;
+    }): Promise<boolean> {
+        const inventory = order.order_inventory;
+        if (!inventory || inventory.status !== OrderInventoryStatus.EXPIRED) {
+            return false;
+        }
+
+        try {
+            const outcome = await this.prisma.$transaction(async (tx) => {
+                const claimed = await tx.orderInventory.updateManyAndReturn({
+                    where: {
+                        id: inventory.id,
+                        status: OrderInventoryStatus.EXPIRED,
+                    },
+                    data: { status: OrderInventoryStatus.SUCCESS },
+                    select: {
+                        id: true,
+                        warehouse_id: true,
+                    },
+                });
+
+                if (claimed.length === 0) {
+                    const current = await tx.orderInventory.findUnique({
+                        where: { id: inventory.id },
+                        select: { status: true },
+                    });
+                    if (current?.status === OrderInventoryStatus.SUCCESS) {
+                        return 'already_success' as const;
+                    }
+                    return 'unavailable' as const;
+                }
+
+                const row = claimed[0];
+                for (const line of inventory.line_items) {
+                    const updated = await tx.inventory.updateManyAndReturn({
+                        where: {
+                            warehouse_id: row.warehouse_id,
+                            market_variant_id: line.market_variant_id,
+                            available_quantity: { gte: line.quantity },
+                        },
+                        data: {
+                            available_quantity: { decrement: line.quantity },
+                        },
+                        select: {
+                            available_quantity: true,
+                        },
+                    });
+
+                    if (updated.length === 0) {
+                        throw new Error(
+                            `Insufficient available quantity for market variant ${line.market_variant_id} in warehouse ${row.warehouse_id}`,
+                        );
+                    }
+                }
+
+                return 'reopened' as const;
+            });
+
+            if (outcome === 'unavailable') {
+                this.logger.warn(
+                    `Expired inventory ${inventory.id} could not be reclaimed for order #${order.order_number}`,
+                );
+                return false;
+            }
+
+            this.logger.log(
+                outcome === 'already_success'
+                    ? `Expired inventory ${inventory.id} already SUCCESS for order #${order.order_number}`
+                    : `Re-reserved expired inventory ${inventory.id} for order #${order.order_number}`,
+            );
+            return true;
+        } catch (error) {
+            this.logger.warn(
+                `Failed to re-reserve expired inventory ${inventory.id} for order #${order.order_number}: ${error}`,
+            );
+            return false;
+        }
     }
 
     private async createShipmentForOrder(order: {

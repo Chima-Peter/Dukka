@@ -71,7 +71,7 @@ export class ExpiredReservationsService {
 
             await tx.orderInventory.update({
                 where: { id: reservation.id },
-                data: { status: OrderInventoryStatus.CLOSED },
+                data: { status: OrderInventoryStatus.EXPIRED },
             });
 
             await tx.orderPaymentAttempt.updateMany({

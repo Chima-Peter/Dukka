@@ -1936,7 +1936,7 @@ async function seedOrdersReviewsAndFulfillment(
                 order_inventory: {
                     create: {
                         warehouse_id: accraWarehouse.id,
-                        status: OrderInventoryStatus.CLOSED,
+                        status: OrderInventoryStatus.EXPIRED,
                         expires_at: new Date(Date.now() - 60 * 60 * 1000),
                         line_items: {
                             create: [
