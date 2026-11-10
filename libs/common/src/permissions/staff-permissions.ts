@@ -413,6 +413,28 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         scope_type: 'DISTRIBUTION_POINT',
     },
 
+    // --- Shipments ---
+    {
+        name: 'shipments:manage',
+        description: 'Move and update shipments',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'shipments:manage',
+        description: 'Move and update shipments',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'shipments:manage',
+        description: 'Move and update shipments',
+        scope_type: 'WAREHOUSE',
+    },
+    {
+        name: 'shipments:manage',
+        description: 'Move and update shipments',
+        scope_type: 'DISTRIBUTION_POINT',
+    },
+
     // --- Coupons ---
     {
         name: 'coupons:manage',
@@ -475,6 +497,7 @@ export const StaffPermission = {
     LogisticsPartnersCreate: 'logistics_partners:create',
     LogisticsPartnersManage: 'logistics_partners:manage',
     LogisticsPartnersRead: 'logistics_partners:read',
+    ShipmentsManage: 'shipments:manage',
     ServiceStatesManage: 'service_states:manage',
     ServiceStatesAssign: 'service_states:assign',
     InventoryManage: 'inventory:manage',

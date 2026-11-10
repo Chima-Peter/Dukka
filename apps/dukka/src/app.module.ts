@@ -41,6 +41,7 @@ import { CheckoutModule } from './checkout/checkout.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { HealthModule } from './health/health.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -168,6 +169,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         CheckoutModule,
         PromotionsModule,
         CouponsModule,
+        ShipmentsModule,
     ],
     providers: [
         {
