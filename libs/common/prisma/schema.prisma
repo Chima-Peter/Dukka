@@ -1228,11 +1228,11 @@ model Shipment {
   estimated_delivery_date DateTime?
   actual_delivery_date DateTime?
 
-  origin_location_id String
-  origin_location LogisticsLocation @relation("ShipmentOrigin", fields: [origin_location_id], references: [id], onDelete: Restrict)
+  origin_location_id String?
+  origin_location LogisticsLocation? @relation("ShipmentOrigin", fields: [origin_location_id], references: [id], onDelete: Restrict)
 
-  destination_location_id String
-  destination_location LogisticsLocation @relation("ShipmentDestination", fields: [destination_location_id], references: [id], onDelete: Restrict)
+  destination_location_id String?
+  destination_location LogisticsLocation? @relation("ShipmentDestination", fields: [destination_location_id], references: [id], onDelete: Restrict)
 
   current_location_id String
   current_location LogisticsLocation @relation("ShipmentCurrent", fields: [current_location_id], references: [id], onDelete: Restrict)

@@ -27,12 +27,14 @@ import {
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
 import type { AcknowledgeShipmentDto } from './dto/acknowledge-shipment.dto.js';
+import type { CancelShipmentMovementDto } from './dto/cancel-shipment-movement.dto.js';
 import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import type { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsRepository } from './shipments.repository.js';
 import {
     ALLOWED_SHIPMENT_MOVE_ROUTES,
     type AcknowledgeShipmentResult,
+    type CancelShipmentMovementResult,
     type LogisticsPartnerForMove,
     type MoveShipmentResult,
     type ShipmentDetail,
@@ -225,6 +227,60 @@ export class ShipmentsService {
             this.logger.log(
                 `Acknowledged shipment ${shipmentId} at ${result.to_location.type}`,
             );
+            return result;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async cancelMovement(
+        shipmentId: string,
+        data: CancelShipmentMovementDto,
+        actor: ScopedAccessActor,
+        performedBy: string,
+    ): Promise<CancelShipmentMovementResult> {
+        try {
+            this.logger.log(`Cancelling shipment movement ${shipmentId}`);
+
+            const shipment =
+                await this.shipmentsRepository.findForAcknowledge(shipmentId);
+            if (!shipment) {
+                throw new NotFoundException('Shipment not found');
+            }
+
+            this.assertShipmentMovable(shipment);
+
+            const openDispatch = shipment.open_dispatch;
+            if (!openDispatch) {
+                throw new BadRequestException(
+                    'No in-transit dispatch found to cancel',
+                );
+            }
+
+            this.assertActorCanAccessLocation(
+                actor,
+                shipment.order.market_id,
+                openDispatch.from_location,
+                'Shipment movement can only be cancelled by the origin location',
+            );
+
+            const occurredAt = data.occurred_at
+                ? new Date(data.occurred_at)
+                : new Date();
+
+            const result = await this.shipmentsRepository.cancelMovement(
+                shipmentId,
+                openDispatch,
+                {
+                    occurred_at: occurredAt,
+                    performed_by: performedBy,
+                    ...(data.metadata !== undefined && {
+                        metadata: data.metadata as Prisma.InputJsonValue,
+                    }),
+                },
+            );
+
+            this.logger.log(`Cancelled shipment movement ${shipmentId}`);
             return result;
         } catch (error) {
             this.handleError(error);

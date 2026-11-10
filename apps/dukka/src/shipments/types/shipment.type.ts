@@ -79,6 +79,10 @@ export type AcknowledgeShipmentResult = {
     to_location: ShipmentLocationSummary;
 };
 
+export type CancelShipmentMovementInput = AcknowledgeShipmentInput;
+
+export type CancelShipmentMovementResult = AcknowledgeShipmentResult;
+
 export type OpenDispatchMovement = ShipmentMovement & {
     from_location: ShipmentLocationSummary;
     to_location: ShipmentLocationSummary;
@@ -116,8 +120,8 @@ export type ShipmentDetail = {
     status: ShipmentStatus;
     estimated_delivery_date: Date | null;
     actual_delivery_date: Date | null;
-    origin_location: ShipmentLocationSummary;
-    destination_location: ShipmentLocationSummary;
+    origin_location: ShipmentLocationSummary | null;
+    destination_location: ShipmentLocationSummary | null;
     current_location: ShipmentLocationSummary;
     order: ShipmentOrderSummary;
     shipment_legs: Array<

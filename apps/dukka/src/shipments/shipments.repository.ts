@@ -15,6 +15,8 @@ import {
     shipmentSummarySelect,
     type AcknowledgeShipmentInput,
     type AcknowledgeShipmentResult,
+    type CancelShipmentMovementInput,
+    type CancelShipmentMovementResult,
     type LogisticsPartnerForMove,
     type MoveShipmentInput,
     type MoveShipmentResult,
@@ -224,6 +226,9 @@ export class ShipmentsRepository {
         const shipment = await this.prisma.shipment.update({
             where: { id: shipmentId },
             data: {
+                destination_location: {
+                    connect: { id: input.to_location_id },
+                },
                 ...(input.mark_as_shipped && {
                     status: ShipmentStatus.SHIPPED,
                     order: {
@@ -330,6 +335,10 @@ export class ShipmentsRepository {
         const shipment = await this.prisma.shipment.update({
             where: { id: shipmentId },
             data: {
+                destination_location: { disconnect: true },
+                origin_location: {
+                    connect: { id: openDispatch.to_location_id },
+                },
                 current_location: {
                     connect: { id: openDispatch.to_location_id },
                 },
@@ -377,6 +386,72 @@ export class ShipmentsRepository {
 
         const {
             current_location: _current,
+            shipment_movements: _movements,
+            shipment_legs: _legs,
+            ...shipmentRecord
+        } = shipment;
+
+        return {
+            shipment: shipmentRecord,
+            leg,
+            movement,
+            from_location: openDispatch.from_location,
+            to_location: openDispatch.to_location,
+        };
+    }
+
+    async cancelMovement(
+        shipmentId: string,
+        openDispatch: OpenDispatchMovement,
+        input: CancelShipmentMovementInput,
+    ): Promise<CancelShipmentMovementResult> {
+        const shipment = await this.prisma.shipment.update({
+            where: { id: shipmentId },
+            data: {
+                destination_location: { disconnect: true },
+                shipment_movements: {
+                    update: {
+                        where: { id: openDispatch.id },
+                        data: {
+                            movement_type: ShipmentMovementType.CANCELLED,
+                            performed_by: input.performed_by,
+                            occurred_at: input.occurred_at,
+                            recorded_at: new Date(),
+                            ...(input.metadata !== undefined && {
+                                metadata: input.metadata,
+                            }),
+                        },
+                    },
+                },
+                shipment_legs: {
+                    update: {
+                        where: { id: openDispatch.shipment_leg_id },
+                        data: {
+                            actual_departure_date: null,
+                            actual_arrival_date: null,
+                        },
+                    },
+                },
+            },
+            include: {
+                shipment_movements: {
+                    where: { id: openDispatch.id },
+                    take: 1,
+                },
+                shipment_legs: {
+                    where: { id: openDispatch.shipment_leg_id },
+                    take: 1,
+                },
+            },
+        });
+
+        const movement = shipment.shipment_movements[0];
+        const leg = shipment.shipment_legs[0];
+        if (!movement || !leg) {
+            throw new Error('SHIPMENT_CANCEL_MOVEMENT_FAILED');
+        }
+
+        const {
             shipment_movements: _movements,
             shipment_legs: _legs,
             ...shipmentRecord
