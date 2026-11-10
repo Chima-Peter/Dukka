@@ -72,6 +72,15 @@ export class MarketsController {
         return this.marketsService.findOne(id, staff.market_ids);
     }
 
+    @Get(':id/staff')
+    @ResponseMessage('Market staff retrieved successfully')
+    findStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.marketsService.findStaff(id, toScopedAccessActor(staff));
+    }
+
     @Patch(':id')
     @RequirePermission(StaffPermission.MarketsManage)
     @ResponseMessage('Market updated successfully')

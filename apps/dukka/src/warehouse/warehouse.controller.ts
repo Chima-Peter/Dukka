@@ -69,6 +69,18 @@ export class WarehouseController {
         return this.warehouseService.findOne(id, toScopedAccessActor(staff));
     }
 
+    @Get(':id/staff')
+    @ResponseMessage('Warehouse staff retrieved successfully')
+    findStaff(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.warehouseService.findStaff(
+            id,
+            toScopedAccessActor(staff),
+        );
+    }
+
     @Patch(':id')
     @RequirePermission(StaffPermission.WarehousesManage)
     @ResponseMessage('Warehouse updated successfully')

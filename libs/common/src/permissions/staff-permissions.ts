@@ -231,6 +231,31 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         scope_type: 'WAREHOUSE',
     },
     {
+        name: 'distribution_points:create',
+        description: 'Create distribution points',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'distribution_points:create',
+        description: 'Create distribution points',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'distribution_points:manage',
+        description: 'Update, open, and close distribution points; assign staff',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'distribution_points:manage',
+        description: 'Update, open, and close distribution points; assign staff',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'distribution_points:manage',
+        description: 'Update, open, and close distribution points; assign staff',
+        scope_type: 'DISTRIBUTION_POINT',
+    },
+    {
         name: 'service_states:manage',
         description: 'Create, open, close, and delete service states',
         scope_type: 'GLOBAL',
@@ -403,6 +428,8 @@ export const StaffPermission = {
     ProductsReview: 'products:review',
     WarehousesCreate: 'warehouses:create',
     WarehousesManage: 'warehouses:manage',
+    DistributionPointsCreate: 'distribution_points:create',
+    DistributionPointsManage: 'distribution_points:manage',
     ServiceStatesManage: 'service_states:manage',
     ServiceStatesAssign: 'service_states:assign',
     InventoryManage: 'inventory:manage',

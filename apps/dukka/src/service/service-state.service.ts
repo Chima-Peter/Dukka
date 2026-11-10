@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    MarketStatus,
     ServiceStateStatus,
     WarehouseStatus,
 } from '@app/common';
@@ -342,7 +343,31 @@ export class ServiceStateService {
         }
     }
 
-        private async requireOpenMarket(
+    async requireOpenInMarket(
+        id: string,
+        marketId: string,
+    ): Promise<{ id: string; market_id: string; status: ServiceStateStatus }> {
+        const existing =
+            await this.serviceStateRepository.findByIdOrThrow(id);
+        if (existing.market_id !== marketId) {
+            throw new BadRequestException(
+                'Service state does not belong to the market',
+            );
+        }
+        if (existing.market.status !== MarketStatus.OPEN) {
+            throw new BadRequestException('Market is not open');
+        }
+        if (existing.status !== ServiceStateStatus.OPEN) {
+            throw new BadRequestException('Service state is not open');
+        }
+        return {
+            id: existing.id,
+            market_id: existing.market_id,
+            status: existing.status,
+        };
+    }
+
+    private async requireOpenMarket(
         marketId: string,
         staffMarketIds: string[],
     ): Promise<string> {

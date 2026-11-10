@@ -34,6 +34,7 @@ import type { CreateWarehouseDto } from './dto/create-warehouse.dto.js';
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.dto.js';
+import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type {
     WarehouseAuditActor,
     WarehouseRecord,
@@ -115,6 +116,28 @@ export class WarehouseService {
             }
             this.logger.log(`Fetched warehouse ${id}`);
             return warehouse;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findStaff(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<StaffMemberSummary[]> {
+        try {
+            this.logger.log(`Fetching staff for warehouse ${id}`);
+            const warehouse =
+                await this.warehouseRepository.findByIdOrThrow(id);
+            assertActorHasScopedAccess(actor, {
+                market_id: warehouse.market_id,
+                warehouse_id: warehouse.id,
+            });
+            const staff = await this.staffService.findSummariesByWarehouseId(
+                warehouse.id,
+            );
+            this.logger.log(`Fetched staff for warehouse ${id}`);
+            return staff;
         } catch (error) {
             this.handleError(error);
         }

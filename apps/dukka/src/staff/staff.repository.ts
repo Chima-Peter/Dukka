@@ -39,6 +39,7 @@ import {
     type StaffQualificationSummary,
     type StaffRoleDetails,
     type StaffScopeDetails,
+    type StaffMemberSummary,
     type StaffSummary,
     type StaffWithDetails,
 } from './types/staff.types.js';
@@ -147,6 +148,77 @@ export class StaffRepository {
             items,
             next_cursor: hasMore ? items[items.length - 1].id : null,
         };
+    }
+
+    async findSummariesByMarketId(
+        marketId: string,
+    ): Promise<StaffMemberSummary[]> {
+        return this.findSummariesByScope({
+            scope_type: ScopeType.MARKET,
+            market_id: marketId,
+        });
+    }
+
+    async findSummariesByWarehouseId(
+        warehouseId: string,
+    ): Promise<StaffMemberSummary[]> {
+        return this.findSummariesByScope({
+            scope_type: ScopeType.WAREHOUSE,
+            warehouse_id: warehouseId,
+        });
+    }
+
+    async findSummariesByDistributionPointId(
+        distributionPointId: string,
+    ): Promise<StaffMemberSummary[]> {
+        return this.findSummariesByScope({
+            scope_type: ScopeType.DISTRIBUTION_POINT,
+            distribution_point_id: distributionPointId,
+        });
+    }
+
+    private async findSummariesByScope(scope: {
+        scope_type:
+            | typeof ScopeType.MARKET
+            | typeof ScopeType.WAREHOUSE
+            | typeof ScopeType.DISTRIBUTION_POINT;
+        market_id?: string;
+        warehouse_id?: string;
+        distribution_point_id?: string;
+    }): Promise<StaffMemberSummary[]> {
+        const records = await this.prisma.staff.findMany({
+            where: {
+                is_active: true,
+                staff_scopes: {
+                    some: {
+                        scope_type: scope.scope_type,
+                        ...(scope.market_id !== undefined && {
+                            market_id: scope.market_id,
+                        }),
+                        ...(scope.warehouse_id !== undefined && {
+                            warehouse_id: scope.warehouse_id,
+                        }),
+                        ...(scope.distribution_point_id !== undefined && {
+                            distribution_point_id: scope.distribution_point_id,
+                        }),
+                    },
+                },
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+                id: true,
+                name: true,
+                avatar: true,
+                role: { select: { name: true } },
+            },
+        });
+
+        return records.map((item) => ({
+            id: item.id,
+            name: item.name,
+            role: item.role?.name ?? null,
+            picture: item.avatar,
+        }));
     }
 
     private buildActorStaffScopeFilter(

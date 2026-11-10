@@ -28,6 +28,8 @@ import {
     assertActorHasScopedAccess,
     type ScopedAccessActor,
 } from '../shared/access-control.js';
+import { StaffService } from '../staff/staff.service.js';
+import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
@@ -43,6 +45,7 @@ export class MarketsService {
 
     constructor(
         private readonly marketsRepository: MarketsRepository,
+        private readonly staffService: StaffService,
         private readonly mailQueueService: MailQueueService,
         private readonly generalQueueService: GeneralQueueService,
         private readonly notificationPublisher: NotificationPublisher,
@@ -90,6 +93,24 @@ export class MarketsService {
             }
             this.logger.log(`Fetched market ${id}`);
             return market;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findStaff(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<StaffMemberSummary[]> {
+        try {
+            this.logger.log(`Fetching staff for market ${id}`);
+            const market = await this.findByIdOrThrow(id);
+            assertActorHasScopedAccess(actor, { market_id: market.id });
+            const staff = await this.staffService.findSummariesByMarketId(
+                market.id,
+            );
+            this.logger.log(`Fetched staff for market ${id}`);
+            return staff;
         } catch (error) {
             this.handleError(error);
         }

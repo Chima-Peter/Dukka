@@ -54,6 +54,7 @@ import {
     type QualificationResponse,
     type StaffAuditPage,
     type StaffAuthRecord,
+    type StaffMemberSummary,
     type StaffResponse,
     type StaffSummary,
     type StaffSummaryResponse,
@@ -62,6 +63,7 @@ import {
 
 export type {
     QualificationResponse,
+    StaffMemberSummary,
     StaffResponse,
     StaffSummaryResponse,
 } from './types/staff.types.js';
@@ -101,6 +103,76 @@ export class StaffService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    async findSummariesByMarketId(
+        marketId: string,
+    ): Promise<StaffMemberSummary[]> {
+        try {
+            this.logger.log(`Fetching staff summaries for market ${marketId}`);
+            const items =
+                await this.staffRepository.findSummariesByMarketId(marketId);
+            this.logger.log(`Fetched staff summaries for market ${marketId}`);
+            return this.toStaffMemberSummaries(items);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findSummariesByWarehouseId(
+        warehouseId: string,
+    ): Promise<StaffMemberSummary[]> {
+        try {
+            this.logger.log(
+                `Fetching staff summaries for warehouse ${warehouseId}`,
+            );
+            const items =
+                await this.staffRepository.findSummariesByWarehouseId(
+                    warehouseId,
+                );
+            this.logger.log(
+                `Fetched staff summaries for warehouse ${warehouseId}`,
+            );
+            return this.toStaffMemberSummaries(items);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findSummariesByDistributionPointId(
+        distributionPointId: string,
+    ): Promise<StaffMemberSummary[]> {
+        try {
+            this.logger.log(
+                `Fetching staff summaries for distribution point ${distributionPointId}`,
+            );
+            const items =
+                await this.staffRepository.findSummariesByDistributionPointId(
+                    distributionPointId,
+                );
+            this.logger.log(
+                `Fetched staff summaries for distribution point ${distributionPointId}`,
+            );
+            return this.toStaffMemberSummaries(items);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private toStaffMemberSummaries(
+        items: StaffMemberSummary[],
+    ): StaffMemberSummary[] {
+        return items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            role: item.role,
+            picture: item.picture
+                ? this.supabaseService.getPublicURL(
+                      item.picture,
+                      AVATAR_BUCKET,
+                  )
+                : null,
+        }));
     }
 
     async findOne(

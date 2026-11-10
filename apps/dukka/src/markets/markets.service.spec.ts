@@ -10,8 +10,13 @@ import { MarketStatus } from '../../../../libs/common/generated/prisma/enums.js'
 import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
 import { RestCountriesIpService } from '../../../../libs/common/src/rest-countries/rest-countries-ip.service.js';
 import type { ScopedAccessActor } from '../shared/access-control.js';
+import { StaffService } from '../staff/staff.service.js';
 import { MarketsRepository } from './markets.repository.js';
 import { MarketsService } from './markets.service.js';
+
+vi.mock('../staff/staff.service.js', () => ({
+    StaffService: class StaffService {},
+}));
 
 const globalActor: ScopedAccessActor = {
     scopes: [
@@ -112,6 +117,12 @@ describe('MarketsService', () => {
                 {
                     provide: MarketsRepository,
                     useValue: marketsRepository,
+                },
+                {
+                    provide: StaffService,
+                    useValue: {
+                        findSummariesByMarketId: vi.fn(),
+                    },
                 },
                 {
                     provide: MailQueueService,

@@ -41,6 +41,7 @@ describe('WarehouseController', () => {
                         create: vi.fn(),
                         findAll: vi.fn(),
                         findOne: vi.fn(),
+                        findStaff: vi.fn(),
                         update: vi.fn(),
                         updateManager: vi.fn(),
                         close: vi.fn(),

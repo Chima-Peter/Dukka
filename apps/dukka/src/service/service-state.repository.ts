@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+    MarketStatus,
     ServiceStateStatus,
     WarehouseStatus,
     type ServiceState,
@@ -13,8 +14,12 @@ import type {
 } from './types/service-state.type.js';
 import type { WarehouseRecord } from '../warehouse/types/warehouse.type.js';
 
-type ServiceStateWithRelations = ServiceState & {
+type ServiceStateWithWarehouses = ServiceState & {
     warehouse_service_states: Array<{ warehouse_id: string }>;
+};
+
+type ServiceStateWithRelations = ServiceStateWithWarehouses & {
+    market: { id: string; status: MarketStatus };
 };
 
 @Injectable()
@@ -103,6 +108,7 @@ export class ServiceStateRepository {
         return await this.prisma.serviceState.findUnique({
             where: { id },
             include: {
+                market: { select: { id: true, status: true } },
                 warehouse_service_states: {
                     select: { warehouse_id: true },
                 },
@@ -213,7 +219,7 @@ export class ServiceStateRepository {
         return this.toLinkItem(row);
     }
 
-    private toItem(row: ServiceStateWithRelations): ServiceStateItem {
+    private toItem(row: ServiceStateWithWarehouses): ServiceStateItem {
         return {
             id: row.id,
             market_id: row.market_id,
