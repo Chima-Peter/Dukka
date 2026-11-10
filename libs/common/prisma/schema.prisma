@@ -947,6 +947,7 @@ model OrderRefund {
   customer_note String?
   merchant_note String?
   refunded_at DateTime?
+  metadata Json?
 
   order_id String
   order    Order @relation(fields: [order_id], references: [id], onDelete: Cascade)

@@ -45,6 +45,17 @@ export type MarkRefundStatusInput = {
     refunded_at?: Date | null;
 };
 
+export type OrderRefundActorMetadata = {
+    actor: {
+        type: 'staff' | 'system';
+        id?: string;
+        name?: string;
+        role_id?: string | null;
+        role_name?: string | null;
+        source: 'staff_retry' | 'cancel_order';
+    };
+};
+
 export type CreateOrderRefundInput = {
     amount: Prisma.Decimal | number | string;
     currency: string;
@@ -55,6 +66,7 @@ export type CreateOrderRefundInput = {
     customer_note?: string | null;
     merchant_note?: string | null;
     provider_refund_id?: string | null;
+    metadata?: OrderRefundActorMetadata | Prisma.InputJsonValue | null;
 };
 
 export type StaffRetryRefundResult = {

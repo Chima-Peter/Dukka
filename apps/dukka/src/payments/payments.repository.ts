@@ -3,8 +3,8 @@ import {
     OrderPaymentAttemptStatus,
     OrderRefundStatus,
     OrderStatus,
+    Prisma,
     type PaymentMethod,
-    type Prisma,
     PrismaService,
 } from '@app/common';
 import { OrdersRepository } from '../orders/orders.repository.js';
@@ -327,6 +327,12 @@ export class PaymentsRepository {
                 }),
                 ...(input.provider_refund_id !== undefined && {
                     provider_refund_id: input.provider_refund_id,
+                }),
+                ...(input.metadata !== undefined && {
+                    metadata:
+                        input.metadata === null
+                            ? Prisma.JsonNull
+                            : input.metadata,
                 }),
             },
             select: orderRefundDetailSelect,

@@ -139,7 +139,12 @@ export class PaymentsController {
             orderId,
             data,
             toScopedAccessActor(staff),
-            staff.sub,
+            {
+                id: staff.sub,
+                name: staff.name,
+                role_id: staff.role_id,
+                role_name: staff.role_name,
+            },
         );
     }
 

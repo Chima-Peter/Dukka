@@ -487,11 +487,16 @@ export class PaymentsService {
         orderId: string,
         data: RetryOrderRefundDto,
         actor: ScopedAccessActor,
-        staffId: string,
+        staff: {
+            id: string;
+            name: string;
+            role_id: string | null;
+            role_name: string | null;
+        },
     ): Promise<StaffRetryRefundResult> {
         try {
             this.logger.log(
-                `Staff ${staffId} retrying failed refunds for order ${orderId}`,
+                `Staff ${staff.id} retrying failed refunds for order ${orderId}`,
             );
             assertActorHasScopedAccess(actor, {
                 market_id: data.market_id,
@@ -531,10 +536,8 @@ export class PaymentsService {
                 throw new NotFoundException('Order refund not found');
             }
 
-            Promise.all([
-                this.assertLocalTxnRefundsAreAllFailed(scoped),
-                this.assertPaystackTxnRefundsAreAllFailed(paystackRefunds),
-            ]);
+            this.assertLocalTxnRefundsAreAllFailed(scoped);
+            this.assertPaystackTxnRefundsAreAllFailed(paystackRefunds);
 
             const template = scoped[0];
             if (template.provider.toLowerCase() !== 'paystack') {
@@ -553,6 +556,16 @@ export class PaymentsService {
                     template.order_payment_attempt_id ?? attempt.id,
                 customer_note: template.customer_note,
                 merchant_note: template.merchant_note,
+                metadata: {
+                    actor: {
+                        type: 'staff',
+                        id: staff.id,
+                        name: staff.name,
+                        role_id: staff.role_id,
+                        role_name: staff.role_name,
+                        source: 'staff_retry',
+                    },
+                },
             });
 
             let paystackRefund;

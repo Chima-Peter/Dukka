@@ -111,6 +111,7 @@ export const orderRefundDetailSelect = {
     customer_note: true,
     merchant_note: true,
     refunded_at: true,
+    metadata: true,
     order_id: true,
     order_payment_attempt_id: true,
     created_at: true,

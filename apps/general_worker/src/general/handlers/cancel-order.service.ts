@@ -316,6 +316,12 @@ export class CancelOrderService {
                 status: OrderRefundStatus.PENDING,
                 customer_note: customerNote,
                 merchant_note: merchantNote,
+                metadata: {
+                    actor: {
+                        type: 'system',
+                        source: 'cancel_order',
+                    },
+                },
                 ...(input.payment_attempt_id
                     ? { order_payment_attempt_id: input.payment_attempt_id }
                     : {}),
