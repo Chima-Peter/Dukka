@@ -35,7 +35,7 @@ export class WarehouseRepository {
                     address: data.address,
                     market: { connect: { id: data.market_id } },
                     manager: { connect: { id: data.manager_id } },
-                    logistics_locations: {
+                    logistics_location: {
                         create: {
                             type: LogisticsLocationType.WAREHOUSE,
                             name: data.name,

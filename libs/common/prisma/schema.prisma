@@ -49,7 +49,7 @@ model Customer {
   notifications Notification[]
   promotion_usages PromotionUsage[]
   coupon_usages CouponUsage[]
-  logistics_locations LogisticsLocation[]
+  logistics_location LogisticsLocation?
 
   @@index([active_market_id])
 }
@@ -668,7 +668,7 @@ model Warehouse {
   order_inventories        OrderInventory[]
   orders                   Order[]
   warehouse_service_states WarehouseServiceState[]
-  logistics_locations      LogisticsLocation[]
+  logistics_location       LogisticsLocation?
   staff_scopes             StaffScope[]
   invitation_scopes        StaffInvitationScope[]
 
@@ -1200,9 +1200,9 @@ model DistributionPoint {
   state_id String
   state ServiceState @relation(fields: [state_id], references: [id], onDelete: Restrict)
 
-  logistics_locations LogisticsLocation[]
-  staff_scopes        StaffScope[]
-  invitation_scopes   StaffInvitationScope[]
+  logistics_location LogisticsLocation?
+  staff_scopes       StaffScope[]
+  invitation_scopes  StaffInvitationScope[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -1352,13 +1352,13 @@ model LogisticsLocation {
   id String @id @default(uuid())
   type LogisticsLocationType
 
-  warehouse_id String?
+  warehouse_id String? @unique
   warehouse Warehouse? @relation(fields: [warehouse_id], references: [id], onDelete: SetNull)
 
-  distribution_point_id String?
+  distribution_point_id String? @unique
   distribution_point DistributionPoint? @relation(fields: [distribution_point_id], references: [id], onDelete: SetNull)
 
-  customer_id String?
+  customer_id String? @unique
   customer Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   name String
@@ -1383,9 +1383,6 @@ model LogisticsLocation {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@index([warehouse_id])
-  @@index([distribution_point_id])
-  @@index([customer_id])
   @@index([email])
   @@index([type])
 }

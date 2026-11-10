@@ -20,7 +20,7 @@ export class CustomerRepository {
                 cart: {
                     create: {},
                 },
-                logistics_locations: {
+                logistics_location: {
                     create: {
                         type: LogisticsLocationType.CUSTOMER,
                         name: data.name,

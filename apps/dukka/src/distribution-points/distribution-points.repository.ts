@@ -33,7 +33,7 @@ export class DistributionPointsRepository {
                 contact_phone: data.contact_phone,
                 market: { connect: { id: data.market_id } },
                 state: { connect: { id: data.state_id } },
-                logistics_locations: {
+                logistics_location: {
                     create: {
                         type: LogisticsLocationType.DISTRIBUTION_POINT,
                         name: data.name,
