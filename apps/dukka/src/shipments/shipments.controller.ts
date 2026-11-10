@@ -1,11 +1,13 @@
 import {
     Body,
     Controller,
+    Get,
     HttpCode,
     HttpStatus,
     Param,
     ParseUUIDPipe,
     Post,
+    Query,
 } from '@nestjs/common';
 import {
     Auth,
@@ -16,6 +18,7 @@ import {
     type StaffJwtPayload,
 } from '@app/common';
 import { toScopedAccessActor } from '../shared/access-control.js';
+import { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsService } from './shipments.service.js';
 
@@ -23,6 +26,29 @@ import { ShipmentsService } from './shipments.service.js';
 @Controller('shipments')
 export class ShipmentsController {
     constructor(private readonly shipmentsService: ShipmentsService) {}
+
+    @Get()
+    @RequirePermission(StaffPermission.ShipmentsRead)
+    @ResponseMessage('Shipments retrieved successfully')
+    findAll(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindShipmentsDto,
+    ) {
+        return this.shipmentsService.findAll(
+            query,
+            toScopedAccessActor(staff),
+        );
+    }
+
+    @Get(':id')
+    @RequirePermission(StaffPermission.ShipmentsRead)
+    @ResponseMessage('Shipment retrieved successfully')
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.shipmentsService.findOne(id, toScopedAccessActor(staff));
+    }
 
     @Post(':id/move')
     @RequirePermission(StaffPermission.ShipmentsManage)

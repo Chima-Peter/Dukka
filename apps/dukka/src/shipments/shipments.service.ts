@@ -17,20 +17,27 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     ACCESS_CONTROL_ERROR,
     assertActorHasScopedAccess,
+    hasGlobalScope,
+    resolveActorDistributionPointIds,
+    resolveActorWarehouseIds,
     type ScopedAccessActor,
 } from '../shared/access-control.js';
 import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import type { MoveShipmentDto } from './dto/move-shipment.dto.js';
 import { ShipmentsRepository } from './shipments.repository.js';
 import {
     ALLOWED_SHIPMENT_MOVE_ROUTES,
     type LogisticsPartnerForMove,
     type MoveShipmentResult,
+    type ShipmentDetail,
     type ShipmentForMove,
+    type ShipmentListScope,
     type ShipmentLocationSummary,
+    type ShipmentPage,
 } from './types/shipment.type.js';
 
 @Injectable()
@@ -38,6 +45,42 @@ export class ShipmentsService {
     private readonly logger = new Logger(ShipmentsService.name);
 
     constructor(private readonly shipmentsRepository: ShipmentsRepository) {}
+
+    async findAll(
+        query: FindShipmentsDto,
+        actor: ScopedAccessActor,
+    ): Promise<ShipmentPage> {
+        try {
+            this.logger.log('Fetching shipments');
+            const scope = this.resolveShipmentListScope(query, actor);
+            if (scope === null) {
+                return { items: [], next_cursor: null };
+            }
+            const page = await this.shipmentsRepository.findAll(query, scope);
+            this.logger.log('Fetched shipments');
+            return page;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOne(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<ShipmentDetail> {
+        try {
+            this.logger.log(`Fetching shipment ${id}`);
+            const shipment = await this.shipmentsRepository.findDetail(id);
+            if (!shipment) {
+                throw new NotFoundException('Shipment not found');
+            }
+            this.assertActorCanAccessShipment(actor, shipment);
+            this.logger.log(`Fetched shipment ${id}`);
+            return shipment;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
 
     async move(
         shipmentId: string,
@@ -117,6 +160,89 @@ export class ShipmentsService {
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private resolveShipmentListScope(
+        query: FindShipmentsDto,
+        actor: ScopedAccessActor,
+    ): ShipmentListScope | null {
+        if (hasGlobalScope(actor.scopes)) {
+            return {};
+        }
+
+        const hasMarketScope = actor.scopes.some(
+            (scope) => scope.scope_type === 'MARKET',
+        );
+        if (hasMarketScope) {
+            if (actor.market_ids.length === 0) {
+                return null;
+            }
+            if (
+                query.market_id !== undefined &&
+                !actor.market_ids.includes(query.market_id)
+            ) {
+                throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+            }
+            return { market_ids: [...actor.market_ids] };
+        }
+
+        const warehouseIds = resolveActorWarehouseIds(actor.scopes);
+        if (warehouseIds.length > 0) {
+            if (
+                query.warehouse_id !== undefined &&
+                !warehouseIds.includes(query.warehouse_id)
+            ) {
+                throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+            }
+            return { warehouse_ids: warehouseIds };
+        }
+
+        const distributionPointIds = resolveActorDistributionPointIds(
+            actor.scopes,
+        );
+        if (distributionPointIds.length > 0) {
+            if (
+                query.distribution_point_id !== undefined &&
+                !distributionPointIds.includes(query.distribution_point_id)
+            ) {
+                throw new Error(ACCESS_CONTROL_ERROR.INSUFFICIENT_SCOPE_ACCESS);
+            }
+            return { distribution_point_ids: distributionPointIds };
+        }
+
+        return null;
+    }
+
+    private assertActorCanAccessShipment(
+        actor: ScopedAccessActor,
+        shipment: ShipmentDetail,
+    ): void {
+        const current = shipment.current_location;
+        if (
+            current.type === LogisticsLocationType.WAREHOUSE &&
+            current.warehouse_id
+        ) {
+            assertActorHasScopedAccess(actor, {
+                market_id: shipment.order.market_id,
+                warehouse_id: current.warehouse_id,
+            });
+            return;
+        }
+
+        if (
+            current.type === LogisticsLocationType.DISTRIBUTION_POINT &&
+            current.distribution_point_id
+        ) {
+            assertActorHasScopedAccess(actor, {
+                market_id: shipment.order.market_id,
+                distribution_point_id: current.distribution_point_id,
+            });
+            return;
+        }
+
+        assertActorHasScopedAccess(actor, {
+            market_id: shipment.order.market_id,
+        });
     }
 
     private assertShipmentMovable(shipment: ShipmentForMove): void {

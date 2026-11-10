@@ -1,18 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import {
     OrderStatus,
+    Prisma,
     PrismaService,
     ShipmentMovementType,
     ShipmentStatus,
 } from '@app/common';
+import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import {
+    shipmentDetailInclude,
     shipmentForMoveInclude,
     shipmentLocationSelect,
+    shipmentSummarySelect,
     type LogisticsPartnerForMove,
     type MoveShipmentInput,
     type MoveShipmentResult,
+    type ShipmentDetail,
     type ShipmentForMove,
+    type ShipmentListScope,
     type ShipmentLocationSummary,
+    type ShipmentPage,
+    type ShipmentSummary,
 } from './types/shipment.type.js';
 
 @Injectable()
@@ -24,6 +32,114 @@ export class ShipmentsRepository {
             where: { id },
             include: shipmentForMoveInclude,
         });
+    }
+
+    async findDetail(id: string): Promise<ShipmentDetail | null> {
+        const shipment = await this.prisma.shipment.findUnique({
+            where: { id },
+            include: shipmentDetailInclude,
+        });
+        if (!shipment) {
+            return null;
+        }
+
+        return {
+            ...shipment,
+            ...(shipment.status === ShipmentStatus.DELIVERED && {
+                why: 'Shipment has already been delivered to the customer',
+            }),
+            ...(shipment.status === ShipmentStatus.CANCELLED && {
+                why: 'Shipment was cancelled and cannot be progressed further',
+            }),
+        };
+    }
+
+    async findAll(
+        query: FindShipmentsDto,
+        scope: ShipmentListScope,
+    ): Promise<ShipmentPage> {
+        const limit = query.limit ?? 50;
+        const andFilters: Prisma.ShipmentWhereInput[] = [];
+
+        if (query.status !== undefined) {
+            andFilters.push({ status: query.status });
+        }
+        if (query.tracking_number !== undefined) {
+            andFilters.push({
+                tracking_number: {
+                    contains: query.tracking_number,
+                    mode: 'insensitive',
+                },
+            });
+        }
+        if (query.carrier !== undefined) {
+            andFilters.push({
+                carrier: {
+                    contains: query.carrier,
+                    mode: 'insensitive',
+                },
+            });
+        }
+        if (query.order_id !== undefined) {
+            andFilters.push({ order_id: query.order_id });
+        }
+        if (query.market_id !== undefined) {
+            andFilters.push({ order: { market_id: query.market_id } });
+        }
+        if (query.warehouse_id !== undefined) {
+            andFilters.push({
+                OR: [
+                    { order: { warehouse_id: query.warehouse_id } },
+                    {
+                        current_location: {
+                            warehouse_id: query.warehouse_id,
+                        },
+                    },
+                ],
+            });
+        }
+        if (query.distribution_point_id !== undefined) {
+            andFilters.push({
+                current_location: {
+                    distribution_point_id: query.distribution_point_id,
+                },
+            });
+        }
+
+        const scopeWhere = this.buildScopeWhere(scope);
+        if (Object.keys(scopeWhere).length > 0) {
+            andFilters.push(scopeWhere);
+        }
+
+        const where: Prisma.ShipmentWhereInput =
+            andFilters.length > 0 ? { AND: andFilters } : {};
+
+        const records = await this.prisma.shipment.findMany({
+            where,
+            select: shipmentSummarySelect,
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const sliced = hasMore ? records.slice(0, limit) : records;
+        const items: ShipmentSummary[] = sliced.map((record) => {
+            const { order, ...rest } = record;
+            return {
+                ...rest,
+                order_status: order.status,
+                order_number: order.order_number,
+            };
+        });
+
+        return {
+            items,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
+        };
     }
 
     async findLocation(
@@ -155,5 +271,46 @@ export class ShipmentsRepository {
             from_location: origin_location,
             to_location: destination_location,
         };
+    }
+
+    private buildScopeWhere(
+        scope: ShipmentListScope,
+    ): Prisma.ShipmentWhereInput {
+        if (scope.market_ids !== undefined) {
+            return {
+                order: {
+                    market_id: { in: scope.market_ids },
+                },
+            };
+        }
+
+        if (scope.warehouse_ids !== undefined) {
+            return {
+                OR: [
+                    {
+                        order: {
+                            warehouse_id: { in: scope.warehouse_ids },
+                        },
+                    },
+                    {
+                        current_location: {
+                            warehouse_id: { in: scope.warehouse_ids },
+                        },
+                    },
+                ],
+            };
+        }
+
+        if (scope.distribution_point_ids !== undefined) {
+            return {
+                current_location: {
+                    distribution_point_id: {
+                        in: scope.distribution_point_ids,
+                    },
+                },
+            };
+        }
+
+        return {};
     }
 }
