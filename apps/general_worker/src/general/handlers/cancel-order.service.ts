@@ -7,6 +7,7 @@ import {
     OrderStatus,
     Prisma,
     PrismaService,
+    ShipmentStatus,
 } from '@app/common';
 import {
     MAIL_TEMPLATES,
@@ -142,6 +143,8 @@ export class CancelOrderService {
                 });
             }
 
+            await this.cancelShipmentIfNeeded(tx, order.id);
+
             await tx.orderPaymentAttempt.updateMany({
                 where: {
                     order_id: order.id,
@@ -270,6 +273,30 @@ export class CancelOrderService {
             return 'processed';
         }
         return 'issued';
+    }
+
+    private async cancelShipmentIfNeeded(
+        tx: Prisma.TransactionClient,
+        orderId: string,
+    ): Promise<void> {
+        const updated = await tx.shipment.updateManyAndReturn({
+            where: {
+                order_id: orderId,
+                status: {
+                    in: [ShipmentStatus.PENDING, ShipmentStatus.SHIPPED],
+                },
+            },
+            data: { status: ShipmentStatus.CANCELLED },
+            select: { id: true, tracking_number: true, status: true },
+        });
+
+        if (updated.length === 0) {
+            return;
+        }
+
+        this.logger.log(
+            `Cancelled shipment ${updated[0].id} (${updated[0].tracking_number}) for order ${orderId}`,
+        );
     }
 
     private async releaseInventoryIfNeeded(

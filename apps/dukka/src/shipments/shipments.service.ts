@@ -164,9 +164,7 @@ export class ShipmentsService {
                 expected_arrival_date: expectedArrival,
                 occurred_at: occurredAt,
                 performed_by: performedBy,
-                mark_as_shipped:
-                    shipment.current_location.type ===
-                    LogisticsLocationType.WAREHOUSE,
+                mark_as_shipped: shipment.status === ShipmentStatus.PENDING,
                 ...(data.metadata !== undefined && {
                     metadata: data.metadata as Prisma.InputJsonValue,
                 }),
