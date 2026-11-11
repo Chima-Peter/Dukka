@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+    OrderInventoryStatus,
     OrderStatus,
     Prisma,
     PrismaService,
@@ -341,6 +342,11 @@ export class ShipmentsRepository {
                     update: {
                         status: OrderStatus.DELIVERED,
                         delivered_at: input.occurred_at,
+                        order_inventory: {
+                            update: {
+                                status: OrderInventoryStatus.CLOSED,
+                            },
+                        },
                     },
                 },
                 shipment_legs: {
