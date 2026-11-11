@@ -127,7 +127,7 @@ export class PaymentsController {
     }
 
     @Post('orders/:orderId/refunds/retry')
-    @RequirePermission(StaffPermission.PaymentsManage)
+    @RequirePermission(StaffPermission.RefundsManage)
     @HttpCode(HttpStatus.OK)
     @ResponseMessage('Failed refund retried successfully')
     retryFailedRefund(

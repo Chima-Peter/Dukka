@@ -334,6 +334,21 @@ export const STAFF_ACCOUNT_PERMISSIONS = [
         description: 'View payment methods and payment attempts',
         scope_type: 'MARKET',
     },
+    {
+        name: 'refunds:manage',
+        description: 'Retry failed order refunds',
+        scope_type: 'GLOBAL',
+    },
+    {
+        name: 'refunds:manage',
+        description: 'Retry failed order refunds',
+        scope_type: 'MARKET',
+    },
+    {
+        name: 'refunds:manage',
+        description: 'Retry failed order refunds',
+        scope_type: 'WAREHOUSE',
+    },
 
     // --- Promotions ---
     {
@@ -526,6 +541,7 @@ export const StaffPermission = {
     MarketPaymentsManage: 'market_payments:manage',
     PaymentsReview: 'payments:review',
     PaymentsRead: 'payments:read',
+    RefundsManage: 'refunds:manage',
     PermissionsRead: 'permissions:read',
     PromotionsManage: 'promotions:manage',
     PromotionsRead: 'promotions:read',

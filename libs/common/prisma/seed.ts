@@ -165,6 +165,7 @@ const DEFAULT_ROLES = [
             'payments:manage',
             'market_payments:manage',
             'payments:read',
+            'refunds:manage',
             'promotions:manage',
             'promotions:read',
             'coupons:manage',
@@ -210,7 +211,11 @@ const DEFAULT_ROLES = [
         description: 'Perform payment-method setup (create payment methods)',
         hierarchy: 5,
         scope_type: ScopeType.GLOBAL,
-        permission_names: ['payments:manage', 'payments:read'],
+        permission_names: [
+            'payments:manage',
+            'payments:read',
+            'refunds:manage',
+        ],
     },
     {
         name: 'Warehouse Manager',
@@ -223,6 +228,7 @@ const DEFAULT_ROLES = [
             'inventory:manage',
             'market_variants:read',
             'staff:read',
+            'refunds:manage',
         ],
     },
     {
@@ -252,6 +258,7 @@ const DEFAULT_ROLES = [
             'coupons:read',
             'market_payments:manage',
             'payments:read',
+            'refunds:manage',
             'permissions:read',
         ],
     },

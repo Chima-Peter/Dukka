@@ -564,9 +564,6 @@ export class PaymentsService {
             this.logger.log(
                 `Staff ${staff.id} retrying failed refunds for order ${orderId}`,
             );
-            assertActorHasScopedAccess(actor, {
-                market_id: data.market_id,
-            });
 
             const [attempt] = await Promise.all([
                 this.paymentsRepository.findAttemptByOrderId(orderId),
@@ -576,6 +573,11 @@ export class PaymentsService {
             if (!attempt || attempt.order.market_id !== data.market_id) {
                 throw new NotFoundException('Order refund not found');
             }
+
+            assertActorHasScopedAccess(actor, {
+                market_id: attempt.order.market_id,
+                warehouse_id: attempt.order.warehouse_id,
+            });
 
             const paymentReference = attempt.payment_intent_id?.trim();
             if (!paymentReference) {
