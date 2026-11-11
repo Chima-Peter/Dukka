@@ -1,0 +1,119 @@
+name: dukka
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: dukka:local
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment: &app-env
+    NODE_ENV: ${NODE_ENV:-production}
+    DATABASE_URL: ${DATABASE_URL}
+    DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+    REDIS_URL: redis://redis:6379
+    JWT_PRIVATE_KEY_PATH: /app/keys/private.pem
+    JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+    STAFF_JWT_PRIVATE_KEY_PATH: /app/keys/staff-private.pem
+    STAFF_JWT_PUBLIC_KEY_PATH: /app/keys/staff-public.pem
+  volumes:
+    - ./keys:/app/keys:ro
+  networks:
+    - dukka
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "${REDIS_MAXMEMORY:-256mb}",
+        "--maxmemory-policy",
+        "${REDIS_MAXMEMORY_POLICY:-allkeys-lru}",
+      ]
+    ports:
+      - "${REDIS_PUBLISH_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - dukka
+
+  migrate:
+    <<: *app
+    restart: "no"
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "true"
+    command: ["true"]
+
+  dukka:
+    <<: *app
+    environment:
+      <<: *app-env
+      DUKKA_PORT: ${DUKKA_PORT:-8000}
+      OBSERVE_SERVICE_NAME: ${OBSERVE_SERVICE_NAME:-dukka-api}
+    ports:
+      - "${DUKKA_PUBLISH_PORT:-8000}:${DUKKA_PORT:-8000}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/apps/dukka/main.js"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.DUKKA_PORT||8000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mail_worker:
+    <<: *app
+    environment:
+      <<: *app-env
+      MAIL_FROM: ${MAIL_FROM}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/apps/mail_worker/main.js"]
+
+  general_worker:
+    <<: *app
+    environment:
+      <<: *app-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/apps/general_worker/main.js"]
+
+volumes:
+  redis_data:
+
+networks:
+  dukka:
+    driver: bridge
