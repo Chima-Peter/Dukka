@@ -384,8 +384,9 @@ export class OrdersRepository {
     }
 
     private generateOrderNumber(): string {
-        const timestamp = Date.now().toString(36).toUpperCase();
-        const suffix = randomBytes(3).toString('hex').toUpperCase();
-        return `DK-${timestamp}-${suffix}`;
+        const min = 10n ** 15n;
+        const range = 9n * 10n ** 15n;
+        const n = min + (BigInt(`0x${randomBytes(8).toString('hex')}`) % range);
+        return `DUKKA-${n.toString()}`;
     }
 }
