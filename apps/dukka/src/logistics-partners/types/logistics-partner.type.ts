@@ -1,6 +1,7 @@
-import type { LogisticsPartner, LogisticsPartnerType } from '@app/common';
+import type { LogisticsPartnerType } from '@app/common';
+import type { LogisticsPartnerRecordView } from '../mappers/logistics-partner.mapper.js';
 
-export type LogisticsPartnerRecord = LogisticsPartner;
+export type LogisticsPartnerRecord = LogisticsPartnerRecordView;
 
 export type LogisticsPartnerSummary = {
     id: string;
@@ -21,12 +22,8 @@ export type LogisticsPartnerPage = {
     next_cursor: string | null;
 };
 
-export const logisticsPartnerSummarySelect = {
-    id: true,
-    name: true,
-    partner_type: true,
-    code: true,
-    is_active: true,
-    created_at: true,
-    updated_at: true,
-} as const;
+export {
+    logisticsPartnerSummarySelect,
+    logisticsPartnerDetailSelect,
+    logisticsPartnerRecordSelect,
+} from '../mappers/logistics-partner.mapper.js';

@@ -4,10 +4,17 @@ import type { CreateLogisticsPartnerDto } from './dto/create-logistics-partner.d
 import type { FindLogisticsPartnersDto } from './dto/find-logistics-partners.dto.js';
 import type { UpdateLogisticsPartnerDto } from './dto/update-logistics-partner.dto.js';
 import {
+    logisticsPartnerDetailSelect,
+    logisticsPartnerRecordSelect,
     logisticsPartnerSummarySelect,
-    type LogisticsPartnerDetail,
-    type LogisticsPartnerPage,
-    type LogisticsPartnerRecord,
+    toLogisticsPartnerDetail,
+    toLogisticsPartnerRecord,
+    toLogisticsPartnerSummary,
+} from './mappers/logistics-partner.mapper.js';
+import type {
+    LogisticsPartnerDetail,
+    LogisticsPartnerPage,
+    LogisticsPartnerRecord,
 } from './types/logistics-partner.type.js';
 
 @Injectable()
@@ -17,7 +24,7 @@ export class LogisticsPartnersRepository {
     async create(
         data: CreateLogisticsPartnerDto,
     ): Promise<LogisticsPartnerRecord> {
-        return await this.prisma.logisticsPartner.create({
+        const partner = await this.prisma.logisticsPartner.create({
             data: {
                 name: data.name,
                 partner_type: data.partner_type,
@@ -25,7 +32,9 @@ export class LogisticsPartnersRepository {
                 contact_phone: data.contact_phone,
                 code: data.code,
             },
+            select: logisticsPartnerRecordSelect,
         });
+        return toLogisticsPartnerRecord(partner);
     }
 
     async findAll(query: FindLogisticsPartnersDto): Promise<LogisticsPartnerPage> {
@@ -63,7 +72,8 @@ export class LogisticsPartnersRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const sliced = hasMore ? records.slice(0, limit) : records;
+        const items = sliced.map(toLogisticsPartnerSummary);
 
         return {
             items,
@@ -72,9 +82,11 @@ export class LogisticsPartnersRepository {
     }
 
     async findById(id: string): Promise<LogisticsPartnerRecord | null> {
-        return await this.prisma.logisticsPartner.findUnique({
+        const partner = await this.prisma.logisticsPartner.findUnique({
             where: { id },
+            select: logisticsPartnerRecordSelect,
         });
+        return partner ? toLogisticsPartnerRecord(partner) : null;
     }
 
     async findByIdOrThrow(id: string): Promise<LogisticsPartnerRecord> {
@@ -88,26 +100,19 @@ export class LogisticsPartnersRepository {
     async findDetailByIdOrThrow(id: string): Promise<LogisticsPartnerDetail> {
         const partner = await this.prisma.logisticsPartner.findUnique({
             where: { id },
-            include: {
-                _count: { select: { shipment_legs: true } },
-            },
+            select: logisticsPartnerDetailSelect,
         });
         if (!partner) {
             throw new NotFoundException('Logistics partner not found');
         }
-
-        const { _count, ...record } = partner;
-        return {
-            ...record,
-            shipment_legs_count: _count.shipment_legs,
-        };
+        return toLogisticsPartnerDetail(partner);
     }
 
     async update(
         id: string,
         data: UpdateLogisticsPartnerDto,
     ): Promise<LogisticsPartnerRecord> {
-        return await this.prisma.logisticsPartner.update({
+        const partner = await this.prisma.logisticsPartner.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
@@ -122,16 +127,20 @@ export class LogisticsPartnersRepository {
                 }),
                 ...(data.code !== undefined && { code: data.code }),
             },
+            select: logisticsPartnerRecordSelect,
         });
+        return toLogisticsPartnerRecord(partner);
     }
 
     async setActive(
         id: string,
         is_active: boolean,
     ): Promise<LogisticsPartnerRecord> {
-        return await this.prisma.logisticsPartner.update({
+        const partner = await this.prisma.logisticsPartner.update({
             where: { id },
             data: { is_active },
+            select: logisticsPartnerRecordSelect,
         });
+        return toLogisticsPartnerRecord(partner);
     }
 }
