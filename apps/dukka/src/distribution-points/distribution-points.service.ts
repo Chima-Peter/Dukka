@@ -10,9 +10,11 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    AVATAR_BUCKET,
     NotificationPublisher,
     NotificationType,
     ScopeType,
+    SupabaseService,
 } from '@app/common';
 import { ServiceStateService } from '../service/service-state.service.js';
 import {
@@ -35,6 +37,7 @@ import { DistributionPointsRepository } from './distribution-points.repository.j
 import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type {
     DistributionPointAuditActor,
+    DistributionPointDetailRecord,
     DistributionPointRecord,
     DistributionPointStaffMember,
 } from './types/distribution-point.type.js';
@@ -48,6 +51,7 @@ export class DistributionPointsService {
         private readonly staffService: StaffService,
         private readonly serviceStateService: ServiceStateService,
         private readonly notificationPublisher: NotificationPublisher,
+        private readonly supabaseService: SupabaseService,
     ) {}
 
     async create(
@@ -103,11 +107,13 @@ export class DistributionPointsService {
     async findOne(
         id: string,
         actor?: ScopedAccessActor,
-    ): Promise<DistributionPointRecord> {
+    ): Promise<DistributionPointDetailRecord> {
         try {
             this.logger.log(`Fetching distribution point ${id}`);
             const distributionPoint =
-                await this.distributionPointsRepository.findByIdOrThrow(id);
+                await this.distributionPointsRepository.findDetailByIdOrThrow(
+                    id,
+                );
             if (actor !== undefined) {
                 assertActorHasScopedAccess(actor, {
                     market_id: distributionPoint.market_id,
@@ -115,7 +121,18 @@ export class DistributionPointsService {
                 });
             }
             this.logger.log(`Fetched distribution point ${id}`);
-            return distributionPoint;
+            return {
+                ...distributionPoint,
+                staff: distributionPoint.staff.map((member) => ({
+                    ...member,
+                    picture: member.picture
+                        ? this.supabaseService.getPublicURL(
+                              member.picture,
+                              AVATAR_BUCKET,
+                          )
+                        : null,
+                })),
+            };
         } catch (error) {
             this.handleError(error);
         }

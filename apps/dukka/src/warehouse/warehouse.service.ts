@@ -10,9 +10,11 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
+    AVATAR_BUCKET,
     NotificationPublisher,
     NotificationType,
     ScopeType,
+    SupabaseService,
     WarehouseStatus,
 } from '@app/common';
 import { MarketsService } from '../markets/markets.service.js';
@@ -37,6 +39,7 @@ import type { UpdateWarehouseManagerDto } from './dto/update-warehouse-manager.d
 import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type {
     WarehouseAuditActor,
+    WarehouseDetailRecord,
     WarehouseRecord,
     WarehouseStaffMember,
 } from './types/warehouse.type.js';
@@ -51,6 +54,7 @@ export class WarehouseService {
         private readonly staffService: StaffService,
         private readonly marketsService: MarketsService,
         private readonly notificationPublisher: NotificationPublisher,
+        private readonly supabaseService: SupabaseService,
     ) {}
 
     async create(
@@ -106,11 +110,11 @@ export class WarehouseService {
     async findOne(
         id: string,
         actor?: ScopedAccessActor,
-    ): Promise<WarehouseRecord> {
+    ): Promise<WarehouseDetailRecord> {
         try {
             this.logger.log(`Fetching warehouse ${id}`);
             const warehouse =
-                await this.warehouseRepository.findByIdOrThrow(id);
+                await this.warehouseRepository.findDetailByIdOrThrow(id);
             if (actor !== undefined) {
                 assertActorHasScopedAccess(actor, {
                     market_id: warehouse.market_id,
@@ -118,7 +122,18 @@ export class WarehouseService {
                 });
             }
             this.logger.log(`Fetched warehouse ${id}`);
-            return warehouse;
+            return {
+                ...warehouse,
+                staff: warehouse.staff.map((member) => ({
+                    ...member,
+                    picture: member.picture
+                        ? this.supabaseService.getPublicURL(
+                              member.picture,
+                              AVATAR_BUCKET,
+                          )
+                        : null,
+                })),
+            };
         } catch (error) {
             this.handleError(error);
         }

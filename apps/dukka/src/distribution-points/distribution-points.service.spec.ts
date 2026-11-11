@@ -74,6 +74,10 @@ describe('DistributionPointsService', () => {
             notifyStaff: vi.fn(),
         };
 
+        const { SupabaseService } = await import(
+            '../../../../libs/common/src/index.ts'
+        );
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 DistributionPointsService,
@@ -94,6 +98,14 @@ describe('DistributionPointsService', () => {
                 {
                     provide: NotificationPublisher,
                     useValue: notificationPublisher,
+                },
+                {
+                    provide: SupabaseService,
+                    useValue: {
+                        getPublicURL: vi.fn(
+                            (path: string) => `https://cdn.example/${path}`,
+                        ),
+                    },
                 },
             ],
         }).compile();

@@ -13,6 +13,7 @@ export {
     type StaffResponse,
     type StaffRoleDetails,
     type StaffScopeDetails,
+    type LocationStaffBrief,
     type StaffMemberSummary,
     type StaffSummary,
     type StaffSummaryResponse,

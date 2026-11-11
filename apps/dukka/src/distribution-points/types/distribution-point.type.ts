@@ -1,9 +1,11 @@
 import type {
+    DistributionPointDetailResponse,
     DistributionPointListItem,
     DistributionPointSummary,
 } from '../mappers/distribution-point.mapper.js';
 
 export type DistributionPointRecord = DistributionPointSummary;
+export type DistributionPointDetailRecord = DistributionPointDetailResponse;
 export type DistributionPointListRecord = DistributionPointListItem;
 
 export type CreateDistributionPointRecord = {

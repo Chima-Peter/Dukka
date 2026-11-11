@@ -9,8 +9,10 @@ import {
 import type { FindDistributionPointsDto } from './dto/find-distribution-points.dto.js';
 import type { UpdateDistributionPointDto } from './dto/update-distribution-point.dto.js';
 import {
+    distributionPointDetailWithStaffSelect,
     distributionPointListSelect,
     distributionPointSummarySelect,
+    toDistributionPointDetailResponse,
     toDistributionPointListItem,
     toDistributionPointSummary,
 } from './mappers/distribution-point.mapper.js';
@@ -18,6 +20,7 @@ import {
     distributionPointStaffSelect,
     type CreateDistributionPointRecord,
     type DistributionPointAuditActor,
+    type DistributionPointDetailRecord,
     type DistributionPointRecord,
     type DistributionPointStaffMember,
     type DistributionPointWithAuditRelations,
@@ -133,6 +136,20 @@ export class DistributionPointsRepository {
             throw new NotFoundException('Distribution point not found');
         }
         return distributionPoint;
+    }
+
+    async findDetailByIdOrThrow(
+        id: string,
+    ): Promise<DistributionPointDetailRecord> {
+        const distributionPoint =
+            await this.prisma.distributionPoint.findUnique({
+                where: { id },
+                select: distributionPointDetailWithStaffSelect,
+            });
+        if (!distributionPoint) {
+            throw new NotFoundException('Distribution point not found');
+        }
+        return toDistributionPointDetailResponse(distributionPoint);
     }
 
     async findByIdWithAuditRelationsOrThrow(

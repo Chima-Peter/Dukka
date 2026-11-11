@@ -54,12 +54,14 @@ export type StaffSummary = {
     role_name: string | null;
 };
 
-/** Lean assigned-staff row: id, name, role, picture. */
-export type StaffMemberSummary = {
+export type LocationStaffBrief = {
     id: string;
     name: string;
-    role: string | null;
     picture: string | null;
+};
+
+export type StaffMemberSummary = LocationStaffBrief & {
+    role: string | null;
 };
 
 export type StaffPage = {

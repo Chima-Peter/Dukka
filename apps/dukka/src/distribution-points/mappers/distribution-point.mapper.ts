@@ -1,4 +1,6 @@
 import type { Prisma } from '@app/common';
+import { ScopeType } from '@app/common';
+import type { LocationStaffBrief } from '../../staff/types/staff.types.js';
 
 export const distributionPointSummarySelect = {
     id: true,
@@ -14,6 +16,28 @@ export const distributionPointSummarySelect = {
     },
     created_at: true,
     updated_at: true,
+} satisfies Prisma.DistributionPointSelect;
+
+export const distributionPointDetailWithStaffSelect = {
+    ...distributionPointSummarySelect,
+    staff_scopes: {
+        where: {
+            scope_type: ScopeType.DISTRIBUTION_POINT,
+            staff: { is_active: true },
+        },
+        select: {
+            staff: {
+                select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                },
+            },
+        },
+        orderBy: {
+            staff: { name: 'asc' as const },
+        },
+    },
 } satisfies Prisma.DistributionPointSelect;
 
 export const distributionPointListSelect = {
@@ -38,6 +62,10 @@ export type DistributionPointSummary = {
     updated_at: Date;
 };
 
+export type DistributionPointDetailResponse = DistributionPointSummary & {
+    staff: LocationStaffBrief[];
+};
+
 export type DistributionPointListItem = {
     id: string;
     name: string;
@@ -50,6 +78,10 @@ export type DistributionPointListItem = {
 
 type DistributionPointSummaryRow = Prisma.DistributionPointGetPayload<{
     select: typeof distributionPointSummarySelect;
+}>;
+
+type DistributionPointDetailWithStaffRow = Prisma.DistributionPointGetPayload<{
+    select: typeof distributionPointDetailWithStaffSelect;
 }>;
 
 type DistributionPointListRow = Prisma.DistributionPointGetPayload<{
@@ -69,6 +101,19 @@ export function toDistributionPointSummary(
         state: row.state.state_name,
         created_at: row.created_at,
         updated_at: row.updated_at,
+    };
+}
+
+export function toDistributionPointDetailResponse(
+    row: DistributionPointDetailWithStaffRow,
+): DistributionPointDetailResponse {
+    return {
+        ...toDistributionPointSummary(row),
+        staff: row.staff_scopes.map(({ staff }) => ({
+            id: staff.id,
+            name: staff.name,
+            picture: staff.avatar,
+        })),
     };
 }
 

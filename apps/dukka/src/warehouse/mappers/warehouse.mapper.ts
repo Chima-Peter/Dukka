@@ -1,4 +1,6 @@
 import type { Prisma, WarehouseStatus } from '@app/common';
+import { ScopeType } from '@app/common';
+import type { LocationStaffBrief } from '../../staff/types/staff.types.js';
 
 export const warehouseSummarySelect = {
     id: true,
@@ -15,6 +17,28 @@ export const warehouseDetailSelect = {
     updated_at: true,
 } satisfies Prisma.WarehouseSelect;
 
+export const warehouseDetailWithStaffSelect = {
+    ...warehouseDetailSelect,
+    staff_scopes: {
+        where: {
+            scope_type: ScopeType.WAREHOUSE,
+            staff: { is_active: true },
+        },
+        select: {
+            staff: {
+                select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                },
+            },
+        },
+        orderBy: {
+            staff: { name: 'asc' as const },
+        },
+    },
+} satisfies Prisma.WarehouseSelect;
+
 export type WarehouseSummary = {
     id: string;
     name: string;
@@ -29,12 +53,20 @@ export type WarehouseDetail = WarehouseSummary & {
     updated_at: Date;
 };
 
+export type WarehouseDetailResponse = WarehouseDetail & {
+    staff: LocationStaffBrief[];
+};
+
 type WarehouseSummaryRow = Prisma.WarehouseGetPayload<{
     select: typeof warehouseSummarySelect;
 }>;
 
 type WarehouseDetailRow = Prisma.WarehouseGetPayload<{
     select: typeof warehouseDetailSelect;
+}>;
+
+type WarehouseDetailWithStaffRow = Prisma.WarehouseGetPayload<{
+    select: typeof warehouseDetailWithStaffSelect;
 }>;
 
 export function toWarehouseSummary(
@@ -55,5 +87,18 @@ export function toWarehouseDetail(row: WarehouseDetailRow): WarehouseDetail {
     return {
         ...toWarehouseSummary(row),
         updated_at: row.updated_at,
+    };
+}
+
+export function toWarehouseDetailResponse(
+    row: WarehouseDetailWithStaffRow,
+): WarehouseDetailResponse {
+    return {
+        ...toWarehouseDetail(row),
+        staff: row.staff_scopes.map(({ staff }) => ({
+            id: staff.id,
+            name: staff.name,
+            picture: staff.avatar,
+        })),
     };
 }

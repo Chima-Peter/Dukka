@@ -11,14 +11,17 @@ import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import {
     toWarehouseDetail,
+    toWarehouseDetailResponse,
     toWarehouseSummary,
     warehouseDetailSelect,
+    warehouseDetailWithStaffSelect,
     warehouseSummarySelect,
 } from './mappers/warehouse.mapper.js';
 import {
     warehouseStaffSelect,
     type CreateWarehouseRecord,
     type WarehouseAuditActor,
+    type WarehouseDetailRecord,
     type WarehouseRecord,
     type WarehouseStaffMember,
     type WarehouseWithAuditRelations,
@@ -139,6 +142,17 @@ export class WarehouseRepository {
             throw new NotFoundException('Warehouse not found');
         }
         return warehouse;
+    }
+
+    async findDetailByIdOrThrow(id: string): Promise<WarehouseDetailRecord> {
+        const warehouse = await this.prisma.warehouse.findUnique({
+            where: { id },
+            select: warehouseDetailWithStaffSelect,
+        });
+        if (!warehouse) {
+            throw new NotFoundException('Warehouse not found');
+        }
+        return toWarehouseDetailResponse(warehouse);
     }
 
     async findByIdWithAuditRelationsOrThrow(
