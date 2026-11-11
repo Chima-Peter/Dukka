@@ -49,6 +49,7 @@ import {
     type ShipmentListScope,
     type ShipmentLocationSummary,
     type ShipmentPage,
+    type ShipmentTrackingDetail,
 } from './types/shipment.type.js';
 
 @Injectable()
@@ -91,6 +92,25 @@ export class ShipmentsService {
             }
             this.assertActorCanAccessShipment(actor, shipment);
             this.logger.log(`Fetched shipment ${id}`);
+            return shipment;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async track(trackingNumber: string): Promise<ShipmentTrackingDetail> {
+        try {
+            this.logger.log(
+                `Tracking shipment by tracking number ${trackingNumber}`,
+            );
+            const shipment =
+                await this.shipmentsRepository.findDetailByTrackingNumber(
+                    trackingNumber,
+                );
+            if (!shipment) {
+                throw new NotFoundException('Shipment not found');
+            }
+            this.logger.log(`Tracked shipment ${trackingNumber}`);
             return shipment;
         } catch (error) {
             this.handleError(error);
@@ -526,7 +546,7 @@ export class ShipmentsService {
 
     private assertActorCanAccessShipment(
         actor: ScopedAccessActor,
-        shipment: ShipmentDetail,
+        shipment: Pick<ShipmentDetail, 'current_location' | 'order'>,
     ): void {
         const current = shipment.current_location;
         if (

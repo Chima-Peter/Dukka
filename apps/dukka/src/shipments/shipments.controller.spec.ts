@@ -13,6 +13,7 @@ describe('ShipmentsController', () => {
                     provide: ShipmentsService,
                     useValue: {
                         move: jest.fn(),
+                        track: jest.fn(),
                     },
                 },
             ],

@@ -16,6 +16,7 @@ import {
     shipmentForMoveInclude,
     shipmentLocationSelect,
     shipmentSummarySelect,
+    shipmentTrackingSelect,
     type AcknowledgeShipmentInput,
     type AcknowledgeShipmentResult,
     type CancelShipmentMovementInput,
@@ -33,6 +34,7 @@ import {
     type ShipmentLocationSummary,
     type ShipmentPage,
     type ShipmentSummary,
+    type ShipmentTrackingDetail,
 } from './types/shipment.type.js';
 
 @Injectable()
@@ -88,6 +90,31 @@ export class ShipmentsRepository {
             where: { id },
             include: shipmentDetailInclude,
         });
+        return this.toShipmentDetail(shipment);
+    }
+
+    async findDetailByTrackingNumber(
+        trackingNumber: string,
+    ): Promise<ShipmentTrackingDetail | null> {
+        const shipment = await this.prisma.shipment.findUnique({
+            where: { tracking_number: trackingNumber },
+            select: shipmentTrackingSelect,
+        });
+        if (!shipment) {
+            return null;
+        }
+
+        return {
+            tracking_number: shipment.tracking_number,
+            status: shipment.status,
+            order_number: shipment.order.order_number,
+            shipment_movements: shipment.shipment_movements,
+        };
+    }
+
+    private toShipmentDetail(
+        shipment: Omit<ShipmentDetail, 'why'> | null,
+    ): ShipmentDetail | null {
         if (!shipment) {
             return null;
         }

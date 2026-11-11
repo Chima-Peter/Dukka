@@ -12,6 +12,7 @@ import {
 import {
     Auth,
     CurrentStaff,
+    Public,
     RequirePermission,
     ResponseMessage,
     StaffPermission,
@@ -41,6 +42,13 @@ export class ShipmentsController {
             query,
             toScopedAccessActor(staff),
         );
+    }
+
+    @Get('track/:trackingNumber')
+    @Public()
+    @ResponseMessage('Shipment tracking retrieved successfully')
+    track(@Param('trackingNumber') trackingNumber: string) {
+        return this.shipmentsService.track(trackingNumber);
     }
 
     @Get(':id')

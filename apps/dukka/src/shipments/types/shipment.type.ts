@@ -156,10 +156,30 @@ export type ShipmentDetail = {
             >;
         }
     >;
-    shipment_movements: ShipmentMovement[];
+    shipment_movements: Array<
+        ShipmentMovement & {
+            from_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+            to_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+        }
+    >;
     created_at: Date;
     updated_at: Date;
     why?: string;
+};
+
+export type ShipmentTrackingMovement = {
+    id: string;
+    movement_type: ShipmentMovement['movement_type'];
+    occurred_at: Date;
+    from_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+    to_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+};
+
+export type ShipmentTrackingDetail = {
+    tracking_number: string;
+    status: ShipmentStatus;
+    order_number: string;
+    shipment_movements: ShipmentTrackingMovement[];
 };
 
 export type ShipmentPage = {
@@ -297,5 +317,32 @@ export const shipmentDetailInclude = {
             { occurred_at: 'asc' as const },
             { id: 'asc' as const },
         ],
+        include: {
+            from_location: { select: shipmentLocationBriefSelect },
+            to_location: { select: shipmentLocationBriefSelect },
+        },
     },
 };
+
+export const shipmentTrackingSelect = {
+    tracking_number: true,
+    status: true,
+    order: {
+        select: {
+            order_number: true,
+        },
+    },
+    shipment_movements: {
+        orderBy: [
+            { occurred_at: 'asc' as const },
+            { id: 'asc' as const },
+        ],
+        select: {
+            id: true,
+            movement_type: true,
+            occurred_at: true,
+            from_location: { select: shipmentLocationBriefSelect },
+            to_location: { select: shipmentLocationBriefSelect },
+        },
+    },
+} satisfies Prisma.ShipmentSelect;

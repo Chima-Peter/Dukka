@@ -17,6 +17,7 @@ describe('ShipmentsService', () => {
                         findForMoveOrThrow: jest.fn(),
                         findLocationOrThrow: jest.fn(),
                         findActivePartnerOrThrow: jest.fn(),
+                        findDetailByTrackingNumber: jest.fn(),
                         move: jest.fn(),
                         findStaffIdsForLocation: jest.fn(),
                     },
