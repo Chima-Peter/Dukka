@@ -8,12 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type {
-    Permission,
-    Role,
-    RolePermission,
-    ScopeType,
-} from '@app/common';
+import type { ScopeType } from '@app/common';
 import { MAIL_TEMPLATES, MailQueueService } from '@app/queues';
 import type { AssignPermissionDto } from './dto/assign-permission.dto.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
@@ -25,9 +20,16 @@ import {
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
 import {
+    toRoleDetail,
+    toRolePermissionView,
+    toRoleSummary,
+    type RoleDetail,
+    type RolePermissionView,
+    type RoleSummary,
+} from './mappers/role.mapper.js';
+import {
     ROLES_REPO_ERROR,
     RolesRepository,
-    type RoleWithDetails,
 } from './roles.repository.js';
 
 @Injectable()
@@ -42,7 +44,7 @@ export class RolesService {
     async create(
         data: CreateRoleDto,
         performed_by_staff_id: string,
-    ): Promise<Role> {
+    ): Promise<RoleSummary> {
         try {
             this.logger.log(`Creating role ${data.name}`);
             const role = await this.rolesRepository.create(
@@ -50,7 +52,7 @@ export class RolesService {
                 performed_by_staff_id,
             );
             this.logger.log(`Role created ${role.id}`);
-            return role;
+            return toRoleSummary(role);
         } catch (error) {
             this.handleError(error);
         }
@@ -60,7 +62,7 @@ export class RolesService {
         hierarchy: number | null,
         actor_scope_type: ScopeType | null,
         filter_scope_type?: ScopeType | null,
-    ): Promise<Role[]> {
+    ): Promise<RoleSummary[]> {
         try {
             this.logger.log('Fetching roles');
             const roles = await this.rolesRepository.findAll(
@@ -69,7 +71,7 @@ export class RolesService {
                 filter_scope_type,
             );
             this.logger.log('Fetched roles');
-            return roles;
+            return roles.map(toRoleSummary);
         } catch (error) {
             this.handleError(error);
         }
@@ -79,7 +81,7 @@ export class RolesService {
         id: string,
         hierarchy: number | null,
         scope_type: ScopeType | null,
-    ): Promise<RoleWithDetails> {
+    ): Promise<RoleDetail> {
         try {
             this.logger.log(`Fetching role ${id}`);
             const role = await this.rolesRepository.findById(id, {
@@ -90,7 +92,7 @@ export class RolesService {
                 throw new NotFoundException('Role not found');
             }
             this.logger.log(`Fetched role ${id}`);
-            return role;
+            return toRoleDetail(role);
         } catch (error) {
             this.handleError(error);
         }
@@ -100,7 +102,7 @@ export class RolesService {
         id: string,
         data: UpdateRoleDto,
         performed_by_staff_id: string,
-    ): Promise<Role> {
+    ): Promise<RoleSummary> {
         try {
             this.logger.log(`Updating role ${id}`);
             const role = await this.rolesRepository.update(
@@ -120,7 +122,7 @@ export class RolesService {
                 },
             });
 
-            return role;
+            return toRoleSummary(role);
         } catch (error) {
             this.handleError(error);
         }
@@ -144,7 +146,7 @@ export class RolesService {
         role_id: string,
         data: AssignPermissionDto,
         performed_by_staff_id: string,
-    ): Promise<(RolePermission & { permission: Permission })[]> {
+    ): Promise<RolePermissionView[]> {
         try {
             this.logger.log(
                 `Assigning ${data.permission_ids.length} permission(s) to role ${role_id}`,
@@ -170,7 +172,7 @@ export class RolesService {
                 },
             });
 
-            return assignments;
+            return assignments.map(toRolePermissionView);
         } catch (error) {
             this.handlePermissionError(error);
         }
