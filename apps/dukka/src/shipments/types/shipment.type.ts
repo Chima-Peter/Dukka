@@ -75,10 +75,42 @@ export type DeliverShipmentInput = {
     metadata?: Prisma.InputJsonValue;
 };
 
+export type ShipmentActionSummary = {
+    id: string;
+    tracking_number: string;
+    status: ShipmentStatus;
+    order_id: string;
+    estimated_delivery_date: Date | null;
+    actual_delivery_date: Date | null;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type ShipmentLegSummary = {
+    id: string;
+    expected_departure_date: Date;
+    actual_departure_date: Date | null;
+    expected_arrival_date: Date;
+    actual_arrival_date: Date | null;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type ShipmentMovementSummary = {
+    id: string;
+    movement_type: ShipmentMovement['movement_type'];
+    performed_by: string;
+    occurred_at: Date;
+    recorded_at: Date;
+    metadata: Prisma.JsonValue | null;
+    shipment_leg_id: string;
+    created_at: Date;
+};
+
 export type MoveShipmentResult = {
-    shipment: Shipment;
-    leg: ShipmentLeg;
-    movement: ShipmentMovement;
+    shipment: ShipmentActionSummary;
+    leg: ShipmentLegSummary;
+    movement: ShipmentMovementSummary;
     logistics_partner: Pick<LogisticsPartner, 'id' | 'name' | 'code'>;
     from_location: ShipmentLocationSummary;
     to_location: ShipmentLocationSummary;
@@ -93,9 +125,9 @@ export type AcknowledgeShipmentInput = {
 };
 
 export type AcknowledgeShipmentResult = {
-    shipment: Shipment;
-    leg: ShipmentLeg;
-    movement: ShipmentMovement;
+    shipment: ShipmentActionSummary;
+    leg: ShipmentLegSummary;
+    movement: ShipmentMovementSummary;
     from_location: ShipmentLocationSummary;
     to_location: ShipmentLocationSummary;
 };
@@ -133,35 +165,30 @@ export type ShipmentSummary = {
     updated_at: Date;
 };
 
+export type ShipmentDetailLeg = ShipmentLegSummary & {
+    origin_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+    destination_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+    logistics_partner: Pick<LogisticsPartner, 'id' | 'name' | 'code'>;
+};
+
+export type ShipmentDetailMovement = ShipmentMovementSummary & {
+    from_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+    to_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
+};
+
 export type ShipmentDetail = {
     id: string;
     tracking_number: string;
     status: ShipmentStatus;
     estimated_delivery_date: Date | null;
     actual_delivery_date: Date | null;
+    order_id: string;
     origin_location: ShipmentLocationSummary | null;
     destination_location: ShipmentLocationSummary | null;
     current_location: ShipmentLocationSummary;
     order: ShipmentOrderSummary;
-    shipment_legs: Array<
-        ShipmentLeg & {
-            origin_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
-            destination_location: Pick<
-                LogisticsLocation,
-                'id' | 'type' | 'name'
-            >;
-            logistics_partner: Pick<
-                LogisticsPartner,
-                'id' | 'name' | 'code'
-            >;
-        }
-    >;
-    shipment_movements: Array<
-        ShipmentMovement & {
-            from_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
-            to_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
-        }
-    >;
+    shipment_legs: ShipmentDetailLeg[];
+    shipment_movements: ShipmentDetailMovement[];
     created_at: Date;
     updated_at: Date;
     why?: string;
@@ -236,24 +263,6 @@ export const shipmentLocationBriefSelect = {
     name: true,
 } as const;
 
-export const shipmentSummarySelect = {
-    id: true,
-    tracking_number: true,
-    status: true,
-    estimated_delivery_date: true,
-    actual_delivery_date: true,
-    order_id: true,
-    created_at: true,
-    updated_at: true,
-    current_location: { select: shipmentLocationBriefSelect },
-    order: {
-        select: {
-            status: true,
-            order_number: true,
-        },
-    },
-} as const;
-
 export const shipmentForMoveInclude = {
     current_location: { select: shipmentLocationSelect },
     order: {
@@ -279,70 +288,3 @@ export const openDispatchInclude = {
     to_location: { select: shipmentLocationSelect },
     shipment_leg: true,
 } as const;
-
-export const shipmentDetailInclude = {
-    origin_location: { select: shipmentLocationSelect },
-    destination_location: { select: shipmentLocationSelect },
-    current_location: { select: shipmentLocationSelect },
-    order: {
-        select: {
-            id: true,
-            status: true,
-            order_number: true,
-            market_id: true,
-            customer_id: true,
-            warehouse_id: true,
-            shipping_address: true,
-        },
-    },
-    shipment_legs: {
-        orderBy: [
-            { created_at: 'asc' as const },
-            { id: 'asc' as const },
-        ],
-        include: {
-            origin_location: { select: shipmentLocationBriefSelect },
-            destination_location: { select: shipmentLocationBriefSelect },
-            logistics_partner: {
-                select: {
-                    id: true,
-                    name: true,
-                    code: true,
-                },
-            },
-        },
-    },
-    shipment_movements: {
-        orderBy: [
-            { occurred_at: 'asc' as const },
-            { id: 'asc' as const },
-        ],
-        include: {
-            from_location: { select: shipmentLocationBriefSelect },
-            to_location: { select: shipmentLocationBriefSelect },
-        },
-    },
-};
-
-export const shipmentTrackingSelect = {
-    tracking_number: true,
-    status: true,
-    order: {
-        select: {
-            order_number: true,
-        },
-    },
-    shipment_movements: {
-        orderBy: [
-            { occurred_at: 'asc' as const },
-            { id: 'asc' as const },
-        ],
-        select: {
-            id: true,
-            movement_type: true,
-            occurred_at: true,
-            from_location: { select: shipmentLocationBriefSelect },
-            to_location: { select: shipmentLocationBriefSelect },
-        },
-    },
-} satisfies Prisma.ShipmentSelect;

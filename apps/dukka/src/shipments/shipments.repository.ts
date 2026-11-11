@@ -11,12 +11,24 @@ import {
 } from '@app/common';
 import type { FindShipmentsDto } from './dto/find-shipments.dto.js';
 import {
-    openDispatchInclude,
-    shipmentDetailInclude,
-    shipmentForMoveInclude,
-    shipmentLocationSelect,
+    mutationLegSelect,
+    shipmentActionSelect,
+    shipmentDetailSelect,
+    shipmentLegSummarySelect,
+    shipmentMovementSummarySelect,
     shipmentSummarySelect,
     shipmentTrackingSelect,
+    toShipmentActionSummary,
+    toShipmentDetail,
+    toShipmentLegSummary,
+    toShipmentMovementSummary,
+    toShipmentSummary,
+    toShipmentTrackingDetail,
+} from './mappers/shipment.mapper.js';
+import {
+    openDispatchInclude,
+    shipmentForMoveInclude,
+    shipmentLocationSelect,
     type AcknowledgeShipmentInput,
     type AcknowledgeShipmentResult,
     type CancelShipmentMovementInput,
@@ -33,7 +45,6 @@ import {
     type ShipmentListScope,
     type ShipmentLocationSummary,
     type ShipmentPage,
-    type ShipmentSummary,
     type ShipmentTrackingDetail,
 } from './types/shipment.type.js';
 
@@ -88,9 +99,9 @@ export class ShipmentsRepository {
     async findDetail(id: string): Promise<ShipmentDetail | null> {
         const shipment = await this.prisma.shipment.findUnique({
             where: { id },
-            include: shipmentDetailInclude,
+            select: shipmentDetailSelect,
         });
-        return this.toShipmentDetail(shipment);
+        return shipment ? toShipmentDetail(shipment) : null;
     }
 
     async findDetailByTrackingNumber(
@@ -100,34 +111,7 @@ export class ShipmentsRepository {
             where: { tracking_number: trackingNumber },
             select: shipmentTrackingSelect,
         });
-        if (!shipment) {
-            return null;
-        }
-
-        return {
-            tracking_number: shipment.tracking_number,
-            status: shipment.status,
-            order_number: shipment.order.order_number,
-            shipment_movements: shipment.shipment_movements,
-        };
-    }
-
-    private toShipmentDetail(
-        shipment: Omit<ShipmentDetail, 'why'> | null,
-    ): ShipmentDetail | null {
-        if (!shipment) {
-            return null;
-        }
-
-        return {
-            ...shipment,
-            ...(shipment.status === ShipmentStatus.DELIVERED && {
-                why: 'Shipment has already been delivered to the customer',
-            }),
-            ...(shipment.status === ShipmentStatus.CANCELLED && {
-                why: 'Shipment was cancelled and cannot be progressed further',
-            }),
-        };
+        return shipment ? toShipmentTrackingDetail(shipment) : null;
     }
 
     async findAll(
@@ -205,14 +189,7 @@ export class ShipmentsRepository {
 
         const hasMore = records.length > limit;
         const sliced = hasMore ? records.slice(0, limit) : records;
-        const items: ShipmentSummary[] = sliced.map((record) => {
-            const { order, ...rest } = record;
-            return {
-                ...rest,
-                order_status: order.status,
-                order_number: order.order_number,
-            };
-        });
+        const items = sliced.map(toShipmentSummary);
 
         return {
             items,
@@ -296,59 +273,17 @@ export class ShipmentsRepository {
                     },
                 },
             },
-            include: {
+            select: {
+                ...shipmentActionSelect,
                 shipment_legs: {
                     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
                     take: 1,
-                    include: {
-                        origin_location: { select: shipmentLocationSelect },
-                        destination_location: {
-                            select: shipmentLocationSelect,
-                        },
-                        logistics_partner: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                            },
-                        },
-                        shipment_movements: {
-                            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-                            take: 1,
-                        },
-                    },
+                    select: mutationLegSelect,
                 },
             },
         });
 
-        const leg = shipment.shipment_legs[0];
-        if (!leg) {
-            throw new Error('SHIPMENT_LEG_CREATE_FAILED');
-        }
-
-        const movement = leg.shipment_movements[0];
-        if (!movement) {
-            throw new Error('SHIPMENT_MOVEMENT_CREATE_FAILED');
-        }
-
-        const {
-            origin_location,
-            destination_location,
-            logistics_partner,
-            shipment_movements: _movements,
-            ...legRecord
-        } = leg;
-
-        const { shipment_legs: _legs, ...shipmentRecord } = shipment;
-
-        return {
-            shipment: shipmentRecord,
-            leg: legRecord,
-            movement,
-            logistics_partner,
-            from_location: origin_location,
-            to_location: destination_location,
-        };
+        return this.toMoveResult(shipment);
     }
 
     async deliverToCustomer(
@@ -414,59 +349,17 @@ export class ShipmentsRepository {
                     },
                 },
             },
-            include: {
+            select: {
+                ...shipmentActionSelect,
                 shipment_legs: {
                     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
                     take: 1,
-                    include: {
-                        origin_location: { select: shipmentLocationSelect },
-                        destination_location: {
-                            select: shipmentLocationSelect,
-                        },
-                        logistics_partner: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                            },
-                        },
-                        shipment_movements: {
-                            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
-                            take: 1,
-                        },
-                    },
+                    select: mutationLegSelect,
                 },
             },
         });
 
-        const leg = shipment.shipment_legs[0];
-        if (!leg) {
-            throw new Error('SHIPMENT_LEG_CREATE_FAILED');
-        }
-
-        const movement = leg.shipment_movements[0];
-        if (!movement) {
-            throw new Error('SHIPMENT_MOVEMENT_CREATE_FAILED');
-        }
-
-        const {
-            origin_location,
-            destination_location,
-            logistics_partner,
-            shipment_movements: _movements,
-            ...legRecord
-        } = leg;
-
-        const { shipment_legs: _legs, ...shipmentRecord } = shipment;
-
-        return {
-            shipment: shipmentRecord,
-            leg: legRecord,
-            movement,
-            logistics_partner,
-            from_location: origin_location,
-            to_location: destination_location,
-        };
+        return this.toMoveResult(shipment);
     }
 
     async acknowledge(
@@ -507,15 +400,17 @@ export class ShipmentsRepository {
                     },
                 },
             },
-            include: {
-                current_location: { select: shipmentLocationSelect },
+            select: {
+                ...shipmentActionSelect,
                 shipment_movements: {
                     where: { id: openDispatch.id },
                     take: 1,
+                    select: shipmentMovementSummarySelect,
                 },
                 shipment_legs: {
                     where: { id: openDispatch.shipment_leg_id },
                     take: 1,
+                    select: shipmentLegSummarySelect,
                 },
             },
         });
@@ -526,17 +421,10 @@ export class ShipmentsRepository {
             throw new Error('SHIPMENT_ACKNOWLEDGE_FAILED');
         }
 
-        const {
-            current_location: _current,
-            shipment_movements: _movements,
-            shipment_legs: _legs,
-            ...shipmentRecord
-        } = shipment;
-
         return {
-            shipment: shipmentRecord,
-            leg,
-            movement,
+            shipment: toShipmentActionSummary(shipment),
+            leg: toShipmentLegSummary(leg),
+            movement: toShipmentMovementSummary(movement),
             from_location: openDispatch.from_location,
             to_location: openDispatch.to_location,
         };
@@ -575,14 +463,17 @@ export class ShipmentsRepository {
                     },
                 },
             },
-            include: {
+            select: {
+                ...shipmentActionSelect,
                 shipment_movements: {
                     where: { id: openDispatch.id },
                     take: 1,
+                    select: shipmentMovementSummarySelect,
                 },
                 shipment_legs: {
                     where: { id: openDispatch.shipment_leg_id },
                     take: 1,
+                    select: shipmentLegSummarySelect,
                 },
             },
         });
@@ -593,18 +484,68 @@ export class ShipmentsRepository {
             throw new Error('SHIPMENT_CANCEL_MOVEMENT_FAILED');
         }
 
-        const {
-            shipment_movements: _movements,
-            shipment_legs: _legs,
-            ...shipmentRecord
-        } = shipment;
-
         return {
-            shipment: shipmentRecord,
-            leg,
-            movement,
+            shipment: toShipmentActionSummary(shipment),
+            leg: toShipmentLegSummary(leg),
+            movement: toShipmentMovementSummary(movement),
             from_location: openDispatch.from_location,
             to_location: openDispatch.to_location,
+        };
+    }
+
+    private toMoveResult(shipment: {
+        id: string;
+        tracking_number: string;
+        status: ShipmentStatus;
+        order_id: string;
+        estimated_delivery_date: Date | null;
+        actual_delivery_date: Date | null;
+        created_at: Date;
+        updated_at: Date;
+        shipment_legs: Array<{
+            id: string;
+            expected_departure_date: Date;
+            actual_departure_date: Date | null;
+            expected_arrival_date: Date;
+            actual_arrival_date: Date | null;
+            created_at: Date;
+            updated_at: Date;
+            origin_location: ShipmentLocationSummary;
+            destination_location: ShipmentLocationSummary;
+            logistics_partner: {
+                id: string;
+                name: string;
+                code: string;
+            };
+            shipment_movements: Array<{
+                id: string;
+                movement_type: ShipmentMovementType;
+                performed_by: string;
+                occurred_at: Date;
+                recorded_at: Date;
+                metadata: Prisma.JsonValue | null;
+                shipment_leg_id: string;
+                created_at: Date;
+            }>;
+        }>;
+    }): MoveShipmentResult {
+        const leg = shipment.shipment_legs[0];
+        if (!leg) {
+            throw new Error('SHIPMENT_LEG_CREATE_FAILED');
+        }
+
+        const movement = leg.shipment_movements[0];
+        if (!movement) {
+            throw new Error('SHIPMENT_MOVEMENT_CREATE_FAILED');
+        }
+
+        return {
+            shipment: toShipmentActionSummary(shipment),
+            leg: toShipmentLegSummary(leg),
+            movement: toShipmentMovementSummary(movement),
+            logistics_partner: leg.logistics_partner,
+            from_location: leg.origin_location,
+            to_location: leg.destination_location,
         };
     }
 
