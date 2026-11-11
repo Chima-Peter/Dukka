@@ -27,12 +27,16 @@ import type { FindStaffInvitationsDto } from './dto/find-staff-invitations.dto.j
 import type { InviteStaffDto } from './dto/invite-staff.dto.js';
 import { InvitationsRepository } from './invitations.repository.js';
 import {
+    toInvitationResponse,
+    type InvitationResponse,
+} from './mappers/invitation.mapper.js';
+import {
     INVITATION_REPO_ERROR,
     type StaffInvitationDetails,
     type StaffInvitationPage,
 } from './types/index.js';
 
-export type StaffInvitationResponse = Omit<StaffInvitationDetails, 'token'>;
+export type StaffInvitationResponse = InvitationResponse;
 
 @Injectable()
 export class InvitationsService {
@@ -213,11 +217,7 @@ export class InvitationsService {
     private toInvitationResponse(
         invitation: StaffInvitationDetails & { plain_token?: string },
     ): StaffInvitationResponse {
-        const { token: _token, plain_token: _plainToken, ...rest } =
-            invitation;
-        void _token;
-        void _plainToken;
-        return rest;
+        return toInvitationResponse(invitation);
     }
 
     private handleError(error: unknown): never {

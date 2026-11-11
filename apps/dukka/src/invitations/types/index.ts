@@ -2,7 +2,7 @@ export {
     INVITATION_REPO_ERROR,
     invitationDetailsInclude,
     invitationScopeAccessSelect,
-    type InvitationScopeDetails,
+    type InvitationResponse,
     type StaffInvitationDetails,
     type StaffInvitationPage,
 } from './invitation.types.js';

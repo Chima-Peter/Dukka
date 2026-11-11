@@ -1,13 +1,3 @@
-import type {
-    DistributionPoint,
-    Market,
-    Role,
-    Staff,
-    StaffInvitation,
-    StaffInvitationScope,
-    Warehouse,
-} from '@app/common';
-
 export const INVITATION_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
     ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
@@ -40,45 +30,16 @@ export const invitationScopeAccessSelect = {
     distribution_point: { select: { market_id: true } },
 } as const;
 
-export type InvitationScopeDetails = StaffInvitationScope & {
-    market: Market | null;
-    warehouse: Warehouse | null;
-    distribution_point: DistributionPoint | null;
-};
+export {
+    invitationDetailsInclude,
+    type InvitationResponse,
+    type InvitationScopeRow,
+    type StaffInvitationDetailsRow,
+} from '../mappers/invitation.mapper.js';
 
-export type StaffInvitationDetails = StaffInvitation & {
-    role: Pick<Role, 'id' | 'name' | 'hierarchy' | 'description'>;
-    invited_by: Pick<Staff, 'id' | 'name' | 'email'>;
-    invitation_scopes: InvitationScopeDetails[];
-};
+export type StaffInvitationDetails = import('../mappers/invitation.mapper.js').StaffInvitationDetailsRow;
 
 export type StaffInvitationPage = {
     items: StaffInvitationDetails[];
     next_cursor: string | null;
 };
-
-export const invitationDetailsInclude = {
-    role: {
-        select: {
-            id: true,
-            name: true,
-            hierarchy: true,
-            description: true,
-        },
-    },
-    invited_by: {
-        select: {
-            id: true,
-            name: true,
-            email: true,
-        },
-    },
-    invitation_scopes: {
-        include: {
-            market: true,
-            warehouse: true,
-            distribution_point: true,
-        },
-        orderBy: { created_at: 'desc' as const },
-    },
-} as const;
