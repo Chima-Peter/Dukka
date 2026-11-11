@@ -9,11 +9,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import {
-    type Coupon,
-    CouponStatus,
-    CouponType,
-} from '@app/common';
+import { CouponStatus, CouponType } from '@app/common';
 import type { CreateCouponDto } from './dto/create-coupon.dto.js';
 import type { FindCouponUsagesDto } from './dto/find-coupon-usages.dto.js';
 import type { FindCouponsDto } from './dto/find-coupons.dto.js';
@@ -25,7 +21,13 @@ import {
     type ScopedAccessActor,
 } from '../shared/access-control.js';
 import { CouponsRepository } from './coupons.repository.js';
-import type { CouponPage, CouponUsagePage } from './types/coupon.type.js';
+import {
+    toCouponUsageView,
+    toCouponView,
+    type CouponUsagePage,
+    type CouponView,
+} from './mappers/coupon.mapper.js';
+import type { CouponPage } from './types/coupon.type.js';
 
 @Injectable()
 export class CouponsService {
@@ -36,7 +38,7 @@ export class CouponsService {
     async create(
         data: CreateCouponDto,
         actor: ScopedAccessActor,
-    ): Promise<Coupon> {
+    ): Promise<CouponView> {
         try {
             this.logger.log(`Creating coupon ${data.code}`);
             assertActorHasGlobalScope(actor);
@@ -45,7 +47,7 @@ export class CouponsService {
 
             const coupon = await this.couponsRepository.create(data);
             this.logger.log(`Coupon created ${coupon.id}`);
-            return coupon;
+            return toCouponView(coupon);
         } catch (error) {
             this.handleError(error);
         }
@@ -88,7 +90,10 @@ export class CouponsService {
             this.logger.log(
                 `Fetched coupon usages for ${marketIds.length} market(s)`,
             );
-            return usages;
+            return {
+                items: usages.items.map(toCouponUsageView),
+                next_cursor: usages.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
@@ -98,7 +103,7 @@ export class CouponsService {
         id: string,
         data: UpdateCouponDto,
         actor: ScopedAccessActor,
-    ): Promise<Coupon> {
+    ): Promise<CouponView> {
         try {
             this.logger.log(`Updating coupon ${id}`);
             assertActorHasGlobalScope(actor);
@@ -120,7 +125,7 @@ export class CouponsService {
 
             const coupon = await this.couponsRepository.update(id, data);
             this.logger.log(`Coupon updated ${id}`);
-            return coupon;
+            return toCouponView(coupon);
         } catch (error) {
             this.handleError(error);
         }
@@ -129,7 +134,7 @@ export class CouponsService {
     async activate(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<Coupon> {
+    ): Promise<CouponView> {
         try {
             this.logger.log(`Activating coupon ${id}`);
             assertActorHasGlobalScope(actor);
@@ -151,7 +156,7 @@ export class CouponsService {
                 CouponStatus.ACTIVE,
             );
             this.logger.log(`Coupon activated ${id}`);
-            return coupon;
+            return toCouponView(coupon);
         } catch (error) {
             this.handleError(error);
         }
@@ -160,7 +165,7 @@ export class CouponsService {
     async deactivate(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<Coupon> {
+    ): Promise<CouponView> {
         try {
             this.logger.log(`Deactivating coupon ${id}`);
             assertActorHasGlobalScope(actor);
@@ -182,7 +187,7 @@ export class CouponsService {
                 CouponStatus.INACTIVE,
             );
             this.logger.log(`Coupon deactivated ${id}`);
-            return coupon;
+            return toCouponView(coupon);
         } catch (error) {
             this.handleError(error);
         }

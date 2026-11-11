@@ -13,7 +13,7 @@ import {
     couponUsageSelect,
     type CouponPage,
     type CouponSummary,
-    type CouponUsagePage,
+    type CouponUsageRowPage,
 } from './types/coupon.type.js';
 
 @Injectable()
@@ -35,7 +35,7 @@ export class CouponsRepository {
     async findUsages(
         query: FindCouponUsagesDto,
         marketIds: string[],
-    ): Promise<CouponUsagePage> {
+    ): Promise<CouponUsageRowPage> {
         const limit = query.limit ?? 20;
         const where: Prisma.CouponUsageWhereInput = {
             order: { market_id: { in: marketIds } },

@@ -1,4 +1,4 @@
-import type { Coupon } from '@app/common';
+import type { Coupon, Prisma } from '@app/common';
 
 export type CouponSummary = Coupon & {
     usage_count: number;
@@ -40,7 +40,11 @@ export const couponUsageSelect = {
     },
 } as const;
 
-export type CouponUsagePage = {
-    items: unknown[];
+export type CouponUsageRow = Prisma.CouponUsageGetPayload<{
+    select: typeof couponUsageSelect;
+}>;
+
+export type CouponUsageRowPage = {
+    items: CouponUsageRow[];
     next_cursor: string | null;
 };
