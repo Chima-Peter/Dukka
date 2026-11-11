@@ -6,8 +6,15 @@ export type MarketCurrencySummary = {
     name: string;
 };
 
+export type MarketNamedRef = {
+    id: string;
+    name: string;
+};
+
 export type MarketWithCurrency = Market & {
     currency: MarketCurrencySummary;
+    warehouses: MarketNamedRef[];
+    distribution_points: MarketNamedRef[];
 };
 
 export type MarketSearchMatch = {
@@ -20,6 +27,11 @@ export type MarketSearchMatch = {
     currency: MarketCurrencySummary;
 };
 
+const namedRefSelect = {
+    id: true,
+    name: true,
+} as const;
+
 export const marketWithCurrency = {
     currency: {
         select: {
@@ -27,5 +39,13 @@ export const marketWithCurrency = {
             code: true,
             name: true,
         },
+    },
+    warehouses: {
+        select: namedRefSelect,
+        orderBy: { name: 'asc' as const },
+    },
+    distribution_points: {
+        select: namedRefSelect,
+        orderBy: { name: 'asc' as const },
     },
 } as const;

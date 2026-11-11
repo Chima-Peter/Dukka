@@ -1,6 +1,7 @@
 import type { MarketStatus, Prisma } from '@app/common';
 import type {
     MarketCurrencySummary,
+    MarketNamedRef,
     MarketWithCurrency,
 } from '../types/market.type.js';
 
@@ -43,6 +44,8 @@ export type MarketResponse = {
     created_at: Date;
     updated_at: Date;
     currency: MarketCurrencySummary;
+    warehouses: MarketNamedRef[];
+    distribution_points: MarketNamedRef[];
 };
 
 export function toMarketSummary(row: MarketSummaryRow): MarketSummary {
@@ -69,5 +72,7 @@ export function toMarketResponse(row: MarketWithCurrency): MarketResponse {
         created_at: row.created_at,
         updated_at: row.updated_at,
         currency: row.currency,
+        warehouses: row.warehouses,
+        distribution_points: row.distribution_points,
     };
 }

@@ -199,8 +199,15 @@ describe('MarketsService', () => {
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
+            iso2: 'NG',
+            iso3: 'NGA',
+            cash_limit: { toNumber: () => 50000 },
             status: MarketStatus.OPEN,
+            created_at: new Date('2026-01-01'),
+            updated_at: new Date('2026-01-02'),
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+            warehouses: [],
+            distribution_points: [],
         });
 
         await service.update('market-1', { name: 'Lagos' }, globalActor);
@@ -219,8 +226,15 @@ describe('MarketsService', () => {
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
+            iso2: 'NG',
+            iso3: 'NGA',
+            cash_limit: { toNumber: () => 50000 },
             status: MarketStatus.OPEN,
+            created_at: new Date('2026-01-01'),
+            updated_at: new Date('2026-01-02'),
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+            warehouses: [],
+            distribution_points: [],
         });
 
         await service.open('market-1', globalActor);
@@ -250,8 +264,15 @@ describe('MarketsService', () => {
             id: 'market-1',
             name: 'Lagos',
             code: 'LOS',
+            iso2: 'NG',
+            iso3: 'NGA',
+            cash_limit: { toNumber: () => 50000 },
             status: MarketStatus.CLOSED,
+            created_at: new Date('2026-01-01'),
+            updated_at: new Date('2026-01-02'),
             currency: { id: 'cur-1', code: 'NGN', name: 'Naira' },
+            warehouses: [],
+            distribution_points: [],
         });
 
         await service.close('market-1', globalActor);
