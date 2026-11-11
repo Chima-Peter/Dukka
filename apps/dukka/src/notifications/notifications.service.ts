@@ -17,9 +17,10 @@ import { Observable, type Subscriber } from 'rxjs';
 import type { FindNotificationsDto } from './dto/find-notifications.dto.js';
 import type { MarkNotificationsReadDto } from './dto/mark-notifications-read.dto.js';
 import {
-    NotificationsRepository,
-    type NotificationsPage,
-} from './notifications.repository.js';
+    toNotificationView,
+    type NotificationsPageView,
+} from './mappers/notification.mapper.js';
+import { NotificationsRepository } from './notifications.repository.js';
 import type { CreateNotificationInput } from './types/create-notification.type.js';
 
 @Injectable()
@@ -303,15 +304,7 @@ export class NotificationsService {
     }
 
     private toNotificationData(notification: Notification): object {
-        return {
-            id: notification.id,
-            title: notification.title,
-            type: notification.type,
-            text: notification.text,
-            has_read: notification.has_read,
-            created_at: notification.created_at,
-            read_at: notification.read_at,
-        };
+        return toNotificationView(notification);
     }
 
     private toMessageEvent(entry: RedisStreamEntry): MessageEvent {
@@ -333,7 +326,7 @@ export class NotificationsService {
     async findForCustomer(
         customer_id: string,
         query: FindNotificationsDto,
-    ): Promise<NotificationsPage> {
+    ): Promise<NotificationsPageView> {
         try {
             this.logger.log(
                 `Fetching notifications for customer ${customer_id}`,
@@ -345,7 +338,10 @@ export class NotificationsService {
             this.logger.log(
                 `Fetched notifications for customer ${customer_id}`,
             );
-            return page;
+            return {
+                items: page.items.map(toNotificationView),
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
@@ -354,7 +350,7 @@ export class NotificationsService {
     async findForStaff(
         staff_id: string,
         query: FindNotificationsDto,
-    ): Promise<NotificationsPage> {
+    ): Promise<NotificationsPageView> {
         try {
             this.logger.log(`Fetching notifications for staff ${staff_id}`);
             const page = await this.notificationsRepository.findForStaff(
@@ -362,7 +358,10 @@ export class NotificationsService {
                 query,
             );
             this.logger.log(`Fetched notifications for staff ${staff_id}`);
-            return page;
+            return {
+                items: page.items.map(toNotificationView),
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
