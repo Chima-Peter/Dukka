@@ -16,7 +16,6 @@ import {
     SupabaseService,
     ProductPendingUpdateStatus,
     ProductStatus,
-    type Product,
 } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { assertValidImage } from '../shared/assert-valid-image.js';
@@ -41,6 +40,7 @@ import {
     assertActorHasMarketOrGlobalScope,
     type ScopedAccessActor,
 } from '../shared/access-control.js';
+import { toProductStatusView } from './mappers/product.mapper.js';
 import { ProductRepository } from './product.repository.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
 
@@ -584,10 +584,7 @@ export class ProductService {
         return decodeURIComponent(publicUrl.slice(prefix.length));
     }
 
-    async approve(
-        id: string,
-        actor: ScopedAccessActor,
-    ): Promise<Product> {
+    async approve(id: string, actor: ScopedAccessActor) {
         assertActorHasMarketOrGlobalScope(actor);
         return this.transitionStatus(
             id,
@@ -599,10 +596,7 @@ export class ProductService {
         );
     }
 
-    async reject(
-        id: string,
-        actor: ScopedAccessActor,
-    ): Promise<Product> {
+    async reject(id: string, actor: ScopedAccessActor) {
         assertActorHasMarketOrGlobalScope(actor);
         return this.transitionStatus(
             id,
@@ -614,7 +608,7 @@ export class ProductService {
         );
     }
 
-    async archive(id: string): Promise<Product> {
+    async archive(id: string) {
         try {
             this.logger.log(`Archiving product ${id}`);
             const existing = await this.productRepository.findById(id);
@@ -633,7 +627,7 @@ export class ProductService {
             }
             const product = await this.productRepository.archiveProduct(id);
             this.logger.log(`Product archived ${id}`);
-            return product;
+            return toProductStatusView(product);
         } catch (error) {
             this.handleError(error);
         }
@@ -658,7 +652,7 @@ export class ProductService {
         invalidMessage: string,
         actionLog: string,
         doneLog: string,
-    ): Promise<Product> {
+    ) {
         try {
             this.logger.log(`${actionLog} product ${id}`);
             const existing = await this.productRepository.findById(id);
@@ -673,7 +667,7 @@ export class ProductService {
                 nextStatus,
             );
             this.logger.log(`Product ${doneLog} ${id}`);
-            return product;
+            return toProductStatusView(product);
         } catch (error) {
             this.handleError(error);
         }

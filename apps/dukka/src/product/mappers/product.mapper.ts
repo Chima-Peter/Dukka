@@ -1,8 +1,11 @@
 import {
     DiscountType,
     MarketVariantStatus,
+    ProductPendingUpdateStatus,
+    ProductStatus,
     PromotionMarketStatus,
     PromotionStatus,
+    VariantPendingUpdateStatus,
     VariantStatus,
     type Prisma,
 } from '@app/common';
@@ -464,5 +467,429 @@ export function toStaffProductDetail<
                 }),
             };
         }),
+    };
+}
+
+export const marketVariantMutationSelect = {
+    id: true,
+    price: true,
+    currency: true,
+    sold_out: true,
+    status: true,
+    market_id: true,
+    variant_id: true,
+    created_at: true,
+    updated_at: true,
+} satisfies Prisma.MarketVariantSelect;
+
+export type MarketVariantView = {
+    id: string;
+    price: Prisma.Decimal;
+    currency: string;
+    sold_out: boolean;
+    status: MarketVariantStatus;
+    market_id: string;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+type MarketVariantMutationRow = Prisma.MarketVariantGetPayload<{
+    select: typeof marketVariantMutationSelect;
+}>;
+
+export type ProductStatusView = {
+    id: string;
+    name: string;
+    status: ProductStatus;
+    category_id: string;
+    updated_at: Date;
+};
+
+export type MarketVariantDetailView = MarketVariantView & {
+    promotions: Array<{
+        promotion_market_id: string;
+        status: PromotionMarketStatus;
+        start_date: Date;
+        end_date: Date;
+    }>;
+    variant_code: string;
+    color: string | null;
+    size: string | null;
+    variant_status: VariantStatus;
+    image_url: string | null;
+    product_id: string;
+    product_name: string;
+    product_status: ProductStatus;
+};
+
+type MarketVariantDetailRow = {
+    id: string;
+    price: Prisma.Decimal;
+    currency: string;
+    sold_out: boolean;
+    status: MarketVariantStatus;
+    market_id: string;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+    promotion_market_variants: NestedStaffPromotion[];
+    variant: {
+        id: string;
+        variant_code: string;
+        color: string | null;
+        size: string | null;
+        status: VariantStatus;
+        product_id: string;
+        image: { image_url: string } | null;
+        product: {
+            id: string;
+            name: string;
+            status: ProductStatus;
+        };
+    };
+};
+
+export function toMarketVariantView(
+    row: MarketVariantMutationRow,
+): MarketVariantView {
+    return {
+        id: row.id,
+        price: row.price,
+        currency: row.currency,
+        sold_out: row.sold_out,
+        status: row.status,
+        market_id: row.market_id,
+        variant_id: row.variant_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toMarketVariantDetailView(
+    row: MarketVariantDetailRow,
+): MarketVariantDetailView {
+    return {
+        ...toMarketVariantView(row),
+        promotions: toVariantPromotions(row.promotion_market_variants),
+        variant_code: row.variant.variant_code,
+        color: row.variant.color,
+        size: row.variant.size,
+        variant_status: row.variant.status,
+        image_url: row.variant.image?.image_url ?? null,
+        product_id: row.variant.product.id,
+        product_name: row.variant.product.name,
+        product_status: row.variant.product.status,
+    };
+}
+
+export function toProductStatusView(product: {
+    id: string;
+    name: string;
+    status: ProductStatus;
+    category_id: string;
+    updated_at: Date;
+}): ProductStatusView {
+    return {
+        id: product.id,
+        name: product.name,
+        status: product.status,
+        category_id: product.category_id,
+        updated_at: product.updated_at,
+    };
+}
+
+export type ProductPendingUpdateSummary = {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    product_id: string;
+    product_name: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type ProductPendingUpdatePage = {
+    items: ProductPendingUpdateSummary[];
+    next_cursor: string | null;
+};
+
+export type ProductPendingUpdateMutationView = {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    name: string | null;
+    description: string | null;
+    specs: Prisma.JsonValue | null;
+    category_id: string | null;
+    images: ProductImageRecord[] | null;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type ProductPendingUpdateDetailView = ProductPendingUpdateMutationView & {
+    current: {
+        name: string;
+        description: string;
+        specs: Prisma.JsonValue | null;
+        status: ProductStatus;
+        category_id: string;
+        images: Array<{ image_url: string; sort_order: number }>;
+    };
+};
+
+export type ProductPendingUpdateCreatedView = {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type VariantPendingUpdateSummary = {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_id: string;
+    variant_code: string;
+    product_id: string;
+    product_name: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type VariantPendingUpdatePage = {
+    items: VariantPendingUpdateSummary[];
+    next_cursor: string | null;
+};
+
+export type VariantPendingUpdateMutationView = {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_code: string | null;
+    color: string | null;
+    size: string | null;
+    variant_info: Prisma.JsonValue | null;
+    image_url: string | null;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type VariantPendingUpdateDetailView =
+    VariantPendingUpdateMutationView & {
+        product_id: string;
+        product_name: string;
+        current: {
+            variant_code: string;
+            color: string | null;
+            size: string | null;
+            variant_info: Prisma.JsonValue | null;
+            status: VariantStatus;
+            image_url: string | null;
+        };
+    };
+
+export type VariantPendingUpdateCreatedView = {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export function toProductPendingUpdateSummary(row: {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+    product: { name: string };
+}): ProductPendingUpdateSummary {
+    return {
+        id: row.id,
+        status: row.status,
+        product_id: row.product_id,
+        product_name: row.product.name,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toProductPendingUpdateCreatedView(row: {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+}): ProductPendingUpdateCreatedView {
+    return {
+        id: row.id,
+        status: row.status,
+        product_id: row.product_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toProductPendingUpdateMutationView(row: {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    name: string | null;
+    description: string | null;
+    specs: Prisma.JsonValue | null;
+    category_id: string | null;
+    images: Prisma.JsonValue | null;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+}): ProductPendingUpdateMutationView {
+    return {
+        id: row.id,
+        status: row.status,
+        name: row.name,
+        description: row.description,
+        specs: row.specs,
+        category_id: row.category_id,
+        images: parsePendingImages(row.images),
+        product_id: row.product_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toProductPendingUpdateDetailView(row: {
+    id: string;
+    status: ProductPendingUpdateStatus;
+    name: string | null;
+    description: string | null;
+    specs: Prisma.JsonValue | null;
+    category_id: string | null;
+    images: Prisma.JsonValue | null;
+    product_id: string;
+    created_at: Date;
+    updated_at: Date;
+    product: {
+        name: string;
+        description: string;
+        specs: Prisma.JsonValue | null;
+        status: ProductStatus;
+        category_id: string;
+        images: Array<{ image_url: string; sort_order: number }>;
+    };
+}): ProductPendingUpdateDetailView {
+    return {
+        ...toProductPendingUpdateMutationView(row),
+        current: {
+            name: row.product.name,
+            description: row.product.description,
+            specs: row.product.specs,
+            status: row.product.status,
+            category_id: row.product.category_id,
+            images: row.product.images,
+        },
+    };
+}
+
+export function toVariantPendingUpdateSummary(row: {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+    variant: {
+        variant_code: string;
+        product_id: string;
+        product: { name: string };
+    };
+}): VariantPendingUpdateSummary {
+    return {
+        id: row.id,
+        status: row.status,
+        variant_id: row.variant_id,
+        variant_code: row.variant.variant_code,
+        product_id: row.variant.product_id,
+        product_name: row.variant.product.name,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toVariantPendingUpdateCreatedView(row: {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+}): VariantPendingUpdateCreatedView {
+    return {
+        id: row.id,
+        status: row.status,
+        variant_id: row.variant_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toVariantPendingUpdateMutationView(row: {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_code: string | null;
+    color: string | null;
+    size: string | null;
+    variant_info: Prisma.JsonValue | null;
+    image_url: string | null;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+}): VariantPendingUpdateMutationView {
+    return {
+        id: row.id,
+        status: row.status,
+        variant_code: row.variant_code,
+        color: row.color,
+        size: row.size,
+        variant_info: row.variant_info,
+        image_url: row.image_url,
+        variant_id: row.variant_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+export function toVariantPendingUpdateDetailView(row: {
+    id: string;
+    status: VariantPendingUpdateStatus;
+    variant_code: string | null;
+    color: string | null;
+    size: string | null;
+    variant_info: Prisma.JsonValue | null;
+    image_url: string | null;
+    variant_id: string;
+    created_at: Date;
+    updated_at: Date;
+    variant: {
+        variant_code: string;
+        color: string | null;
+        size: string | null;
+        variant_info: Prisma.JsonValue | null;
+        status: VariantStatus;
+        image: { image_url: string } | null;
+        product: {
+            id: string;
+            name: string;
+        };
+    };
+}): VariantPendingUpdateDetailView {
+    return {
+        ...toVariantPendingUpdateMutationView(row),
+        product_id: row.variant.product.id,
+        product_name: row.variant.product.name,
+        current: {
+            variant_code: row.variant.variant_code,
+            color: row.variant.color,
+            size: row.variant.size,
+            variant_info: row.variant.variant_info,
+            status: row.variant.status,
+            image_url: row.variant.image?.image_url ?? null,
+        },
     };
 }

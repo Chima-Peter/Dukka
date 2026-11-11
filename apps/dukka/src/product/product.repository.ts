@@ -14,6 +14,10 @@ import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import {
     parsePendingImages,
+    toProductPendingUpdateCreatedView,
+    toProductPendingUpdateDetailView,
+    toProductPendingUpdateMutationView,
+    toProductPendingUpdateSummary,
     productDetailSelect,
     productDetailWithMarketSelect,
     productListSummarySelect,
@@ -332,7 +336,7 @@ export class ProductRepository {
         productId: string,
         data: CreateProductPendingUpdateData,
     ) {
-        return await this.prisma.productPendingUpdate.create({
+        const created = await this.prisma.productPendingUpdate.create({
             data: {
                 product: { connect: { id: productId } },
                 ...(data.name !== undefined && { name: data.name }),
@@ -357,6 +361,7 @@ export class ProductRepository {
                 updated_at: true,
             },
         });
+        return toProductPendingUpdateCreatedView(created);
     }
 
     async findPendingUpdatesByIds(pendingUpdateIds: string[]) {
@@ -534,10 +539,7 @@ export class ProductRepository {
             return {
                 previousImages,
                 currentImageUrls: liveImages.map((image) => image.image_url),
-                pendingUpdate: {
-                    ...pendingUpdate,
-                    images: parsePendingImages(pendingUpdate.images),
-                },
+                pendingUpdate: toProductPendingUpdateMutationView(pendingUpdate),
             };
         });
     }
@@ -558,7 +560,6 @@ export class ProductRepository {
                 updated_at: true,
                 product: {
                     select: {
-                        id: true,
                         name: true,
                         description: true,
                         specs: true,
@@ -580,13 +581,7 @@ export class ProductRepository {
             return null;
         }
 
-        const { product, images, ...pending } = record;
-
-        return {
-            ...pending,
-            images: parsePendingImages(images),
-            current_product: product,
-        };
+        return toProductPendingUpdateDetailView(record);
     }
 
     async findPendingUpdatesSummary(query: FindProductPendingUpdatesDto) {
@@ -628,14 +623,11 @@ export class ProductRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(({ product, ...rest }) => ({
-            ...rest,
-            product_name: product.name,
-        }));
+        const items = page.map(toProductPendingUpdateSummary);
 
         return {
             items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
         };
     }
 

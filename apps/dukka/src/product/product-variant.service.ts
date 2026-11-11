@@ -35,6 +35,10 @@ import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateMarketVariantDto } from './dto/update-market-variant.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
+import {
+    toMarketVariantDetailView,
+    toMarketVariantView,
+} from './mappers/product.mapper.js';
 import { ProductVariantRepository } from './product-variant.repository.js';
 
 @Injectable()
@@ -359,7 +363,7 @@ export class ProductVariantService {
                 this.logger.log(
                     `Market variant created ${marketVariant.id} for variant ${variantId}`,
                 );
-                return marketVariant;
+                return toMarketVariantView(marketVariant);
             } catch (error) {
                 if (
                     error instanceof PrismaClientKnownRequestError &&
@@ -378,7 +382,7 @@ export class ProductVariantService {
                         this.logger.log(
                             `Market variant reopened ${reopened.id} for variant ${variantId}`,
                         );
-                        return reopened;
+                        return toMarketVariantView(reopened);
                     }
                     throw new ConflictException(
                         'Variant is already listed in this market',
@@ -411,7 +415,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Market variant updated for variant ${variantId} in market ${marketId}`,
             );
-            return marketVariant;
+            return toMarketVariantView(marketVariant);
         } catch (error) {
             this.handleError(error, 'Market variant not found');
         }
@@ -435,7 +439,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Market variant closed for variant ${variantId} in market ${marketId}`,
             );
-            return marketVariant;
+            return toMarketVariantView(marketVariant);
         } catch (error) {
             this.handleError(error, 'Market variant not found');
         }
@@ -477,7 +481,7 @@ export class ProductVariantService {
             this.logger.log(
                 `Fetched market variant for variant ${variantId} in market ${marketId}`,
             );
-            return marketVariant;
+            return toMarketVariantView(marketVariant);
         } catch (error) {
             this.handleError(error, 'Market variant not found');
         }
@@ -494,18 +498,7 @@ export class ProductVariantService {
                 throw new NotFoundException('Market variant not found');
             }
             this.logger.log(`Fetched market variant ${id}`);
-            const { promotion_market_variants, ...rest } = marketVariant;
-            return {
-                ...rest,
-                promotions: promotion_market_variants.map(
-                    ({ promotion_market }) => ({
-                        promotion_market_id: promotion_market.id,
-                        status: promotion_market.status,
-                        start_date: promotion_market.start_date,
-                        end_date: promotion_market.end_date,
-                    }),
-                ),
-            };
+            return toMarketVariantDetailView(marketVariant);
         } catch (error) {
             this.handleError(error, 'Market variant not found');
         }

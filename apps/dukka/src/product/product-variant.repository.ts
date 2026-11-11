@@ -10,6 +10,13 @@ import {
 import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
 import type { FindVariantPendingUpdatesDto } from './dto/find-variant-pending-updates.dto.js';
 import type { UpdateVariantDto } from './dto/update-variant.dto.js';
+import {
+    marketVariantMutationSelect,
+    toVariantPendingUpdateCreatedView,
+    toVariantPendingUpdateDetailView,
+    toVariantPendingUpdateMutationView,
+    toVariantPendingUpdateSummary,
+} from './mappers/product.mapper.js';
 
 @Injectable()
 export class ProductVariantRepository {
@@ -187,7 +194,7 @@ export class ProductVariantRepository {
             image_url?: string;
         },
     ) {
-        return await this.prisma.variantPendingUpdate.create({
+        const created = await this.prisma.variantPendingUpdate.create({
             data: {
                 variant: { connect: { id: variantId } },
                 ...(data.variant_code !== undefined && {
@@ -210,6 +217,7 @@ export class ProductVariantRepository {
                 updated_at: true,
             },
         });
+        return toVariantPendingUpdateCreatedView(created);
     }
 
     async findPendingUpdatesByIds(pendingUpdateIds: string[]) {
@@ -370,7 +378,10 @@ export class ProductVariantRepository {
                 },
             });
 
-            return { previousImageUrl, pendingUpdate };
+            return {
+                previousImageUrl,
+                pendingUpdate: toVariantPendingUpdateMutationView(pendingUpdate),
+            };
         });
     }
 
@@ -390,13 +401,11 @@ export class ProductVariantRepository {
                 updated_at: true,
                 variant: {
                     select: {
-                        id: true,
                         variant_code: true,
                         color: true,
                         size: true,
                         variant_info: true,
                         status: true,
-                        product_id: true,
                         image: {
                             select: { image_url: true },
                         },
@@ -415,18 +424,7 @@ export class ProductVariantRepository {
             return null;
         }
 
-        const { variant, ...pending } = record;
-        const { image, product, ...currentVariant } = variant;
-
-        return {
-            ...pending,
-            current_variant: {
-                ...currentVariant,
-                image_url: image?.image_url ?? null,
-            },
-            product_id: product.id,
-            product_name: product.name,
-        };
+        return toVariantPendingUpdateDetailView(record);
     }
 
     async findPendingUpdatesSummary(query: FindVariantPendingUpdatesDto) {
@@ -474,18 +472,11 @@ export class ProductVariantRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(
-            ({ variant, ...rest }) => ({
-                ...rest,
-                variant_code: variant.variant_code,
-                product_id: variant.product_id,
-                product_name: variant.product.name,
-            }),
-        );
+        const items = page.map(toVariantPendingUpdateSummary);
 
         return {
             items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            next_cursor: hasMore ? items[items.length - 1]!.id : null,
         };
     }
 
@@ -721,6 +712,7 @@ export class ProductVariantRepository {
                 currency: data.currency,
                 status: MarketVariantStatus.ACTIVE,
             },
+            select: marketVariantMutationSelect,
         });
     }
 
@@ -741,8 +733,13 @@ export class ProductVariantRepository {
                 currency: data.currency,
                 status: MarketVariantStatus.ACTIVE,
             },
+            select: marketVariantMutationSelect,
         });
-        return updated[0] ?? null;
+        const reopened = updated[0];
+        if (!reopened) {
+            return null;
+        }
+        return reopened;
     }
 
     async updateMarketVariant(
@@ -758,6 +755,7 @@ export class ProductVariantRepository {
                 },
             },
             data: { price },
+            select: marketVariantMutationSelect,
         });
     }
 
@@ -769,6 +767,7 @@ export class ProductVariantRepository {
                 status: MarketVariantStatus.ACTIVE,
             },
             data: { status: MarketVariantStatus.CLOSED },
+            select: marketVariantMutationSelect,
         });
         if (updated.length === 0) {
             throw new NotFoundException('Market variant not found');
@@ -795,6 +794,7 @@ export class ProductVariantRepository {
                     }),
                 },
             },
+            select: marketVariantMutationSelect,
         });
     }
 }
