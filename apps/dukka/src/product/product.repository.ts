@@ -137,6 +137,94 @@ export class ProductRepository {
         };
     }
 
+    async findSuggestionsPublic(query: {
+        market_id: string;
+        q: string;
+        limit: number;
+    }) {
+        const tokens = query.q
+            .trim()
+            .toLowerCase()
+            .split(/[^a-z0-9]+/i)
+            .filter(Boolean);
+        if (!tokens.length) {
+            return { items: [] };
+        }
+
+        const tsQuery = tokens
+            .map((token, index) =>
+                index === tokens.length - 1 ? `${token}:*` : token,
+            )
+            .join(' & ');
+
+        const rows = await this.prisma.$queryRaw<
+            {
+                id: string;
+                name: string;
+                image_url: string | null;
+                price: Prisma.Decimal | null;
+                currency: string | null;
+                sold_out: boolean;
+            }[]
+        >`
+            SELECT
+                ranked.id,
+                ranked.name,
+                ranked.image_url,
+                ranked.price,
+                ranked.currency,
+                ranked.sold_out
+            FROM (
+                SELECT DISTINCT ON (p.id)
+                    p.id,
+                    p.name,
+                    (
+                        SELECT pi.image_url
+                        FROM "dukka"."ProductImage" pi
+                        WHERE pi.product_id = p.id
+                        ORDER BY pi.sort_order ASC
+                        LIMIT 1
+                    ) AS image_url,
+                    mv.price,
+                    mv.currency,
+                    mv.sold_out,
+                    ts_rank(
+                        to_tsvector('english', p.name),
+                        to_tsquery('english', ${tsQuery})
+                    ) AS rank
+                FROM "dukka"."Product" p
+                INNER JOIN "dukka"."Variant" v
+                    ON v.product_id = p.id
+                    AND v.status = 'ACTIVE'
+                INNER JOIN "dukka"."MarketVariant" mv
+                    ON mv.variant_id = v.id
+                    AND mv.status = 'ACTIVE'
+                    AND mv.market_id = ${query.market_id}::uuid
+                INNER JOIN "dukka"."Market" m
+                    ON m.id = mv.market_id
+                    AND m.status = 'OPEN'
+                WHERE p.status = 'ACTIVE'
+                    AND to_tsvector('english', p.name)
+                        @@ to_tsquery('english', ${tsQuery})
+                ORDER BY p.id, v.created_at ASC, v.id ASC
+            ) ranked
+            ORDER BY ranked.rank DESC, ranked.name ASC
+            LIMIT ${query.limit}
+        `;
+
+        return {
+            items: rows.map((row) => ({
+                id: row.id,
+                name: row.name,
+                image_url: row.image_url,
+                price: row.price,
+                currency: row.currency,
+                sold_out: row.sold_out,
+                promotion: null,
+            })),
+        };
+    }
+
     async findAll(query: FindStaffProductsDto) {
         const nameMatchedIds = await this.findNameMatchedIds(query.name);
         if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
@@ -291,11 +379,13 @@ export class ProductRepository {
             return undefined;
         }
 
+        const likePattern = `%${nameQuery.replace(/[%_\\]/g, '\\$&')}%`;
         const rows = await this.prisma.$queryRaw<{ id: string }[]>`
             SELECT id
             FROM "dukka"."Product"
-            WHERE to_tsvector('english', name)
-                @@ websearch_to_tsquery('english', ${nameQuery})
+            WHERE name ILIKE ${likePattern} ESCAPE '\'
+            ORDER BY created_at DESC
+            LIMIT 100
         `;
         return rows.map((row) => row.id);
     }

@@ -28,6 +28,7 @@ import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
 import type { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import type { FindProductsDto } from './dto/find-products.dto.js';
+import type { FindProductSuggestionsDto } from './dto/find-product-suggestions.dto.js';
 import type { FindStaffProductDto } from './dto/find-staff-product.dto.js';
 import type { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import type { CreateProductImageDto } from './dto/create-product-image.dto.js';
@@ -155,6 +156,31 @@ export class ProductService {
                 items: page.items,
                 next_cursor: page.next_cursor,
             };
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findSuggestions(
+        customerId: string | undefined,
+        query: FindProductSuggestionsDto,
+    ) {
+        try {
+            this.logger.log(`Fetching product suggestions for "${query.q}"`);
+            const marketId = await resolveMarketId(
+                this.customerService,
+                customerId,
+                query.market_id,
+            );
+            const page = await this.productRepository.findSuggestionsPublic({
+                market_id: marketId,
+                q: query.q.trim(),
+                limit: query.limit ?? 8,
+            });
+            this.logger.log(
+                `Fetched ${page.items.length} product suggestion(s)`,
+            );
+            return { items: page.items };
         } catch (error) {
             this.handleError(error);
         }

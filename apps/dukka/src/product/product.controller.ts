@@ -27,6 +27,7 @@ import { CreateProductDto } from './dto/create-product.dto.js';
 import { FindProductDto } from './dto/find-product.dto.js';
 import { FindProductPendingUpdatesDto } from './dto/find-product-pending-updates.dto.js';
 import { FindProductsDto } from './dto/find-products.dto.js';
+import { FindProductSuggestionsDto } from './dto/find-product-suggestions.dto.js';
 import { FindStaffProductDto } from './dto/find-staff-product.dto.js';
 import { FindStaffProductsDto } from './dto/find-staff-products.dto.js';
 import { PendingUpdateIdsDto } from './dto/pending-update-ids.dto.js';
@@ -66,6 +67,19 @@ export class ProductController {
         @Query() query: FindProductsDto,
     ) {
         return this.productService.findAll(customer?.sub, query);
+    }
+
+    @Get('suggestions')
+    @Public()
+    @OptionalCustomerAuth()
+    @ResponseMessage('Product suggestions retrieved successfully')
+    findSuggestions(
+        @CurrentCustomer({ optional: true }) customer:
+            | CustomerJwtPayload
+            | undefined,
+        @Query() query: FindProductSuggestionsDto,
+    ) {
+        return this.productService.findSuggestions(customer?.sub, query);
     }
 
     @Get('internal')
