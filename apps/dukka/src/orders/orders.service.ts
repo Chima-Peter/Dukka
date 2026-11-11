@@ -28,6 +28,10 @@ import {
 } from '../shared/prisma-relation-error.js';
 import type { FindOrdersDto } from './dto/find-orders.dto.js';
 import type { FindStaffOrdersDto } from './dto/find-staff-orders.dto.js';
+import {
+    toCustomerOrderDetail,
+    toStaffOrderDetail,
+} from './mappers/order.mapper.js';
 import { OrdersRepository } from './orders.repository.js';
 import type {
     CreateGuestOrderInput,
@@ -177,7 +181,7 @@ export class OrdersService {
             this.logger.log(
                 `Fetched order ${orderId} for customer ${customerId}`,
             );
-            return order;
+            return toCustomerOrderDetail(order);
         } catch (error) {
             this.handleError(error);
         }
@@ -217,7 +221,7 @@ export class OrdersService {
             this.logger.log(
                 `Fetched staff order ${orderId} for market ${marketId}`,
             );
-            return order;
+            return toStaffOrderDetail(order);
         } catch (error) {
             this.handleError(error);
         }

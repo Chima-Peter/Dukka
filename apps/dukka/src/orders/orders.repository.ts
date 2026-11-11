@@ -22,10 +22,10 @@ import type {
     GuestAddressSnapshot,
 } from './types/create-order.type.js';
 import type {
-    CustomerOrderDetail,
+    CustomerOrderDetailRow,
     DbClient,
     OrderSummaryPage,
-    StaffOrderDetail,
+    StaffOrderDetailRow,
     TransitionOrderStatusInput,
     TransitionOrderStatusResult,
 } from './types/order.type.js';
@@ -131,7 +131,7 @@ export class OrdersRepository {
     async findOneForCustomer(
         customerId: string,
         orderId: string,
-    ): Promise<CustomerOrderDetail | null> {
+    ): Promise<CustomerOrderDetailRow | null> {
         return await this.prisma.order.findFirst({
             where: {
                 id: orderId,
@@ -163,7 +163,7 @@ export class OrdersRepository {
     async findOneForStaff(
         orderId: string,
         marketId: string,
-    ): Promise<StaffOrderDetail | null> {
+    ): Promise<StaffOrderDetailRow | null> {
         return await this.prisma.order.findFirst({
             where: {
                 id: orderId,

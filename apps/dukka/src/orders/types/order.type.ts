@@ -1,7 +1,9 @@
 import type { OrderStatus, Prisma, PrismaService } from '@app/common';
 import type {
-    customerOrderDetailSelect,
-    staffOrderDetailSelect,
+    CustomerOrderDetail,
+    CustomerOrderDetailRow,
+    StaffOrderDetail,
+    StaffOrderDetailRow,
 } from '../mappers/order.mapper.js';
 
 export type DbClient = Prisma.TransactionClient | PrismaService;
@@ -40,10 +42,5 @@ export type OrderSummaryPage = {
     next_cursor: string | null;
 };
 
-export type CustomerOrderDetail = Prisma.OrderGetPayload<{
-    select: typeof customerOrderDetailSelect;
-}>;
-
-export type StaffOrderDetail = Prisma.OrderGetPayload<{
-    select: typeof staffOrderDetailSelect;
-}>;
+export type { CustomerOrderDetail, StaffOrderDetail };
+export type { CustomerOrderDetailRow, StaffOrderDetailRow };

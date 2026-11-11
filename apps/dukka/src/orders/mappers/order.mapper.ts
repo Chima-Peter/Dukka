@@ -1,4 +1,12 @@
-import type { Prisma } from '@app/common';
+import type {
+    CouponType,
+    DiscountType,
+    OrderPaymentAttemptStatus,
+    OrderStatus,
+    Prisma,
+    ShipmentStatus,
+    WarehouseStatus,
+} from '@app/common';
 import type { OrderSummary } from '../types/order.type.js';
 
 export const orderSummarySelect = {
@@ -308,6 +316,232 @@ type OrderSummaryRow = Prisma.OrderGetPayload<{
     select: typeof orderSummarySelect;
 }>;
 
+export type CustomerOrderDetailRow = Prisma.OrderGetPayload<{
+    select: typeof customerOrderDetailSelect;
+}>;
+
+export type StaffOrderDetailRow = Prisma.OrderGetPayload<{
+    select: typeof staffOrderDetailSelect;
+}>;
+
+export type OrderPaymentAttemptView = {
+    id: string;
+    status: OrderPaymentAttemptStatus;
+    payment_method_name: string;
+    payment_method: { id: string; name: string } | null;
+    created_at: Date;
+};
+
+export type OrderCouponUsageView = {
+    id: string;
+    guest_email: string | null;
+    coupon_id: string;
+    customer_id: string | null;
+    created_at: Date;
+    coupon: {
+        id: string;
+        code: string;
+        type: CouponType;
+        value: Prisma.Decimal;
+    };
+};
+
+export type OrderItemDetailView = {
+    id: string;
+    quantity: number;
+    price: Prisma.Decimal;
+    total: Prisma.Decimal;
+    discount_type: DiscountType | null;
+    discount_value: Prisma.Decimal | null;
+    max_discount_amount: Prisma.Decimal | null;
+    discount_amount: Prisma.Decimal | null;
+    promotion_market_id: string | null;
+    product_name: string;
+    product_image: string | null;
+    product_specs: Prisma.JsonValue;
+    market_variant_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type OrderPromotionUsageView = {
+    id: string;
+    discount_amount: Prisma.Decimal;
+    redeemed_at: Date;
+    promotion_market_id: string;
+    customer_id: string | null;
+    created_at: Date;
+};
+
+export type CustomerOrderDetail = {
+    id: string;
+    order_number: string;
+    status: OrderStatus;
+    currency: string;
+    subtotal: Prisma.Decimal;
+    shipping_fee: Prisma.Decimal;
+    discount_amount: Prisma.Decimal;
+    points_discount: Prisma.Decimal;
+    coupon_discount: Prisma.Decimal;
+    total_amount: Prisma.Decimal;
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone_number: string | null;
+    shipping_address: Prisma.JsonValue;
+    billing_address: Prisma.JsonValue;
+    market_id: string;
+    customer_id: string | null;
+    created_at: Date;
+    market: { id: string; name: string; code: string };
+    order_items: OrderItemDetailView[];
+    order_payment_attempt: OrderPaymentAttemptView | null;
+    promotion_usages: OrderPromotionUsageView[];
+    coupon_usages: OrderCouponUsageView[];
+    shipment: {
+        tracking_number: string;
+        shipment_movements: Array<{
+            id: string;
+            movement_type: string;
+            performed_by: string | null;
+            occurred_at: Date;
+            recorded_at: Date;
+            metadata: Prisma.JsonValue | null;
+            from_location: { id: string; type: string; name: string } | null;
+            to_location: { id: string; type: string; name: string } | null;
+            shipment_leg_id: string | null;
+            created_at: Date;
+        }>;
+    } | null;
+};
+
+export type StaffOrderDetail = {
+    id: string;
+    order_number: string;
+    status: OrderStatus;
+    currency: string;
+    subtotal: Prisma.Decimal;
+    shipping_fee: Prisma.Decimal;
+    discount_amount: Prisma.Decimal;
+    points_discount: Prisma.Decimal;
+    coupon_discount: Prisma.Decimal;
+    total_amount: Prisma.Decimal;
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone_number: string | null;
+    shipping_address: Prisma.JsonValue;
+    billing_address: Prisma.JsonValue;
+    market_id: string;
+    warehouse_id: string;
+    customer_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+    market: { id: string; name: string; code: string };
+    warehouse: {
+        id: string;
+        name: string;
+        address: string;
+        status: WarehouseStatus;
+        market_id: string;
+    };
+    customer: {
+        id: string;
+        name: string;
+        email: string;
+        phone_number: string | null;
+    } | null;
+    order_items: OrderItemDetailView[];
+    order_payment_attempt: OrderPaymentAttemptView | null;
+    promotion_usages: OrderPromotionUsageView[];
+    coupon_usages: OrderCouponUsageView[];
+    shipment: {
+        id: string;
+        tracking_number: string;
+        status: ShipmentStatus;
+        created_at: Date;
+        updated_at: Date;
+        origin_location: {
+            id: string;
+            type: string;
+            name: string;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+            customer_id: string | null;
+        } | null;
+        destination_location: {
+            id: string;
+            type: string;
+            name: string;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+            customer_id: string | null;
+        } | null;
+        current_location: {
+            id: string;
+            type: string;
+            name: string;
+            warehouse_id: string | null;
+            distribution_point_id: string | null;
+            customer_id: string | null;
+        } | null;
+        shipment_legs: Array<{
+            id: string;
+            expected_departure_date: Date | null;
+            actual_departure_date: Date | null;
+            expected_arrival_date: Date | null;
+            actual_arrival_date: Date | null;
+            created_at: Date;
+            updated_at: Date;
+            origin_location: { id: string; type: string; name: string };
+            destination_location: { id: string; type: string; name: string };
+            logistics_partner: {
+                id: string;
+                name: string;
+                code: string;
+            } | null;
+        }>;
+        shipment_movements: Array<{
+            id: string;
+            movement_type: string;
+            performed_by: string | null;
+            occurred_at: Date;
+            recorded_at: Date;
+            metadata: Prisma.JsonValue | null;
+            from_location: { id: string; type: string; name: string } | null;
+            to_location: { id: string; type: string; name: string } | null;
+            shipment_leg_id: string | null;
+            created_at: Date;
+        }>;
+    } | null;
+};
+
+function toOrderPaymentAttemptView(
+    row: CustomerOrderDetailRow['order_payment_attempt'],
+): OrderPaymentAttemptView | null {
+    if (!row) {
+        return null;
+    }
+    return {
+        id: row.id,
+        status: row.status,
+        payment_method_name: row.payment_method_name,
+        payment_method: row.market_payment_method?.payment_method ?? null,
+        created_at: row.created_at,
+    };
+}
+
+function toOrderCouponUsageView(
+    row: CustomerOrderDetailRow['coupon_usages'][number],
+): OrderCouponUsageView {
+    return {
+        id: row.id,
+        guest_email: row.guest_email,
+        coupon_id: row.coupon_id,
+        customer_id: row.customer_id,
+        created_at: row.created_at,
+        coupon: row.coupon,
+    };
+}
+
 export function toOrderSummary(row: OrderSummaryRow): OrderSummary {
     return {
         id: row.id,
@@ -318,5 +552,75 @@ export function toOrderSummary(row: OrderSummaryRow): OrderSummary {
         name: row.customer?.name ?? row.guest_name,
         market_id: row.market_id,
         created_at: row.created_at,
+    };
+}
+
+export function toCustomerOrderDetail(
+    row: CustomerOrderDetailRow,
+): CustomerOrderDetail {
+    return {
+        id: row.id,
+        order_number: row.order_number,
+        status: row.status,
+        currency: row.currency,
+        subtotal: row.subtotal,
+        shipping_fee: row.shipping_fee,
+        discount_amount: row.discount_amount,
+        points_discount: row.points_discount,
+        coupon_discount: row.coupon_discount,
+        total_amount: row.total_amount,
+        guest_email: row.guest_email,
+        guest_name: row.guest_name,
+        guest_phone_number: row.guest_phone_number,
+        shipping_address: row.shipping_address,
+        billing_address: row.billing_address,
+        market_id: row.market_id,
+        customer_id: row.customer_id,
+        created_at: row.created_at,
+        market: row.market,
+        order_items: row.order_items,
+        order_payment_attempt: toOrderPaymentAttemptView(
+            row.order_payment_attempt,
+        ),
+        promotion_usages: row.promotion_usages,
+        coupon_usages: row.coupon_usages.map(toOrderCouponUsageView),
+        shipment: row.shipment,
+    };
+}
+
+export function toStaffOrderDetail(
+    row: StaffOrderDetailRow,
+): StaffOrderDetail {
+    return {
+        id: row.id,
+        order_number: row.order_number,
+        status: row.status,
+        currency: row.currency,
+        subtotal: row.subtotal,
+        shipping_fee: row.shipping_fee,
+        discount_amount: row.discount_amount,
+        points_discount: row.points_discount,
+        coupon_discount: row.coupon_discount,
+        total_amount: row.total_amount,
+        guest_email: row.guest_email,
+        guest_name: row.guest_name,
+        guest_phone_number: row.guest_phone_number,
+        shipping_address: row.shipping_address,
+        billing_address: row.billing_address,
+        market_id: row.market_id,
+        warehouse_id: row.warehouse_id,
+        customer_id: row.customer_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        market: row.market,
+        warehouse: row.warehouse,
+        customer: row.customer,
+        order_items: row.order_items,
+        order_payment_attempt: toOrderPaymentAttemptView(
+            row.order_payment_attempt,
+        ),
+        promotion_usages: row.promotion_usages,
+        coupon_usages: row.coupon_usages.map(toOrderCouponUsageView),
+        shipment: row.shipment,
     };
 }
