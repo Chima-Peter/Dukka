@@ -30,7 +30,7 @@ import type { ReserveInventoryDto } from './dto/reserve-inventory.dto.js';
 import type { UpdateStockDto } from './dto/update-stock.dto.js';
 import { InventoryRepository } from './inventory.repository.js';
 import type {
-    InventoryItem,
+    InventoryDetail,
     ReserveInventoryResult,
 } from './types/inventory.type.js';
 
@@ -48,7 +48,7 @@ export class InventoryService {
     async create(
         data: CreateInventoryDto,
         actor: ScopedAccessActor,
-    ): Promise<InventoryItem> {
+    ): Promise<InventoryDetail> {
         try {
             this.logger.log(
                 `Creating inventory for market variant ${data.market_variant_id} in warehouse ${data.warehouse_id}`,
@@ -89,6 +89,27 @@ export class InventoryService {
                 available_quantity: data.available_quantity,
             });
             this.logger.log(`Inventory created ${inventory.id}`);
+            return inventory;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOne(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<InventoryDetail> {
+        try {
+            this.logger.log(`Fetching inventory ${id}`);
+            const inventory = await this.inventoryRepository.findById(id);
+            if (!inventory) {
+                throw new NotFoundException('Inventory not found');
+            }
+            assertActorHasScopedAccess(actor, {
+                market_id: inventory.warehouse.market_id,
+                warehouse_id: inventory.warehouse_id,
+            });
+            this.logger.log(`Fetched inventory ${id}`);
             return inventory;
         } catch (error) {
             this.handleError(error);

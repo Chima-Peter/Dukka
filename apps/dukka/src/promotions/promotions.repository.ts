@@ -20,6 +20,7 @@ import {
     TARGET_PAGE_SIZE,
     discountSummarySelect,
     marketSummarySelect,
+    promotionUsageNestedSelect,
     promotionUsageSelect,
     variantTargetInclude,
     type DiscountSummary,
@@ -150,23 +151,89 @@ export class PromotionsRepository {
     }
 
     async findById(id: string): Promise<PromotionDetail | null> {
-        return await this.prisma.promotion.findUnique({
+        const limit = 20;
+        const record = await this.prisma.promotion.findUnique({
             where: { id },
             include: {
                 discount: true,
                 promotion_markets: {
                     include: {
                         market: { select: marketSummarySelect },
+                        _count: { select: { promotion_usages: true } },
+                        promotion_usages: {
+                            select: promotionUsageNestedSelect,
+                            orderBy: [{ redeemed_at: 'desc' }, { id: 'desc' }],
+                            take: limit + 1,
+                        },
                     },
                     orderBy: { created_at: 'desc' },
                 },
             },
         });
+
+        if (!record) {
+            return null;
+        }
+
+        const usage_count = record.promotion_markets.reduce(
+            (sum, market) => sum + market._count.promotion_usages,
+            0,
+        );
+        const usageRecords = record.promotion_markets
+            .flatMap((market) =>
+                market.promotion_usages.map((usage) => ({
+                    ...usage,
+                    promotion_market: {
+                        promotion: { name: record.name },
+                    },
+                })),
+            )
+            .sort((a, b) => {
+                const byDate =
+                    b.redeemed_at.getTime() - a.redeemed_at.getTime();
+                return byDate !== 0 ? byDate : b.id.localeCompare(a.id);
+            });
+        const hasMore =
+            usageRecords.length > limit ||
+            record.promotion_markets.some(
+                (market) => market.promotion_usages.length > limit,
+            );
+        const items = usageRecords.slice(0, limit);
+        const promotion_markets = record.promotion_markets.map(
+            ({ promotion_usages: _usages, _count, ...market }) => market,
+        );
+
+        return {
+            ...record,
+            promotion_markets,
+            usage_count,
+            usages: {
+                items,
+                next_cursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+            },
+        };
     }
 
     async findDiscountById(id: string): Promise<Discount | null> {
         return await this.prisma.discount.findUnique({
             where: { id },
+        });
+    }
+
+    async findDiscountDetailById(id: string): Promise<DiscountSummary | null> {
+        return await this.prisma.discount.findUnique({
+            where: { id },
+            include: {
+                promotions: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        status: true,
+                    },
+                    orderBy: { created_at: 'desc' },
+                },
+            },
         });
     }
 

@@ -113,6 +113,8 @@ export type PromotionMarketStatusRecord = {
 export type PromotionDetail = Promotion & {
     discount: Discount;
     promotion_markets: PromotionMarketDetail[];
+    usage_count: number;
+    usages: PromotionUsageRowPage;
 };
 
 export const promotionUsageSelect = {
@@ -129,6 +131,23 @@ export const promotionUsageSelect = {
             },
         },
     },
+    order: {
+        select: {
+            order_number: true,
+        },
+    },
+    customer: {
+        select: {
+            name: true,
+        },
+    },
+} as const;
+
+export const promotionUsageNestedSelect = {
+    id: true,
+    discount_amount: true,
+    redeemed_at: true,
+    created_at: true,
     order: {
         select: {
             order_number: true,

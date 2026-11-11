@@ -92,6 +92,19 @@ export class PromotionsController {
         );
     }
 
+    @Get('discounts/:id')
+    @RequirePermission(StaffPermission.PromotionsRead)
+    @ResponseMessage('Discount retrieved successfully')
+    findOneDiscount(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.promotionsService.findOneDiscount(
+            id,
+            toScopedAccessActor(staff),
+        );
+    }
+
     @Patch('discounts/:id')
     @RequirePermission(StaffPermission.PromotionsManage)
     @ResponseMessage('Discount updated successfully')

@@ -25,7 +25,6 @@ export const warehouseListSelect = {
     manager: {
         select: {
             name: true,
-            id: true,
             avatar: true,
         },
     },
@@ -73,7 +72,6 @@ export type WarehouseListItem = {
     name: string;
     status: WarehouseStatus;
     market_name: string;
-    manager_id: string;
     manager_name: string;
     manager_picture: string | null;
     created_at: Date;
@@ -123,7 +121,6 @@ export function toWarehouseListItem(row: WarehouseListRow): WarehouseListItem {
         name: row.name,
         status: row.status,
         market_name: row.market.name,
-        manager_id: row.manager.id,
         manager_name: row.manager.name,
         manager_picture: row.manager.avatar,
         created_at: row.created_at,

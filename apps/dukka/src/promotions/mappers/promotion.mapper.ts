@@ -46,6 +46,8 @@ export type PromotionDetailView = {
         updated_at: Date;
     };
     promotion_markets: PromotionMarketView[];
+    usage_count: number;
+    usages: PromotionUsagePage;
 };
 
 export type PromotionUsageView = {
@@ -97,6 +99,11 @@ type PromotionMarketRow = {
 type PromotionDetailRow = Promotion & {
     discount: Discount;
     promotion_markets: PromotionMarketRow[];
+    usage_count: number;
+    usages: {
+        items: PromotionUsageRow[];
+        next_cursor: string | null;
+    };
 };
 
 type PromotionUsageRow = Prisma.PromotionUsageGetPayload<{
@@ -237,6 +244,11 @@ export function toPromotionDetail(
             updated_at: row.discount.updated_at,
         },
         promotion_markets: row.promotion_markets.map(toPromotionMarketView),
+        usage_count: row.usage_count,
+        usages: {
+            items: row.usages.items.map(toPromotionUsageView),
+            next_cursor: row.usages.next_cursor,
+        },
     };
 }
 

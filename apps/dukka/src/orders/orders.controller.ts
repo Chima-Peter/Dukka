@@ -45,6 +45,21 @@ export class OrdersController {
         return this.ordersService.findForStaff(query, staff.market_ids);
     }
 
+    @Get('internal/by-number/:orderNumber')
+    @Auth('staff')
+    @ResponseMessage('Order retrieved successfully')
+    findOneForStaffByOrderNumber(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('orderNumber') orderNumber: string,
+        @Query() query: FindStaffOrderDto,
+    ) {
+        return this.ordersService.findOneForStaffByOrderNumber(
+            orderNumber,
+            query.market_id,
+            staff.market_ids,
+        );
+    }
+
     @Get('internal/:id')
     @Auth('staff')
     @ResponseMessage('Order retrieved successfully')

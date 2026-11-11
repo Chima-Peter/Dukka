@@ -167,6 +167,25 @@ export class PromotionsService {
         }
     }
 
+    async findOneDiscount(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<DiscountSummary> {
+        try {
+            this.logger.log(`Fetching discount ${id}`);
+            assertActorHasGlobalScope(actor);
+            const discount =
+                await this.promotionsRepository.findDiscountDetailById(id);
+            if (!discount) {
+                throw new NotFoundException('Discount not found');
+            }
+            this.logger.log(`Fetched discount ${id}`);
+            return discount;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async addMarket(
         promotionId: string,
         data: AddPromotionMarketDto,
@@ -219,13 +238,17 @@ export class PromotionsService {
         id: string,
         data: UpdatePromotionDto,
         actor: ScopedAccessActor,
-    ): Promise<PromotionView> {
+    ): Promise<PromotionDetailView> {
         try {
             this.logger.log(`Updating promotion ${id}`);
             assertActorHasGlobalScope(actor);
-            const promotion = await this.promotionsRepository.update(id, data);
+            await this.promotionsRepository.update(id, data);
+            const promotion = await this.promotionsRepository.findById(id);
+            if (!promotion) {
+                throw new NotFoundException('Promotion not found');
+            }
             this.logger.log(`Promotion updated ${id}`);
-            return toPromotionView(promotion);
+            return toPromotionDetail(promotion);
         } catch (error) {
             this.handleError(error);
         }

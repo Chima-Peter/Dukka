@@ -12,11 +12,14 @@ import {
 } from '@app/common';
 import type { FindInventoryDto } from './dto/find-inventory.dto.js';
 import {
+    inventoryDetailSelect,
     inventoryRowSelect,
+    toInventoryDetail,
     toInventoryItem,
 } from './mappers/inventory.mapper.js';
 import type {
     CreateInventoryRecord,
+    InventoryDetail,
     InventoryItem,
     ReserveInventoryItem,
     ReserveInventoryResult,
@@ -27,7 +30,7 @@ import type {
 export class InventoryRepository {
     constructor(private readonly prisma: PrismaService) {}
 
-    async create(data: CreateInventoryRecord): Promise<InventoryItem> {
+    async create(data: CreateInventoryRecord): Promise<InventoryDetail> {
         const row = await this.prisma.inventory.create({
             data: {
                 market_variant: {
@@ -38,9 +41,17 @@ export class InventoryRepository {
                 },
                 available_quantity: data.available_quantity,
             },
-            select: inventoryRowSelect,
+            select: inventoryDetailSelect,
         });
-        return toInventoryItem(row);
+        return toInventoryDetail(row);
+    }
+
+    async findById(id: string): Promise<InventoryDetail | null> {
+        const row = await this.prisma.inventory.findUnique({
+            where: { id },
+            select: inventoryDetailSelect,
+        });
+        return row ? toInventoryDetail(row) : null;
     }
 
     async updateStock(

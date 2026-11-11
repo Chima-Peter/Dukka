@@ -60,6 +60,16 @@ export class CouponsController {
         return this.couponsService.findUsages(query, staff.market_ids);
     }
 
+    @Get(':id')
+    @RequirePermission(StaffPermission.CouponsRead)
+    @ResponseMessage('Coupon retrieved successfully')
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.couponsService.findOne(id, toScopedAccessActor(staff));
+    }
+
     @Patch(':id')
     @RequirePermission(StaffPermission.CouponsManage)
     @ResponseMessage('Coupon updated successfully')

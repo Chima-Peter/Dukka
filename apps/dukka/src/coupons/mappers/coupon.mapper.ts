@@ -13,6 +13,11 @@ export type CouponView = {
     updated_at: Date;
 };
 
+export type CouponDetailView = CouponView & {
+    usage_count: number;
+    usages: CouponUsagePage;
+};
+
 export type CouponUsageView = {
     id: string;
     coupon_code: string;
@@ -38,6 +43,24 @@ export function toCouponView(coupon: Coupon): CouponView {
         expires_at: coupon.expires_at,
         created_at: coupon.created_at,
         updated_at: coupon.updated_at,
+    };
+}
+
+export function toCouponDetailView(input: {
+    coupon: Coupon;
+    usage_count: number;
+    usages: {
+        items: CouponUsageRow[];
+        next_cursor: string | null;
+    };
+}): CouponDetailView {
+    return {
+        ...toCouponView(input.coupon),
+        usage_count: input.usage_count,
+        usages: {
+            items: input.usages.items.map(toCouponUsageView),
+            next_cursor: input.usages.next_cursor,
+        },
     };
 }
 

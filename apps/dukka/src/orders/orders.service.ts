@@ -227,6 +227,33 @@ export class OrdersService {
         }
     }
 
+    async findOneForStaffByOrderNumber(
+        orderNumber: string,
+        marketId: string,
+        staffMarketIds: string[],
+    ): Promise<StaffOrderDetail> {
+        try {
+            this.logger.log(
+                `Fetching staff order ${orderNumber} for market ${marketId}`,
+            );
+            assertActorBelongsToMarkets(staffMarketIds, [marketId]);
+            const order =
+                await this.ordersRepository.findOneForStaffByOrderNumber(
+                    orderNumber,
+                    marketId,
+                );
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
+            this.logger.log(
+                `Fetched staff order ${orderNumber} for market ${marketId}`,
+            );
+            return toStaffOrderDetail(order);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async cancelForCustomer(
         customerId: string,
         orderId: string,

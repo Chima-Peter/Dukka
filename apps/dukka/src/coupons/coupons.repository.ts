@@ -118,6 +118,39 @@ export class CouponsRepository {
         });
     }
 
+    async findByIdWithUsageCount(id: string): Promise<{
+        coupon: Coupon;
+        usage_count: number;
+        usages: CouponUsageRowPage;
+    } | null> {
+        const limit = 20;
+        const record = await this.prisma.coupon.findUnique({
+            where: { id },
+            include: {
+                _count: { select: { coupon_usages: true } },
+                coupon_usages: {
+                    select: couponUsageSelect,
+                    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+                    take: limit + 1,
+                },
+            },
+        });
+        if (!record) {
+            return null;
+        }
+        const { _count, coupon_usages, ...coupon } = record;
+        const hasMore = coupon_usages.length > limit;
+        const items = hasMore ? coupon_usages.slice(0, limit) : coupon_usages;
+        return {
+            coupon,
+            usage_count: _count.coupon_usages,
+            usages: {
+                items,
+                next_cursor: hasMore ? items[items.length - 1]!.id : null,
+            },
+        };
+    }
+
     async findStatus(
         id: string,
     ): Promise<{ id: string; status: CouponStatus } | null> {

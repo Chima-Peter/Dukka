@@ -22,8 +22,10 @@ import {
 } from '../shared/access-control.js';
 import { CouponsRepository } from './coupons.repository.js';
 import {
+    toCouponDetailView,
     toCouponUsageView,
     toCouponView,
+    type CouponDetailView,
     type CouponUsagePage,
     type CouponView,
 } from './mappers/coupon.mapper.js';
@@ -63,6 +65,25 @@ export class CouponsService {
             const coupons = await this.couponsRepository.findAll(query);
             this.logger.log('Fetched coupons');
             return coupons;
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async findOne(
+        id: string,
+        actor: ScopedAccessActor,
+    ): Promise<CouponDetailView> {
+        try {
+            this.logger.log(`Fetching coupon ${id}`);
+            assertActorHasGlobalScope(actor);
+            const coupon =
+                await this.couponsRepository.findByIdWithUsageCount(id);
+            if (!coupon) {
+                throw new NotFoundException('Coupon not found');
+            }
+            this.logger.log(`Fetched coupon ${id}`);
+            return toCouponDetailView(coupon);
         } catch (error) {
             this.handleError(error);
         }

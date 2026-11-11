@@ -173,6 +173,19 @@ export class OrdersRepository {
         });
     }
 
+    async findOneForStaffByOrderNumber(
+        orderNumber: string,
+        marketId: string,
+    ): Promise<StaffOrderDetailRow | null> {
+        return await this.prisma.order.findFirst({
+            where: {
+                order_number: orderNumber,
+                market_id: marketId,
+            },
+            select: staffOrderDetailSelect,
+        });
+    }
+
     async transitionStatus(
         data: TransitionOrderStatusInput,
         tx?: Prisma.TransactionClient,

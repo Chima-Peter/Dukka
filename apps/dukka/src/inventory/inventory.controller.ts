@@ -133,4 +133,13 @@ export class InventoryController {
             query,
         );
     }
+
+    @Get(':id')
+    @ResponseMessage('Inventory retrieved successfully')
+    findOne(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+    ) {
+        return this.inventoryService.findOne(id, toScopedAccessActor(staff));
+    }
 }
