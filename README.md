@@ -48,7 +48,7 @@ Create a root `.env`. Required variables for the API (`apps/dukka`):
 | Variable | Notes |
 | --- | --- |
 | `NODE_ENV` | `development` \| `production` \| `test` |
-| `DUKKA_PORT` | API port (default `3000`) |
+| `DUKKA_PORT` | API port (default `8000`) |
 | `DATABASE_URL` | Prisma / app Postgres URL |
 | `DIRECT_URL` | Direct Postgres URL (migrations) |
 | `REDIS_URL` | e.g. `redis://127.0.0.1:6379` |
@@ -60,7 +60,6 @@ Create a root `.env`. Required variables for the API (`apps/dukka`):
 | `PAYSTACK_SECRET_KEY` / `PAYSTACK_PUBLIC_KEY` / `PAYSTACK_BASE_URL` | Payments |
 | `REST_COUNTRIES_API_KEY` | Countries lookup |
 | `OBSERVE_SERVICE_NAME` / `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` | NestJS Observe |
-| `POSTGRES_PORT` / `RABBITMQ_PORT` / `KAFKA_PORT` | Required by config validation |
 
 **Mail worker** also needs: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, optional `SMTP_USER` / `SMTP_PASS`.
 

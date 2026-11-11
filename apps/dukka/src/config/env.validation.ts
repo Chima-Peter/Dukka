@@ -4,15 +4,12 @@ export const envValidationSchema = Joi.object({
     NODE_ENV: Joi.string()
         .valid('development', 'production', 'test')
         .default('development'),
-    DUKKA_PORT: Joi.number().port().default(3000),
+    DUKKA_PORT: Joi.number().port().default(8000),
     DATABASE_URL: Joi.string().required(),
     DIRECT_URL: Joi.string().required(),
     OBSERVE_SERVICE_NAME: Joi.string().required(),
     OBSERVE_APP_KEY: Joi.string().required(),
     OBSERVE_APP_SECRET: Joi.string().required(),
-    POSTGRES_PORT: Joi.number().port().required(),
-    RABBITMQ_PORT: Joi.number().port().required(),
-    KAFKA_PORT: Joi.number().port().required(),
     JWT_PRIVATE_KEY_PATH: Joi.string().required(),
     JWT_PUBLIC_KEY_PATH: Joi.string().required(),
     STAFF_JWT_PRIVATE_KEY_PATH: Joi.string().required(),

@@ -6,9 +6,6 @@ export interface ConfigType {
     OBSERVE_SERVICE_NAME: string;
     OBSERVE_APP_KEY: string;
     OBSERVE_APP_SECRET: string;
-    POSTGRES_PORT: number;
-    RABBITMQ_PORT: number;
-    KAFKA_PORT: number;
     JWT_PRIVATE_KEY_PATH: string;
     JWT_PUBLIC_KEY_PATH: string;
     STAFF_JWT_PRIVATE_KEY_PATH: string;
