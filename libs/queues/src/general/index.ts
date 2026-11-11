@@ -1,5 +1,6 @@
 export { GeneralQueueService } from './general-queue.service.js';
 export type {
+    CancelOrderJobActor,
     CancelOrderJobPayload,
     CustomerAccountDeletedJobPayload,
     EnqueueGeneralJobInput,

@@ -134,7 +134,13 @@ export class CustomerAccountDeletedService {
             this.logger.log(
                 `Cancelling pending order ${order.order_number} for ${customer_id} before account deletion`,
             );
-            await this.cancelOrderService.process({ order_id: order.id });
+            await this.cancelOrderService.process({
+                order_id: order.id,
+                actor: {
+                    type: 'system',
+                    source: 'account_deletion',
+                },
+            });
         }
 
         const customer = await this.prisma.customer.findUnique({

@@ -78,6 +78,9 @@ export class OrdersController {
         @CurrentCustomer() customer: CustomerJwtPayload,
         @Param('id', ParseUUIDPipe) id: string,
     ) {
-        return this.ordersService.cancelForCustomer(customer.sub, id);
+        return this.ordersService.cancelForCustomer(customer.sub, id, {
+            id: customer.sub,
+            name: customer.name,
+        });
     }
 }

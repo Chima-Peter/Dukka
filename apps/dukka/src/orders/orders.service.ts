@@ -226,6 +226,7 @@ export class OrdersService {
     async cancelForCustomer(
         customerId: string,
         orderId: string,
+        customer: { id: string; name: string },
     ): Promise<TransitionedOrder> {
         try {
             this.logger.log(
@@ -269,7 +270,15 @@ export class OrdersService {
 
             await this.generalQueueService.enqueue(
                 GENERAL_JOBS.CANCEL_ORDER,
-                { order_id: orderId },
+                {
+                    order_id: orderId,
+                    actor: {
+                        type: 'customer',
+                        id: customer.id,
+                        name: customer.name,
+                        source: 'customer_cancel',
+                    },
+                },
                 { jobId: `cancel-order-${orderId}` },
             );
 

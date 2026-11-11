@@ -1,10 +1,13 @@
 import type {
     OrderPaymentAttemptStatus,
+    OrderRefundAuditAction,
+    OrderRefundAuditActorType,
     OrderRefundStatus,
     Prisma,
 } from '@app/common';
 import type {
     marketPaymentMethodSelect,
+    orderRefundAuditSelect,
     orderRefundDetailSelect,
     orderRefundSummarySelect,
     paymentAttemptDetailSelect,
@@ -46,6 +49,48 @@ export type OrderRefundDetail = Prisma.OrderRefundGetPayload<{
     select: typeof orderRefundDetailSelect;
 }>;
 
+export type OrderRefundAuditDetail = Prisma.OrderRefundAuditGetPayload<{
+    select: typeof orderRefundAuditSelect;
+}>;
+
+export type OrderRefundActorMetadata = {
+    actor: {
+        type: 'staff' | 'customer' | 'system';
+        id?: string;
+        name?: string;
+        role_id?: string | null;
+        role_name?: string | null;
+        source:
+            | 'staff_retry'
+            | 'staff_retry_with_customer_details'
+            | 'customer_cancel'
+            | 'inventory_blocked'
+            | 'account_deletion'
+            | 'cancel_order';
+    };
+};
+
+export type CreateOrderRefundAuditInput = {
+    action: OrderRefundAuditAction;
+    order_id: string;
+    order_refund_id: string;
+    actor_type: OrderRefundAuditActorType;
+    performed_by_name: string;
+    performed_by_id?: string | null;
+    new_status?: OrderRefundStatus | null;
+    provider_refund_id?: string | null;
+    amount?: Prisma.Decimal | number | string | null;
+    currency?: string | null;
+    detail?: Prisma.InputJsonValue | null;
+};
+
+export type NestedOrderRefundAuditInput = Omit<
+    CreateOrderRefundAuditInput,
+    'order_refund_id' | 'order_id'
+> & {
+    order_id?: string;
+};
+
 export type MarkRefundStatusInput = {
     id: string;
     status: Extract<
@@ -56,17 +101,8 @@ export type MarkRefundStatusInput = {
         Extract<OrderRefundStatus, 'PENDING' | 'NEEDS_ATTENTION'>
     >;
     refunded_at?: Date | null;
-};
-
-export type OrderRefundActorMetadata = {
-    actor: {
-        type: 'staff' | 'system';
-        id?: string;
-        name?: string;
-        role_id?: string | null;
-        role_name?: string | null;
-        source: 'staff_retry' | 'cancel_order';
-    };
+    metadata?: OrderRefundActorMetadata | Prisma.InputJsonValue | null;
+    audit?: NestedOrderRefundAuditInput;
 };
 
 export type CreateOrderRefundInput = {
@@ -80,6 +116,13 @@ export type CreateOrderRefundInput = {
     merchant_note?: string | null;
     provider_refund_id?: string | null;
     metadata?: OrderRefundActorMetadata | Prisma.InputJsonValue | null;
+    audit?: NestedOrderRefundAuditInput;
+};
+
+export type AttachProviderRefundIdInput = {
+    id: string;
+    provider_refund_id: string;
+    audit?: NestedOrderRefundAuditInput;
 };
 
 export type StaffRetryRefundResult = {

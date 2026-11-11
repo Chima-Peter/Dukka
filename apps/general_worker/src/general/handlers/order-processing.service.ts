@@ -161,7 +161,13 @@ export class OrderProcessingService {
     private async enqueueCancelForRefund(orderId: string): Promise<void> {
         await this.generalQueueService.enqueue(
             GENERAL_JOBS.CANCEL_ORDER,
-            { order_id: orderId },
+            {
+                order_id: orderId,
+                actor: {
+                    type: 'system',
+                    source: 'inventory_blocked',
+                },
+            },
             { jobId: `cancel-order-inventory-blocked-${orderId}` },
         );
     }

@@ -15,6 +15,8 @@ import {
     NotificationPublisher,
     NotificationType,
     OrderPaymentAttemptStatus,
+    OrderRefundAuditAction,
+    OrderRefundAuditActorType,
     OrderRefundStatus,
     OrderStatus,
     Prisma,
@@ -439,6 +441,16 @@ export class PaymentsService {
                     id: refund.id,
                     status: OrderRefundStatus.NEEDS_ATTENTION,
                     from_statuses: [OrderRefundStatus.PENDING],
+                    audit: {
+                        action: OrderRefundAuditAction.REFUND_NEEDS_ATTENTION,
+                        actor_type: OrderRefundAuditActorType.PROVIDER,
+                        performed_by_name: 'paystack',
+                        new_status: OrderRefundStatus.NEEDS_ATTENTION,
+                        provider_refund_id: refund.provider_refund_id,
+                        amount: refund.amount,
+                        currency: refund.currency,
+                        detail: { webhook_event: event.event },
+                    },
                 });
 
             if (updated) {
@@ -485,6 +497,19 @@ export class PaymentsService {
             ],
             refunded_at:
                 nextStatus === OrderRefundStatus.PROCESSED ? new Date() : null,
+            audit: {
+                action:
+                    nextStatus === OrderRefundStatus.PROCESSED
+                        ? OrderRefundAuditAction.REFUND_PROCESSED
+                        : OrderRefundAuditAction.REFUND_FAILED,
+                actor_type: OrderRefundAuditActorType.PROVIDER,
+                performed_by_name: 'paystack',
+                new_status: nextStatus,
+                provider_refund_id: refund.provider_refund_id,
+                amount: refund.amount,
+                currency: refund.currency,
+                detail: { webhook_event: event.event },
+            },
         });
 
         if (!updated) {
@@ -545,7 +570,11 @@ export class PaymentsService {
         }
 
         const typed = actor as Partial<OrderRefundActorMetadata['actor']>;
-        if (typed.type !== 'staff' && typed.type !== 'system') {
+        if (
+            typed.type !== 'staff' &&
+            typed.type !== 'system' &&
+            typed.type !== 'customer'
+        ) {
             return null;
         }
 
@@ -626,10 +655,16 @@ export class PaymentsService {
         refundId: string,
         data: RetryRefundWithCustomerDetailsDto,
         actor: ScopedAccessActor,
+        staff: {
+            id: string;
+            name: string;
+            role_id: string | null;
+            role_name: string | null;
+        },
     ): Promise<StaffRetryRefundResult> {
         try {
             this.logger.log(
-                `Retrying OrderRefund ${refundId} with customer bank details`,
+                `Staff ${staff.id} retrying OrderRefund ${refundId} with customer bank details`,
             );
 
             const [refund] = await Promise.all([
@@ -694,6 +729,31 @@ export class PaymentsService {
                     id: refund.id,
                     status: OrderRefundStatus.PENDING,
                     from_statuses: [OrderRefundStatus.NEEDS_ATTENTION],
+                    metadata: {
+                        actor: {
+                            type: 'staff',
+                            id: staff.id,
+                            name: staff.name,
+                            role_id: staff.role_id,
+                            role_name: staff.role_name,
+                            source: 'staff_retry_with_customer_details',
+                        },
+                    },
+                    audit: {
+                        action: OrderRefundAuditAction.REFUND_RETRY_WITH_CUSTOMER_DETAILS,
+                        actor_type: OrderRefundAuditActorType.STAFF,
+                        performed_by_id: staff.id,
+                        performed_by_name: staff.name,
+                        new_status: OrderRefundStatus.PENDING,
+                        provider_refund_id: refund.provider_refund_id,
+                        amount: refund.amount,
+                        currency: refund.currency,
+                        detail: {
+                            source: 'staff_retry_with_customer_details',
+                            role_id: staff.role_id,
+                            role_name: staff.role_name,
+                        },
+                    },
                 })) ?? refund;
 
             this.logger.log(
@@ -799,6 +859,20 @@ export class PaymentsService {
                         source: 'staff_retry',
                     },
                 },
+                audit: {
+                    action: OrderRefundAuditAction.REFUND_CREATED,
+                    actor_type: OrderRefundAuditActorType.STAFF,
+                    performed_by_id: staff.id,
+                    performed_by_name: staff.name,
+                    new_status: OrderRefundStatus.PENDING,
+                    amount: template.amount,
+                    currency: template.currency,
+                    detail: {
+                        source: 'staff_retry',
+                        role_id: staff.role_id,
+                        role_name: staff.role_name,
+                    },
+                },
             });
 
             let paystackRefund;
@@ -819,6 +893,20 @@ export class PaymentsService {
                     await this.paymentsRepository.markRefundStatusIfPending({
                         id: created.id,
                         status: OrderRefundStatus.FAILED,
+                        audit: {
+                            action: OrderRefundAuditAction.REFUND_FAILED,
+                            actor_type: OrderRefundAuditActorType.STAFF,
+                            performed_by_id: staff.id,
+                            performed_by_name: staff.name,
+                            new_status: OrderRefundStatus.FAILED,
+                            amount: created.amount,
+                            currency: created.currency,
+                            detail: {
+                                source: 'staff_retry',
+                                role_id: staff.role_id,
+                                role_name: staff.role_name,
+                            },
+                        },
                     });
                 if (failed) {
                     await this.notifyRefund(failed, OrderRefundStatus.FAILED, {
@@ -834,8 +922,25 @@ export class PaymentsService {
             }
 
             const updated = await this.paymentsRepository.attachProviderRefundId(
-                created.id,
-                String(paystackRefund.id),
+                {
+                    id: created.id,
+                    provider_refund_id: String(paystackRefund.id),
+                    audit: {
+                        action: OrderRefundAuditAction.REFUND_PROVIDER_SUBMITTED,
+                        actor_type: OrderRefundAuditActorType.STAFF,
+                        performed_by_id: staff.id,
+                        performed_by_name: staff.name,
+                        new_status: OrderRefundStatus.PENDING,
+                        amount: created.amount,
+                        currency: created.currency,
+                        detail: {
+                            source: 'staff_retry',
+                            role_id: staff.role_id,
+                            role_name: staff.role_name,
+                            provider_status: paystackRefund.status,
+                        },
+                    },
+                },
             );
 
             this.logger.log(

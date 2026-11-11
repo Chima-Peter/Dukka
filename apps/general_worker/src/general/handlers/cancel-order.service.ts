@@ -4,6 +4,8 @@ import {
     NotificationType,
     OrderInventoryStatus,
     OrderPaymentAttemptStatus,
+    OrderRefundAuditAction,
+    OrderRefundAuditActorType,
     OrderRefundStatus,
     OrderStatus,
     Prisma,
@@ -13,6 +15,7 @@ import {
 import {
     MAIL_TEMPLATES,
     MailQueueService,
+    type CancelOrderJobActor,
     type CancelOrderJobPayload,
 } from '@app/queues';
 import { PaystackService } from '../../paystack/index.js';
@@ -213,7 +216,10 @@ export class CancelOrderService {
         let refundFailed = false;
         if (result.is_paystack) {
             try {
-                const refund = await this.issuePaystackRefundIfNeeded(result);
+                const refund = await this.issuePaystackRefundIfNeeded(
+                    result,
+                    payload.actor,
+                );
                 refundPending = refund === 'issued' || refund === 'pending';
             } catch (error) {
                 refundFailed = true;
@@ -233,16 +239,71 @@ export class CancelOrderService {
         }
     }
 
-    private async issuePaystackRefundIfNeeded(input: {
-        id: string;
-        order_number: string;
-        is_paystack: boolean;
-        currency: string;
-        total_amount: Prisma.Decimal;
-        payment_attempt_id: string | null;
-        payment_intent_id: string | null;
-        payment_status: OrderPaymentAttemptStatus | null;
-    }): Promise<'issued' | 'pending' | 'processed' | 'not_needed'> {
+    private resolveCancelRefundActor(actor?: CancelOrderJobActor): {
+        metadataActor: {
+            type: 'customer' | 'system';
+            id?: string;
+            name?: string;
+            source:
+                | 'customer_cancel'
+                | 'inventory_blocked'
+                | 'account_deletion'
+                | 'cancel_order';
+        };
+        auditActorType: OrderRefundAuditActorType;
+        performedById: string | null;
+        performedByName: string;
+    } {
+        if (actor?.type === 'customer') {
+            return {
+                metadataActor: {
+                    type: 'customer',
+                    ...(actor.id !== undefined && { id: actor.id }),
+                    ...(actor.name !== undefined && { name: actor.name }),
+                    source: actor.source,
+                },
+                auditActorType: OrderRefundAuditActorType.CUSTOMER,
+                performedById: actor.id ?? null,
+                performedByName: actor.name?.trim() || 'customer',
+            };
+        }
+
+        if (actor?.type === 'system') {
+            return {
+                metadataActor: {
+                    type: 'system',
+                    source: actor.source,
+                },
+                auditActorType: OrderRefundAuditActorType.SYSTEM,
+                performedById: null,
+                performedByName: 'system',
+            };
+        }
+
+        return {
+            metadataActor: {
+                type: 'system',
+                source: 'cancel_order',
+            },
+            auditActorType: OrderRefundAuditActorType.SYSTEM,
+            performedById: null,
+            performedByName: 'system',
+        };
+    }
+
+    private async issuePaystackRefundIfNeeded(
+        input: {
+            id: string;
+            order_number: string;
+            is_paystack: boolean;
+            currency: string;
+            total_amount: Prisma.Decimal;
+            payment_attempt_id: string | null;
+            payment_intent_id: string | null;
+            payment_status: OrderPaymentAttemptStatus | null;
+        },
+        payloadActor?: CancelOrderJobActor,
+    ): Promise<'issued' | 'pending' | 'processed' | 'not_needed'> {
         if (!input.is_paystack) {
             return 'not_needed';
         }
@@ -260,6 +321,7 @@ export class CancelOrderService {
         const transaction = input.payment_intent_id;
         const customerNote = `Refund for cancelled order #${input.order_number}`;
         const merchantNote = `Order #${input.order_number} cancelled`;
+        const refundActor = this.resolveCancelRefundActor(payloadActor);
 
         const [verified, localRefunds, paystackRefunds] = await Promise.all([
             this.paystackService.verifyTransaction(transaction),
@@ -338,14 +400,26 @@ export class CancelOrderService {
                 customer_note: customerNote,
                 merchant_note: merchantNote,
                 metadata: {
-                    actor: {
-                        type: 'system',
-                        source: 'cancel_order',
-                    },
+                    actor: refundActor.metadataActor,
                 },
                 ...(input.payment_attempt_id
                     ? { order_payment_attempt_id: input.payment_attempt_id }
                     : {}),
+                audits: {
+                    create: {
+                        action: OrderRefundAuditAction.REFUND_CREATED,
+                        order_id: input.id,
+                        actor_type: refundActor.auditActorType,
+                        performed_by_id: refundActor.performedById,
+                        performed_by_name: refundActor.performedByName,
+                        new_status: OrderRefundStatus.PENDING,
+                        amount: input.total_amount,
+                        currency: input.currency,
+                        detail: {
+                            source: refundActor.metadataActor.source,
+                        },
+                    },
+                },
             },
             select: { id: true },
         });
@@ -359,9 +433,29 @@ export class CancelOrderService {
                 customer_note: customerNote,
             });
 
+            const providerRefundId = String(created.id);
             await this.prisma.orderRefund.update({
                 where: { id: createdLocal.id },
-                data: { provider_refund_id: String(created.id) },
+                data: {
+                    provider_refund_id: providerRefundId,
+                    audits: {
+                        create: {
+                            action: OrderRefundAuditAction.REFUND_PROVIDER_SUBMITTED,
+                            order_id: input.id,
+                            actor_type: refundActor.auditActorType,
+                            performed_by_id: refundActor.performedById,
+                            performed_by_name: refundActor.performedByName,
+                            new_status: OrderRefundStatus.PENDING,
+                            provider_refund_id: providerRefundId,
+                            amount: input.total_amount,
+                            currency: input.currency,
+                            detail: {
+                                source: refundActor.metadataActor.source,
+                                provider_status: created.status,
+                            },
+                        },
+                    },
+                },
             });
 
             this.logger.log(
@@ -374,12 +468,32 @@ export class CancelOrderService {
             }
             return 'issued';
         } catch (error) {
-            await this.prisma.orderRefund.updateMany({
-                where: {
-                    id: createdLocal.id,
-                    status: OrderRefundStatus.PENDING,
-                },
-                data: { status: OrderRefundStatus.FAILED },
+            await this.prisma.$transaction(async (tx) => {
+                const updated = await tx.orderRefund.updateMany({
+                    where: {
+                        id: createdLocal.id,
+                        status: OrderRefundStatus.PENDING,
+                    },
+                    data: { status: OrderRefundStatus.FAILED },
+                });
+                if (updated.count > 0) {
+                    await tx.orderRefundAudit.create({
+                        data: {
+                            action: OrderRefundAuditAction.REFUND_FAILED,
+                            order_id: input.id,
+                            order_refund_id: createdLocal.id,
+                            actor_type: refundActor.auditActorType,
+                            performed_by_id: refundActor.performedById,
+                            performed_by_name: refundActor.performedByName,
+                            new_status: OrderRefundStatus.FAILED,
+                            amount: input.total_amount,
+                            currency: input.currency,
+                            detail: {
+                                source: refundActor.metadataActor.source,
+                            },
+                        },
+                    });
+                }
             });
             this.logger.error(
                 `Paystack refund create failed for OrderRefund ${createdLocal.id} order ${input.id}: ${error}`,

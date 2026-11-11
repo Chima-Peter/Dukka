@@ -956,6 +956,8 @@ model OrderRefund {
   order_payment_attempt_id String?
   order_payment_attempt    OrderPaymentAttempt? @relation(fields: [order_payment_attempt_id], references: [id], onDelete: SetNull)
 
+  audits OrderRefundAudit[]
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -964,6 +966,49 @@ model OrderRefund {
   @@index([status])
   @@index([payment_reference])
   @@index([provider])
+}
+
+enum OrderRefundAuditAction {
+  REFUND_CREATED
+  REFUND_PROVIDER_SUBMITTED
+  REFUND_RETRY_WITH_CUSTOMER_DETAILS
+  REFUND_NEEDS_ATTENTION
+  REFUND_PROCESSED
+  REFUND_FAILED
+}
+
+enum OrderRefundAuditActorType {
+  STAFF
+  CUSTOMER
+  SYSTEM
+  PROVIDER
+}
+
+model OrderRefundAudit {
+  id         String                 @id @default(uuid())
+  action     OrderRefundAuditAction
+  created_at DateTime               @default(now())
+
+  order_id        String
+  order_refund_id String
+  order_refund    OrderRefund @relation(fields: [order_refund_id], references: [id], onDelete: Cascade)
+
+  actor_type         OrderRefundAuditActorType
+  performed_by_id    String?
+  performed_by_name  String
+
+  new_status OrderRefundStatus?
+
+  provider_refund_id String?
+  amount             Decimal? @db.Decimal(12, 2)
+  currency           String?
+
+  detail Json?
+
+  @@index([order_refund_id])
+  @@index([order_id])
+  @@index([created_at])
+  @@map("order_refund_audit")
 }
 
 model Reviews {

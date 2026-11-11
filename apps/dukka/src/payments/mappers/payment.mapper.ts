@@ -131,6 +131,22 @@ export const orderRefundSummarySelect = {
     },
 } satisfies Prisma.OrderRefundSelect;
 
+export const orderRefundAuditSelect = {
+    id: true,
+    action: true,
+    created_at: true,
+    order_id: true,
+    order_refund_id: true,
+    actor_type: true,
+    performed_by_id: true,
+    performed_by_name: true,
+    new_status: true,
+    provider_refund_id: true,
+    amount: true,
+    currency: true,
+    detail: true,
+} satisfies Prisma.OrderRefundAuditSelect;
+
 export const orderRefundDetailSelect = {
     id: true,
     amount: true,
@@ -147,6 +163,10 @@ export const orderRefundDetailSelect = {
     order_payment_attempt_id: true,
     created_at: true,
     updated_at: true,
+    audits: {
+        select: orderRefundAuditSelect,
+        orderBy: { created_at: 'asc' as const },
+    },
     order: {
         select: {
             id: true,

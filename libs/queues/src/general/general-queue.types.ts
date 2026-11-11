@@ -10,8 +10,16 @@ export type ExpiredReservationsJobPayload = {
     order_inventory_id: string;
 };
 
+export type CancelOrderJobActor = {
+    type: 'customer' | 'system';
+    id?: string;
+    name?: string;
+    source: 'customer_cancel' | 'inventory_blocked' | 'account_deletion';
+};
+
 export type CancelOrderJobPayload = {
     order_id: string;
+    actor?: CancelOrderJobActor;
 };
 
 export type OrderProcessingJobPayload = {

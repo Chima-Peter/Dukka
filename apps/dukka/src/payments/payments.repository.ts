@@ -15,6 +15,7 @@ import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js'
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import {
     marketPaymentMethodSelect,
+    orderRefundAuditSelect,
     orderRefundDetailSelect,
     orderRefundSummarySelect,
     paymentAttemptDetailSelect,
@@ -22,11 +23,15 @@ import {
     paymentMethodDetailSelect,
 } from './mappers/payment.mapper.js';
 import type {
+    AttachProviderRefundIdInput,
     ConvertCashAttemptToPaystackInput,
+    CreateOrderRefundAuditInput,
     CreateOrderRefundInput,
     CreatePaymentAttemptInput,
     MarkRefundStatusInput,
     MarketPaymentMethodDetail,
+    NestedOrderRefundAuditInput,
+    OrderRefundAuditDetail,
     OrderRefundDetail,
     OrderRefundPage,
     PaymentAttemptDetail,
@@ -374,18 +379,45 @@ export class PaymentsRepository {
                             ? Prisma.JsonNull
                             : input.metadata,
                 }),
+                ...(input.audit !== undefined && {
+                    audits: {
+                        create: this.toNestedAuditCreate(
+                            input.audit,
+                            input.order_id,
+                        ),
+                    },
+                }),
             },
             select: orderRefundDetailSelect,
         });
     }
 
     async attachProviderRefundId(
-        id: string,
-        providerRefundId: string,
+        input: AttachProviderRefundIdInput,
     ): Promise<OrderRefundDetail> {
+        const existing = await this.prisma.orderRefund.findUniqueOrThrow({
+            where: { id: input.id },
+            select: { order_id: true },
+        });
+
         return await this.prisma.orderRefund.update({
-            where: { id },
-            data: { provider_refund_id: providerRefundId },
+            where: { id: input.id },
+            data: {
+                provider_refund_id: input.provider_refund_id,
+                ...(input.audit !== undefined && {
+                    audits: {
+                        create: this.toNestedAuditCreate(
+                            {
+                                ...input.audit,
+                                provider_refund_id:
+                                    input.audit.provider_refund_id ??
+                                    input.provider_refund_id,
+                            },
+                            existing.order_id,
+                        ),
+                    },
+                }),
+            },
             select: orderRefundDetailSelect,
         });
     }
@@ -396,21 +428,134 @@ export class PaymentsRepository {
         const fromStatuses = input.from_statuses ?? [
             OrderRefundStatus.PENDING,
         ];
-        const updated = await this.prisma.orderRefund.updateManyAndReturn({
-            where: {
-                id: input.id,
-                status: { in: fromStatuses },
-            },
-            data: {
-                status: input.status,
-                ...(input.refunded_at !== undefined && {
-                    refunded_at: input.refunded_at,
-                }),
-            },
-            select: orderRefundDetailSelect,
-        });
 
-        return updated[0] ?? null;
+        if (input.audit === undefined && input.metadata === undefined) {
+            const updated = await this.prisma.orderRefund.updateManyAndReturn({
+                where: {
+                    id: input.id,
+                    status: { in: fromStatuses },
+                },
+                data: {
+                    status: input.status,
+                    ...(input.refunded_at !== undefined && {
+                        refunded_at: input.refunded_at,
+                    }),
+                },
+                select: orderRefundDetailSelect,
+            });
+            return updated[0] ?? null;
+        }
+
+        return await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.orderRefund.updateManyAndReturn({
+                where: {
+                    id: input.id,
+                    status: { in: fromStatuses },
+                },
+                data: {
+                    status: input.status,
+                    ...(input.refunded_at !== undefined && {
+                        refunded_at: input.refunded_at,
+                    }),
+                    ...(input.metadata !== undefined && {
+                        metadata:
+                            input.metadata === null
+                                ? Prisma.JsonNull
+                                : input.metadata,
+                    }),
+                },
+                select: orderRefundDetailSelect,
+            });
+
+            const row = updated[0];
+            if (!row) {
+                return null;
+            }
+
+            if (input.audit !== undefined) {
+                await this.createRefundAudit(
+                    {
+                        ...input.audit,
+                        order_id: input.audit.order_id ?? row.order_id,
+                        order_refund_id: row.id,
+                    },
+                    tx,
+                );
+            }
+
+            return row;
+        });
+    }
+
+    async createRefundAudit(
+        input: CreateOrderRefundAuditInput,
+        tx?: Prisma.TransactionClient,
+    ): Promise<OrderRefundAuditDetail> {
+        const db = tx ?? this.prisma;
+        return await db.orderRefundAudit.create({
+            data: this.toAuditCreateData(input),
+            select: orderRefundAuditSelect,
+        });
+    }
+
+    private toNestedAuditCreate(
+        audit: NestedOrderRefundAuditInput,
+        orderId: string,
+    ): Prisma.OrderRefundAuditCreateWithoutOrder_refundInput {
+        return {
+            action: audit.action,
+            order_id: audit.order_id ?? orderId,
+            actor_type: audit.actor_type,
+            performed_by_name: audit.performed_by_name,
+            ...(audit.performed_by_id !== undefined && {
+                performed_by_id: audit.performed_by_id,
+            }),
+            ...(audit.new_status !== undefined && {
+                new_status: audit.new_status,
+            }),
+            ...(audit.provider_refund_id !== undefined && {
+                provider_refund_id: audit.provider_refund_id,
+            }),
+            ...(audit.amount !== undefined &&
+                audit.amount !== null && { amount: audit.amount }),
+            ...(audit.currency !== undefined && {
+                currency: audit.currency,
+            }),
+            ...(audit.detail !== undefined && {
+                detail:
+                    audit.detail === null ? Prisma.JsonNull : audit.detail,
+            }),
+        };
+    }
+
+    private toAuditCreateData(
+        input: CreateOrderRefundAuditInput,
+    ): Prisma.OrderRefundAuditUncheckedCreateInput {
+        return {
+            action: input.action,
+            order_id: input.order_id,
+            order_refund_id: input.order_refund_id,
+            actor_type: input.actor_type,
+            performed_by_name: input.performed_by_name,
+            ...(input.performed_by_id !== undefined && {
+                performed_by_id: input.performed_by_id,
+            }),
+            ...(input.new_status !== undefined && {
+                new_status: input.new_status,
+            }),
+            ...(input.provider_refund_id !== undefined && {
+                provider_refund_id: input.provider_refund_id,
+            }),
+            ...(input.amount !== undefined &&
+                input.amount !== null && { amount: input.amount }),
+            ...(input.currency !== undefined && {
+                currency: input.currency,
+            }),
+            ...(input.detail !== undefined && {
+                detail:
+                    input.detail === null ? Prisma.JsonNull : input.detail,
+            }),
+        };
     }
 
     private buildMethodWhere(

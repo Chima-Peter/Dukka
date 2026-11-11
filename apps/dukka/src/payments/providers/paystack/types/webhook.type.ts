@@ -1,8 +1,6 @@
 import { OrderRefundStatus } from '@app/common';
 
 export const PAYSTACK_REFUND_EVENT_NAMES = [
-    'refund.pending',
-    'refund.processing',
     'refund.needs-attention',
     'refund.processed',
     'refund.failed',

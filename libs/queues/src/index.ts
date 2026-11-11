@@ -19,6 +19,7 @@ export type {
 export { MailQueueService } from './mail/index.js';
 export {
     GeneralQueueService,
+    type CancelOrderJobActor,
     type CancelOrderJobPayload,
     type CustomerAccountDeletedJobPayload,
     type EnqueueGeneralJobInput,
