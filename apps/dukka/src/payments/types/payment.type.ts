@@ -6,52 +6,66 @@ import type {
     Prisma,
 } from '@app/common';
 import type {
-    marketPaymentMethodSelect,
-    orderRefundAuditSelect,
-    orderRefundDetailSelect,
-    orderRefundSummarySelect,
-    paymentAttemptDetailSelect,
-    paymentAttemptSummarySelect,
-    paymentMethodDetailSelect,
+    MarketPaymentMethodRow,
+    OrderRefundAuditView,
+    OrderRefundDetailRow,
+    OrderRefundDetailView,
+    OrderRefundSummaryRow,
+    OrderRefundSummaryView,
+    PaymentAttemptDetailRow,
+    PaymentAttemptSummaryRow,
+    PaymentAttemptSummaryView,
+    PaymentAttemptView,
+    PaymentMethodDetailRow,
+    PaymentMethodDetailView,
+    MarketPaymentMethodView,
 } from '../mappers/payment.mapper.js';
 
-export type MarketPaymentMethodDetail = Prisma.MarketPaymentMethodGetPayload<{
-    select: typeof marketPaymentMethodSelect;
-}>;
+/** @deprecated Prefer MarketPaymentMethodRow — kept as internal row alias. */
+export type MarketPaymentMethodDetail = MarketPaymentMethodRow;
+export type MarketPaymentMethodRowAlias = MarketPaymentMethodRow;
 
-export type PaymentMethodDetail = Prisma.PaymentMethodGetPayload<{
-    select: typeof paymentMethodDetailSelect;
-}>;
+/** @deprecated Prefer PaymentMethodDetailRow — kept as internal row alias. */
+export type PaymentMethodDetail = PaymentMethodDetailRow;
 
-export type PaymentAttemptSummary = Prisma.OrderPaymentAttemptGetPayload<{
-    select: typeof paymentAttemptSummarySelect;
-}>;
-
-export type PaymentAttemptDetail = Prisma.OrderPaymentAttemptGetPayload<{
-    select: typeof paymentAttemptDetailSelect;
-}>;
+/** Internal nested payment attempt used by business logic. */
+export type PaymentAttemptDetail = PaymentAttemptDetailRow;
+export type PaymentAttemptSummary = PaymentAttemptSummaryRow;
 
 export type PaymentAttemptPage = {
-    items: PaymentAttemptSummary[];
+    items: PaymentAttemptSummaryView[];
     next_cursor: string | null;
 };
 
-export type OrderRefundSummary = Prisma.OrderRefundGetPayload<{
-    select: typeof orderRefundSummarySelect;
-}>;
+export type PaymentAttemptRowPage = {
+    items: PaymentAttemptSummaryRow[];
+    next_cursor: string | null;
+};
+
+/** Internal nested refund used by business logic. */
+export type OrderRefundDetail = OrderRefundDetailRow;
+export type OrderRefundSummary = OrderRefundSummaryRow;
 
 export type OrderRefundPage = {
-    items: OrderRefundSummary[];
+    items: OrderRefundSummaryView[];
     next_cursor: string | null;
 };
 
-export type OrderRefundDetail = Prisma.OrderRefundGetPayload<{
-    select: typeof orderRefundDetailSelect;
-}>;
+export type OrderRefundRowPage = {
+    items: OrderRefundSummaryRow[];
+    next_cursor: string | null;
+};
 
-export type OrderRefundAuditDetail = Prisma.OrderRefundAuditGetPayload<{
-    select: typeof orderRefundAuditSelect;
-}>;
+export type OrderRefundAuditDetail = OrderRefundAuditView;
+
+export type {
+    MarketPaymentMethodView,
+    PaymentMethodDetailView,
+    PaymentAttemptSummaryView,
+    PaymentAttemptView,
+    OrderRefundSummaryView,
+    OrderRefundDetailView,
+};
 
 export type OrderRefundActorMetadata = {
     actor: {

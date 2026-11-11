@@ -33,9 +33,9 @@ import type {
     NestedOrderRefundAuditInput,
     OrderRefundAuditDetail,
     OrderRefundDetail,
-    OrderRefundPage,
+    OrderRefundRowPage,
     PaymentAttemptDetail,
-    PaymentAttemptPage,
+    PaymentAttemptRowPage,
     PaymentMethodDetail,
     UpdatePaymentIntentInput,
 } from './types/payment.type.js';
@@ -128,7 +128,7 @@ export class PaymentsRepository {
 
     async findAttempts(
         query: FindPaymentAttemptsDto,
-    ): Promise<PaymentAttemptPage> {
+    ): Promise<PaymentAttemptRowPage> {
         const limit = query.limit ?? 20;
         const where = this.buildAttemptWhere(query);
 
@@ -165,7 +165,7 @@ export class PaymentsRepository {
         });
     }
 
-    async findRefunds(query: FindOrderRefundsDto): Promise<OrderRefundPage> {
+    async findRefunds(query: FindOrderRefundsDto): Promise<OrderRefundRowPage> {
         const limit = query.limit ?? 20;
         const where = this.buildRefundWhere(query);
 

@@ -50,6 +50,16 @@ import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import type { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
 import type { RetryRefundWithCustomerDetailsDto } from './dto/retry-refund-with-customer-details.dto.js';
 import type { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
+import {
+    toMarketPaymentMethodView,
+    toOrderRefundDetailView,
+    toOrderRefundSummaryView,
+    toPaymentAttemptSummaryView,
+    toPaymentAttemptView,
+    toPaymentMethodDetailView,
+    toPaymentMethodView,
+    type PaymentMethodView,
+} from './mappers/payment.mapper.js';
 import { PaymentsRepository } from './payments.repository.js';
 import {
     PAYSTACK_REFUND_EVENTS,
@@ -63,13 +73,16 @@ import {
 import type {
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
+    MarketPaymentMethodView,
     OrderRefundActorMetadata,
     OrderRefundDetail,
+    OrderRefundDetailView,
     OrderRefundPage,
     PaymentAttemptDetail,
     PaymentAttemptPage,
+    PaymentAttemptView,
     PaymentErrorMessages,
-    PaymentMethodDetail,
+    PaymentMethodDetailView,
     StaffPaystackPayResult,
     StaffRetryRefundResult,
     UpdatePaymentIntentInput,
@@ -88,12 +101,12 @@ export class PaymentsService {
         private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
-    async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethod> {
+    async createMethod(data: CreatePaymentMethodDto): Promise<PaymentMethodView> {
         try {
             this.logger.log(`Creating payment method ${data.name}`);
             const method = await this.paymentsRepository.createMethod(data);
             this.logger.log(`Payment method created ${method.id}`);
-            return method;
+            return toPaymentMethodView(method);
         } catch (error) {
             this.handleError(error, {
                 conflict: 'A payment method with this name already exists',
@@ -102,7 +115,7 @@ export class PaymentsService {
         }
     }
 
-    async findMethods(query: FindPaymentMethodsDto): Promise<PaymentMethod[]> {
+    async findMethods(query: FindPaymentMethodsDto): Promise<PaymentMethodView[]> {
         try {
             this.logger.log('Fetching payment methods');
             if (
@@ -116,7 +129,7 @@ export class PaymentsService {
             }
             const methods = await this.paymentsRepository.findMethods(query);
             this.logger.log('Fetched payment methods');
-            return methods;
+            return methods.map(toPaymentMethodView);
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment method not found',
@@ -124,7 +137,7 @@ export class PaymentsService {
         }
     }
 
-    async findMethod(id: string): Promise<PaymentMethodDetail> {
+    async findMethod(id: string): Promise<PaymentMethodDetailView> {
         try {
             this.logger.log(`Fetching payment method ${id}`);
             const method =
@@ -133,7 +146,7 @@ export class PaymentsService {
                 throw new NotFoundException('Payment method not found');
             }
             this.logger.log(`Fetched payment method ${id}`);
-            return method;
+            return toPaymentMethodDetailView(method);
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment method not found',
@@ -167,7 +180,7 @@ export class PaymentsService {
         paymentMethodId: string,
         data: ApprovePaymentMethodDto,
         staffMarketIds: string[],
-    ): Promise<MarketPaymentMethodDetail> {
+    ): Promise<MarketPaymentMethodView> {
         try {
             this.logger.log(
                 `Approving payment method ${paymentMethodId} for market ${data.market_id}`,
@@ -182,7 +195,7 @@ export class PaymentsService {
             this.logger.log(
                 `Payment method ${paymentMethodId} approved for market ${data.market_id}`,
             );
-            return approved;
+            return toMarketPaymentMethodView(approved);
         } catch (error) {
             this.handleError(error, {
                 conflict:
@@ -1425,7 +1438,10 @@ export class PaymentsService {
             this.logger.log(
                 `Fetched payment attempts for market ${query.market_id}`,
             );
-            return page;
+            return {
+                items: page.items.map(toPaymentAttemptSummaryView),
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
@@ -1453,7 +1469,10 @@ export class PaymentsService {
             this.logger.log(
                 `Fetched order refunds for market ${query.market_id}`,
             );
-            return page;
+            return {
+                items: page.items.map(toOrderRefundSummaryView),
+                next_cursor: page.next_cursor,
+            };
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Order refund not found',
@@ -1465,7 +1484,7 @@ export class PaymentsService {
         id: string,
         query: FindOrderRefundDto,
         actor: ScopedAccessActor,
-    ): Promise<OrderRefundDetail> {
+    ): Promise<OrderRefundDetailView> {
         try {
             this.logger.log(`Fetching order refund ${id}`);
             const refund = await this.paymentsRepository.findRefundDetailById(
@@ -1482,7 +1501,7 @@ export class PaymentsService {
             });
 
             this.logger.log(`Fetched order refund ${id}`);
-            return refund;
+            return toOrderRefundDetailView(refund);
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Order refund not found',
@@ -1506,7 +1525,7 @@ export class PaymentsService {
         id: string,
         marketId: string,
         staffMarketIds: string[],
-    ): Promise<PaymentAttemptDetail> {
+    ): Promise<PaymentAttemptView> {
         try {
             this.logger.log(`Fetching payment attempt ${id}`);
             assertActorBelongsToMarkets(staffMarketIds, [marketId]);
@@ -1519,7 +1538,7 @@ export class PaymentsService {
                 throw new NotFoundException('Payment attempt not found');
             }
             this.logger.log(`Fetched payment attempt ${id}`);
-            return attempt;
+            return toPaymentAttemptView(attempt);
         } catch (error) {
             this.handleError(error, {
                 notFound: 'Payment attempt not found',
