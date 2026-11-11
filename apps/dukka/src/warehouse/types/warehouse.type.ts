@@ -1,6 +1,11 @@
-import type { Warehouse } from '@app/common';
+import type { WarehouseStatus } from '@app/common';
+import type {
+    WarehouseListItem,
+    WarehouseSummary,
+} from '../mappers/warehouse.mapper.js';
 
-export type WarehouseRecord = Warehouse;
+export type WarehouseRecord = WarehouseSummary;
+export type WarehouseListRecord = WarehouseListItem;
 
 export type CreateWarehouseRecord = {
     market_id: string;
@@ -15,7 +20,12 @@ export type WarehouseAuditActor = {
     name: string;
 };
 
-export type WarehouseWithAuditRelations = WarehouseRecord & {
+export type WarehouseWithAuditRelations = {
+    id: string;
+    name: string;
+    market_id: string;
+    manager_id: string;
+    status: WarehouseStatus;
     market: WarehouseAuditActor;
     manager: WarehouseAuditActor;
 };

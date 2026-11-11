@@ -10,6 +10,12 @@ import {
 import type { FindWarehousesDto } from './dto/find-warehouses.dto.js';
 import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import {
+    toWarehouseListItem,
+    toWarehouseSummary,
+    warehouseListSelect,
+    warehouseSummarySelect,
+} from './mappers/warehouse.mapper.js';
+import {
     warehouseStaffSelect,
     type CreateWarehouseRecord,
     type WarehouseAuditActor,
@@ -44,6 +50,7 @@ export class WarehouseRepository {
                         },
                     },
                 },
+                select: warehouseSummarySelect,
             });
 
             await tx.staffScope.create({
@@ -66,7 +73,7 @@ export class WarehouseRepository {
                 },
             });
 
-            return warehouse;
+            return toWarehouseSummary(warehouse);
         });
     }
 
@@ -100,6 +107,7 @@ export class WarehouseRepository {
 
         const records = await this.prisma.warehouse.findMany({
             where,
+            select: warehouseListSelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -109,18 +117,20 @@ export class WarehouseRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const sliced = hasMore ? records.slice(0, limit) : records;
 
         return {
-            items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            items: sliced.map(toWarehouseListItem),
+            next_cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
         };
     }
 
     async findById(id: string): Promise<WarehouseRecord | null> {
-        return await this.prisma.warehouse.findUnique({
+        const warehouse = await this.prisma.warehouse.findUnique({
             where: { id },
+            select: warehouseSummarySelect,
         });
+        return warehouse ? toWarehouseSummary(warehouse) : null;
     }
 
     async findByIdOrThrow(id: string): Promise<WarehouseRecord> {
@@ -148,13 +158,15 @@ export class WarehouseRepository {
     }
 
     async update(id: string, data: UpdateWarehouseDto): Promise<WarehouseRecord> {
-        return await this.prisma.warehouse.update({
+        const warehouse = await this.prisma.warehouse.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.address !== undefined && { address: data.address }),
             },
+            select: warehouseSummarySelect,
         });
+        return toWarehouseSummary(warehouse);
     }
 
     async updateManager(
@@ -172,6 +184,7 @@ export class WarehouseRepository {
                 data: {
                     manager: { connect: { id: managerId } },
                 },
+                select: warehouseSummarySelect,
             });
 
             await tx.staffScope.deleteMany({
@@ -221,22 +234,26 @@ export class WarehouseRepository {
                 },
             });
 
-            return warehouse;
+            return toWarehouseSummary(warehouse);
         });
     }
 
     async close(id: string): Promise<WarehouseRecord> {
-        return await this.prisma.warehouse.update({
+        const warehouse = await this.prisma.warehouse.update({
             where: { id },
             data: { status: WarehouseStatus.CLOSED },
+            select: warehouseSummarySelect,
         });
+        return toWarehouseSummary(warehouse);
     }
 
     async open(id: string): Promise<WarehouseRecord> {
-        return await this.prisma.warehouse.update({
+        const warehouse = await this.prisma.warehouse.update({
             where: { id },
             data: { status: WarehouseStatus.OPEN },
+            select: warehouseSummarySelect,
         });
+        return toWarehouseSummary(warehouse);
     }
 
     async assignStaff(
