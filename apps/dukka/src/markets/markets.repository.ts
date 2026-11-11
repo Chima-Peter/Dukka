@@ -48,6 +48,14 @@ export class MarketsRepository {
         });
     }
 
+    async findOpen(): Promise<MarketSummaryRow[]> {
+        return await this.prisma.market.findMany({
+            where: { status: MarketStatus.OPEN },
+            select: marketSummarySelect,
+            orderBy: { name: 'asc' },
+        });
+    }
+
     async findExistingByIds(
         marketIds: string[],
     ): Promise<{ id: string; status: MarketStatus }[]> {

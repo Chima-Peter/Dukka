@@ -63,6 +63,13 @@ export class MarketsController {
         return this.marketsService.searchByIp(clientIp);
     }
 
+    @Get('open')
+    @Public()
+    @ResponseMessage('Open markets retrieved successfully')
+    findOpen() {
+        return this.marketsService.findOpenPublic();
+    }
+
     @Get(':id')
     @ResponseMessage('Market retrieved successfully')
     findOne(

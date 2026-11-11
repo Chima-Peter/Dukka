@@ -86,6 +86,17 @@ export class MarketsService {
         }
     }
 
+    async findOpenPublic(): Promise<MarketSummary[]> {
+        try {
+            this.logger.log('Fetching open markets');
+            const markets = await this.marketsRepository.findOpen();
+            this.logger.log(`Fetched ${markets.length} open market(s)`);
+            return markets.map(toMarketSummary);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
     async findOne(
         id: string,
         market_ids: string[],

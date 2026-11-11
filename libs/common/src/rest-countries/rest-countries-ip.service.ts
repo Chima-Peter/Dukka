@@ -46,7 +46,7 @@ export class RestCountriesIpService {
                 this.logger.warn(
                     `REST Countries IP lookup returned no iso2 for ${ip}`,
                 );
-                return null;
+                return 'NG';
             }
 
             return iso2.toUpperCase();
