@@ -56,7 +56,9 @@ Create a root `.env`. Required variables for the API (`apps/dukka`):
 | `STAFF_JWT_PRIVATE_KEY_PATH` / `STAFF_JWT_PUBLIC_KEY_PATH` | Staff JWT keys |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKETS` | Storage (comma-separated buckets) |
 | `STAFF_APP_URL` | Staff app base URL (invites, links) |
-| `CORS_ORIGINS` | Comma-separated origins |
+| `CORS_ORIGINS` | Comma-separated origins (CORS + CSRF `trustedOrigins`) |
+| `TRUST_PROXY` | Express trust proxy (`false`, `true`, hop count, or subnet; default `false`) |
+| `CSRF_EXCLUDE` | Comma-separated paths that skip CSRF (default `/api/v1/dukka/docs`) |
 | `PAYSTACK_SECRET_KEY` / `PAYSTACK_PUBLIC_KEY` / `PAYSTACK_BASE_URL` | Payments |
 | `REST_COUNTRIES_API_KEY` | Countries lookup |
 | `OBSERVE_SERVICE_NAME` / `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` | NestJS Observe |
@@ -188,6 +190,7 @@ Schedulers (general worker) include reservation expiry, promo/coupon/invitation 
 - Health (`GET /health`): disk, memory, Postgres, Redis, mail + general queues.
 - NestJS Observe instrumentation (HTTP, DB, jobs, runtime metrics).
 - Supabase Storage for avatars, product/review images, staff qualifications.
+- **CSRF protection** — Nest `enableCsrfProtection()` using Fetch Metadata (`Sec-Fetch-Site`) with an `Origin`/`Host` fallback (not a CSRF token). `GET` / `HEAD` / `OPTIONS` always pass; other browser cross-site requests are rejected with `403`. Non-browser clients that send neither `Sec-Fetch-Site` nor `Origin` are allowed. `CORS_ORIGINS` is also passed as `trustedOrigins` for allowed frontends; paths in `CSRF_EXCLUDE` skip the check. Behind a reverse proxy, set `TRUST_PROXY` so client/`Host` handling is correct; browsers only send `Sec-Fetch-Site` to HTTPS or `localhost`.
 
 ## Stack
 
