@@ -1,6 +1,10 @@
-import type { DistributionPoint } from '@app/common';
+import type {
+    DistributionPointListItem,
+    DistributionPointSummary,
+} from '../mappers/distribution-point.mapper.js';
 
-export type DistributionPointRecord = DistributionPoint;
+export type DistributionPointRecord = DistributionPointSummary;
+export type DistributionPointListRecord = DistributionPointListItem;
 
 export type CreateDistributionPointRecord = {
     market_id: string;
@@ -19,7 +23,11 @@ export type DistributionPointAuditActor = {
     name: string;
 };
 
-export type DistributionPointWithAuditRelations = DistributionPointRecord & {
+export type DistributionPointWithAuditRelations = {
+    id: string;
+    name: string;
+    market_id: string;
+    is_active: boolean;
     market: DistributionPointAuditActor;
 };
 

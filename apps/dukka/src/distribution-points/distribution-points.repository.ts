@@ -9,6 +9,12 @@ import {
 import type { FindDistributionPointsDto } from './dto/find-distribution-points.dto.js';
 import type { UpdateDistributionPointDto } from './dto/update-distribution-point.dto.js';
 import {
+    distributionPointListSelect,
+    distributionPointSummarySelect,
+    toDistributionPointListItem,
+    toDistributionPointSummary,
+} from './mappers/distribution-point.mapper.js';
+import {
     distributionPointStaffSelect,
     type CreateDistributionPointRecord,
     type DistributionPointAuditActor,
@@ -24,7 +30,7 @@ export class DistributionPointsRepository {
     async create(
         data: CreateDistributionPointRecord,
     ): Promise<DistributionPointRecord> {
-        return await this.prisma.distributionPoint.create({
+        const distributionPoint = await this.prisma.distributionPoint.create({
             data: {
                 name: data.name,
                 address: data.address,
@@ -46,7 +52,9 @@ export class DistributionPointsRepository {
                     },
                 },
             },
+            select: distributionPointSummarySelect,
         });
+        return toDistributionPointSummary(distributionPoint);
     }
 
     async findAll(
@@ -90,6 +98,7 @@ export class DistributionPointsRepository {
 
         const records = await this.prisma.distributionPoint.findMany({
             where,
+            select: distributionPointListSelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -99,18 +108,23 @@ export class DistributionPointsRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const sliced = hasMore ? records.slice(0, limit) : records;
 
         return {
-            items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            items: sliced.map(toDistributionPointListItem),
+            next_cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
         };
     }
 
     async findById(id: string): Promise<DistributionPointRecord | null> {
-        return await this.prisma.distributionPoint.findUnique({
-            where: { id },
-        });
+        const distributionPoint =
+            await this.prisma.distributionPoint.findUnique({
+                where: { id },
+                select: distributionPointSummarySelect,
+            });
+        return distributionPoint
+            ? toDistributionPointSummary(distributionPoint)
+            : null;
     }
 
     async findByIdOrThrow(id: string): Promise<DistributionPointRecord> {
@@ -141,7 +155,7 @@ export class DistributionPointsRepository {
         id: string,
         data: UpdateDistributionPointDto,
     ): Promise<DistributionPointRecord> {
-        return await this.prisma.distributionPoint.update({
+        const distributionPoint = await this.prisma.distributionPoint.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
@@ -152,21 +166,27 @@ export class DistributionPointsRepository {
                     contact_phone: data.contact_phone,
                 }),
             },
+            select: distributionPointSummarySelect,
         });
+        return toDistributionPointSummary(distributionPoint);
     }
 
     async close(id: string): Promise<DistributionPointRecord> {
-        return await this.prisma.distributionPoint.update({
+        const distributionPoint = await this.prisma.distributionPoint.update({
             where: { id },
             data: { is_active: false },
+            select: distributionPointSummarySelect,
         });
+        return toDistributionPointSummary(distributionPoint);
     }
 
     async open(id: string): Promise<DistributionPointRecord> {
-        return await this.prisma.distributionPoint.update({
+        const distributionPoint = await this.prisma.distributionPoint.update({
             where: { id },
             data: { is_active: true },
+            select: distributionPointSummarySelect,
         });
+        return toDistributionPointSummary(distributionPoint);
     }
 
     async findAssignedStaffIds(distributionPointId: string): Promise<string[]> {
