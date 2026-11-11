@@ -45,9 +45,17 @@ export const distributionPointListSelect = {
     name: true,
     city: true,
     is_active: true,
-    market_id: true,
-    state_id: true,
     created_at: true,
+    market: {
+        select: {
+            name: true,
+        },
+    },
+    state: {
+        select: {
+            state_name: true,
+        },
+    },
 } satisfies Prisma.DistributionPointSelect;
 
 export type DistributionPointSummary = {
@@ -71,8 +79,8 @@ export type DistributionPointListItem = {
     name: string;
     city: string;
     is_active: boolean;
-    market_id: string;
-    state_id: string;
+    market_name: string;
+    state_name: string;
     created_at: Date;
 };
 
@@ -125,8 +133,8 @@ export function toDistributionPointListItem(
         name: row.name,
         city: row.city,
         is_active: row.is_active,
-        market_id: row.market_id,
-        state_id: row.state_id,
+        market_name: row.market.name,
+        state_name: row.state.state_name,
         created_at: row.created_at,
     };
 }

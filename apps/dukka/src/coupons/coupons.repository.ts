@@ -9,10 +9,10 @@ import type { CreateCouponDto } from './dto/create-coupon.dto.js';
 import type { FindCouponUsagesDto } from './dto/find-coupon-usages.dto.js';
 import type { FindCouponsDto } from './dto/find-coupons.dto.js';
 import type { UpdateCouponDto } from './dto/update-coupon.dto.js';
+import { toCouponSummary } from './mappers/coupon.mapper.js';
 import {
     couponUsageSelect,
     type CouponPage,
-    type CouponSummary,
     type CouponUsageRowPage,
 } from './types/coupon.type.js';
 
@@ -94,13 +94,17 @@ export class CouponsRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items: CouponSummary[] = page.map((record) => {
-            const { _count, ...coupon } = record;
-            return {
-                ...coupon,
-                usage_count: _count.coupon_usages,
-            };
-        });
+        const items = page.map((record) =>
+            toCouponSummary({
+                id: record.id,
+                code: record.code,
+                type: record.type,
+                value: record.value,
+                status: record.status,
+                expires_at: record.expires_at,
+                usage_count: record._count.coupon_usages,
+            }),
+        );
 
         return {
             items,

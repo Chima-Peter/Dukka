@@ -12,10 +12,10 @@ import type { UpdateWarehouseDto } from './dto/update-warehouse.dto.js';
 import {
     toWarehouseDetail,
     toWarehouseDetailResponse,
-    toWarehouseSummary,
+    toWarehouseListItem,
     warehouseDetailSelect,
     warehouseDetailWithStaffSelect,
-    warehouseSummarySelect,
+    warehouseListSelect,
 } from './mappers/warehouse.mapper.js';
 import {
     warehouseStaffSelect,
@@ -110,7 +110,7 @@ export class WarehouseRepository {
 
         const records = await this.prisma.warehouse.findMany({
             where,
-            select: warehouseSummarySelect,
+            select: warehouseListSelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -123,7 +123,7 @@ export class WarehouseRepository {
         const sliced = hasMore ? records.slice(0, limit) : records;
 
         return {
-            items: sliced.map(toWarehouseSummary),
+            items: sliced.map(toWarehouseListItem),
             next_cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
         };
     }

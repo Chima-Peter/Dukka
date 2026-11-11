@@ -18,18 +18,18 @@ export const marketSummarySelect = {
 export const variantTargetInclude = {
     variant: {
         select: {
-            id: true,
             price: true,
             currency: true,
             sold_out: true,
-            status: true,
             variant: {
                 select: {
-                    id: true,
                     variant_code: true,
-                    color: true,
-                    size: true,
-                    product: { select: { id: true, name: true } },
+                    image: {
+                        select: {
+                            image_url: true,
+                        },
+                    },
+                    product: { select: { name: true } },
                 },
             },
         },
@@ -73,20 +73,16 @@ export type DiscountSummary = Discount & {
 
 export type PromotionTargetRow = {
     id: string;
-    created_at: Date;
     variant: {
-        id: string;
         price: Prisma.Decimal;
         currency: string;
         sold_out: boolean;
-        status: string;
         variant: {
-            id: string;
             variant_code: string;
-            color: string | null;
-            size: string | null;
+            image: {
+                image_url: string;
+            } | null;
             product: {
-                id: string;
                 name: string;
             };
         };
@@ -124,32 +120,23 @@ export const promotionUsageSelect = {
     discount_amount: true,
     redeemed_at: true,
     created_at: true,
-    order_id: true,
-    customer_id: true,
     promotion_market: {
         select: {
-            id: true,
-            market_id: true,
             promotion: {
                 select: {
-                    id: true,
                     name: true,
-                    code: true,
                 },
             },
         },
     },
     order: {
         select: {
-            id: true,
             order_number: true,
         },
     },
     customer: {
         select: {
-            id: true,
             name: true,
-            email: true,
         },
     },
 } as const;

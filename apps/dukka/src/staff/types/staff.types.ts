@@ -1,10 +1,10 @@
 import type {
     Qualification,
     Staff,
-    StaffAudit,
     StaffProfile,
 } from '@app/common';
 import type {
+    StaffAuditSummary,
     StaffDetailsRow,
     StaffMappedDetails,
     StaffQualificationSummary,
@@ -69,8 +69,10 @@ export type StaffPage = {
     next_cursor: string | null;
 };
 
+export type { StaffAuditSummary };
+
 export type StaffAuditPage = {
-    items: StaffAudit[];
+    items: StaffAuditSummary[];
     next_cursor: string | null;
 };
 

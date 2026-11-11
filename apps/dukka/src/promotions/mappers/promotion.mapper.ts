@@ -50,43 +50,22 @@ export type PromotionDetailView = {
 
 export type PromotionUsageView = {
     id: string;
+    promotion_name: string;
+    order_number: string | null;
+    customer_name: string | null;
     discount_amount: Prisma.Decimal;
     redeemed_at: Date;
     created_at: Date;
-    order_id: string | null;
-    customer_id: string | null;
-    promotion_market_id: string;
-    promotion: {
-        id: string;
-        name: string;
-        code: string;
-    };
-    market_id: string;
-    order: {
-        id: string;
-        order_number: string;
-    } | null;
-    customer: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
 };
 
 export type PromotionTargetView = {
     id: string;
-    market_variant_id: string;
+    product_name: string;
+    variant_code: string;
     price: Prisma.Decimal;
     currency: string;
     sold_out: boolean;
-    status: string;
-    variant_id: string;
-    variant_code: string;
-    color: string | null;
-    size: string | null;
-    product_id: string;
-    product_name: string;
-    created_at: Date;
+    image_url: string | null;
 };
 
 export type PromotionUsagePage = {
@@ -126,20 +105,16 @@ type PromotionUsageRow = Prisma.PromotionUsageGetPayload<{
 
 type PromotionTargetRow = {
     id: string;
-    created_at: Date;
     variant: {
-        id: string;
         price: Prisma.Decimal;
         currency: string;
         sold_out: boolean;
-        status: string;
         variant: {
-            id: string;
             variant_code: string;
-            color: string | null;
-            size: string | null;
+            image: {
+                image_url: string;
+            } | null;
             product: {
-                id: string;
                 name: string;
             };
         };
@@ -270,16 +245,12 @@ export function toPromotionUsageView(
 ): PromotionUsageView {
     return {
         id: row.id,
+        promotion_name: row.promotion_market.promotion.name,
+        order_number: row.order?.order_number ?? null,
+        customer_name: row.customer?.name ?? null,
         discount_amount: row.discount_amount,
         redeemed_at: row.redeemed_at,
         created_at: row.created_at,
-        order_id: row.order_id,
-        customer_id: row.customer_id,
-        promotion_market_id: row.promotion_market.id,
-        promotion: row.promotion_market.promotion,
-        market_id: row.promotion_market.market_id,
-        order: row.order,
-        customer: row.customer,
     };
 }
 
@@ -290,18 +261,12 @@ export function toPromotionTargetView(
     const variant = marketVariant.variant;
     return {
         id: row.id,
-        market_variant_id: marketVariant.id,
+        product_name: variant.product.name,
+        variant_code: variant.variant_code,
         price: marketVariant.price,
         currency: marketVariant.currency,
         sold_out: marketVariant.sold_out,
-        status: marketVariant.status,
-        variant_id: variant.id,
-        variant_code: variant.variant_code,
-        color: variant.color,
-        size: variant.size,
-        product_id: variant.product.id,
-        product_name: variant.product.name,
-        created_at: row.created_at,
+        image_url: variant.image?.image_url ?? null,
     };
 }
 

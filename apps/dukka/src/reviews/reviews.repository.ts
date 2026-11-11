@@ -1,19 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@app/common';
 import type { FindReviewsDto } from './dto/find-reviews.dto.js';
-import type { ReviewItem } from './types/review.type.js';
-
-const reviewInclude = {
-    review_images: {
-        select: {
-            id: true,
-            image_url: true,
-            created_at: true,
-            updated_at: true,
-        },
-        orderBy: { created_at: 'asc' as const },
-    },
-};
+import {
+    reviewItemInclude,
+    reviewSummarySelect,
+    toReviewItem,
+    toReviewSummary,
+} from './mappers/review.mapper.js';
+import type {
+    ReviewItem,
+    ReviewSummaryPage,
+} from './types/review.type.js';
 
 @Injectable()
 export class ReviewsRepository {
@@ -30,7 +27,7 @@ export class ReviewsRepository {
             image_urls?: string[];
         },
     ): Promise<ReviewItem> {
-        return await this.prisma.reviews.create({
+        const row = await this.prisma.reviews.create({
             data: {
                 customer: {
                     connect: { id: customerId },
@@ -51,22 +48,26 @@ export class ReviewsRepository {
                         },
                     }),
             },
-            include: reviewInclude,
+            include: reviewItemInclude,
         });
+        return toReviewItem(row);
     }
 
     async findById(id: string): Promise<ReviewItem | null> {
-        return await this.prisma.reviews.findUnique({
+        const row = await this.prisma.reviews.findUnique({
             where: { id },
-            include: reviewInclude,
+            include: reviewItemInclude,
         });
+        return row ? toReviewItem(row) : null;
     }
 
-    async findAllByMarketVariant(query: FindReviewsDto) {
+    async findAllByMarketVariant(
+        query: FindReviewsDto,
+    ): Promise<ReviewSummaryPage> {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.reviews.findMany({
             where: { market_variant_id: query.market_variant_id },
-            include: reviewInclude,
+            select: reviewSummarySelect,
             orderBy: [{ created_at: 'desc' }, { id: 'asc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -76,19 +77,20 @@ export class ReviewsRepository {
         });
 
         const hasMore = rows.length > limit;
-        const items = hasMore ? rows.slice(0, limit) : rows;
+        const sliced = hasMore ? rows.slice(0, limit) : rows;
 
         return {
-            items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            items: sliced.map(toReviewSummary),
+            next_cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
         };
     }
 
     async delete(id: string): Promise<ReviewItem> {
-        return await this.prisma.reviews.delete({
+        const row = await this.prisma.reviews.delete({
             where: { id },
-            include: reviewInclude,
+            include: reviewItemInclude,
         });
+        return toReviewItem(row);
     }
 
     async incrementLikes(

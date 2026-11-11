@@ -12,6 +12,25 @@ export const warehouseSummarySelect = {
     created_at: true,
 } satisfies Prisma.WarehouseSelect;
 
+export const warehouseListSelect = {
+    id: true,
+    name: true,
+    status: true,
+    created_at: true,
+    market: {
+        select: {
+            name: true,
+        },
+    },
+    manager: {
+        select: {
+            name: true,
+            id: true,
+            avatar: true,
+        },
+    },
+} satisfies Prisma.WarehouseSelect;
+
 export const warehouseDetailSelect = {
     ...warehouseSummarySelect,
     updated_at: true,
@@ -49,6 +68,17 @@ export type WarehouseSummary = {
     created_at: Date;
 };
 
+export type WarehouseListItem = {
+    id: string;
+    name: string;
+    status: WarehouseStatus;
+    market_name: string;
+    manager_id: string;
+    manager_name: string;
+    manager_picture: string | null;
+    created_at: Date;
+};
+
 export type WarehouseDetail = WarehouseSummary & {
     updated_at: Date;
 };
@@ -59,6 +89,10 @@ export type WarehouseDetailResponse = WarehouseDetail & {
 
 type WarehouseSummaryRow = Prisma.WarehouseGetPayload<{
     select: typeof warehouseSummarySelect;
+}>;
+
+type WarehouseListRow = Prisma.WarehouseGetPayload<{
+    select: typeof warehouseListSelect;
 }>;
 
 type WarehouseDetailRow = Prisma.WarehouseGetPayload<{
@@ -79,6 +113,19 @@ export function toWarehouseSummary(
         manager_id: row.manager_id,
         address: row.address,
         status: row.status,
+        created_at: row.created_at,
+    };
+}
+
+export function toWarehouseListItem(row: WarehouseListRow): WarehouseListItem {
+    return {
+        id: row.id,
+        name: row.name,
+        status: row.status,
+        market_name: row.market.name,
+        manager_id: row.manager.id,
+        manager_name: row.manager.name,
+        manager_picture: row.manager.avatar,
         created_at: row.created_at,
     };
 }

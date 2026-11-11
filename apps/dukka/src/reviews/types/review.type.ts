@@ -18,3 +18,18 @@ export type ReviewItem = {
     created_at: Date;
     review_images: ReviewImageItem[];
 };
+
+export type ReviewSummary = {
+    id: string;
+    customer_name: string;
+    title: string;
+    review: string;
+    rating: number;
+    created_at: Date;
+    image_url: string | null;
+};
+
+export type ReviewSummaryPage = {
+    items: ReviewSummary[];
+    next_cursor: string | null;
+};

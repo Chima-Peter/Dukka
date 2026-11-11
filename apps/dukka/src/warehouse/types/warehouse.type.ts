@@ -2,12 +2,12 @@ import type { WarehouseStatus } from '@app/common';
 import type {
     WarehouseDetail,
     WarehouseDetailResponse,
-    WarehouseSummary,
+    WarehouseListItem,
 } from '../mappers/warehouse.mapper.js';
 
 export type WarehouseRecord = WarehouseDetail;
 export type WarehouseDetailRecord = WarehouseDetailResponse;
-export type WarehouseListRecord = WarehouseSummary;
+export type WarehouseListRecord = WarehouseListItem;
 
 export type CreateWarehouseRecord = {
     market_id: string;

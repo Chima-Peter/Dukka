@@ -1,10 +1,12 @@
 import type {
     MarketStatus,
     Permission,
+    Prisma,
     Qualification,
     Role,
     ScopeType,
     Staff,
+    StaffAuditAction,
     StaffProfile,
     WarehouseStatus,
 } from '@app/common';
@@ -223,5 +225,43 @@ export function toStaffMappedDetails(
         avatar: avatarUrl,
         role: role ? toStaffRoleView(role) : null,
         scopes: staff_scopes.map(toStaffScopeView),
+    };
+}
+
+export const staffAuditSummarySelect = {
+    id: true,
+    action: true,
+    created_at: true,
+    staff_name: true,
+    performed_by_staff_name: true,
+    role_name: true,
+    market_name: true,
+} satisfies Prisma.StaffAuditSelect;
+
+export type StaffAuditSummary = {
+    id: string;
+    action: StaffAuditAction;
+    created_at: Date;
+    staff_name: string | null;
+    performed_by_staff_name: string;
+    role_name: string | null;
+    market_name: string | null;
+};
+
+type StaffAuditSummaryRow = Prisma.StaffAuditGetPayload<{
+    select: typeof staffAuditSummarySelect;
+}>;
+
+export function toStaffAuditSummary(
+    row: StaffAuditSummaryRow,
+): StaffAuditSummary {
+    return {
+        id: row.id,
+        action: row.action,
+        created_at: row.created_at,
+        staff_name: row.staff_name,
+        performed_by_staff_name: row.performed_by_staff_name,
+        role_name: row.role_name,
+        market_name: row.market_name,
     };
 }

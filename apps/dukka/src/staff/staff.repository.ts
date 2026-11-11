@@ -44,7 +44,11 @@ import {
     type StaffWithDetails,
 } from './types/staff.types.js';
 
-import { staffDetailsInclude } from './mappers/staff.mapper.js';
+import {
+    staffAuditSummarySelect,
+    staffDetailsInclude,
+    toStaffAuditSummary,
+} from './mappers/staff.mapper.js';
 
 const staffScopeAccessSelect = {
     market_id: true,
@@ -420,6 +424,7 @@ export class StaffRepository {
                       }
                     : {}),
             },
+            select: staffAuditSummarySelect,
             orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
             take: limit + 1,
             ...(query.cursor !== undefined && {
@@ -429,11 +434,11 @@ export class StaffRepository {
         });
 
         const hasMore = records.length > limit;
-        const items = hasMore ? records.slice(0, limit) : records;
+        const sliced = hasMore ? records.slice(0, limit) : records;
 
         return {
-            items,
-            next_cursor: hasMore ? items[items.length - 1].id : null,
+            items: sliced.map(toStaffAuditSummary),
+            next_cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
         };
     }
 

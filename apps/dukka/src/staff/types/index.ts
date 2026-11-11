@@ -7,6 +7,7 @@ export {
     STAFF_REPO_ERROR,
     type QualificationResponse,
     type StaffAuditPage,
+    type StaffAuditSummary,
     type StaffAuthRecord,
     type StaffPage,
     type StaffQualificationSummary,

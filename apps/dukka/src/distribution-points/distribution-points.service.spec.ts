@@ -132,7 +132,17 @@ describe('DistributionPointsService', () => {
             market_ids: ['market-1'],
         };
         distributionPointsRepository.findAll.mockResolvedValue({
-            items: [{ id: 'dp-1', market_id: 'market-1', name: 'Ikeja' }],
+            items: [
+                {
+                    id: 'dp-1',
+                    name: 'Ikeja',
+                    city: 'Lagos',
+                    is_active: true,
+                    market_name: 'Lagos',
+                    state_name: 'Lagos',
+                    created_at: new Date(),
+                },
+            ],
             next_cursor: null,
         });
 

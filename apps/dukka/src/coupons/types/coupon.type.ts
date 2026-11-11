@@ -1,6 +1,12 @@
-import type { Coupon, Prisma } from '@app/common';
+import type { CouponStatus, CouponType, Prisma } from '@app/common';
 
-export type CouponSummary = Coupon & {
+export type CouponSummary = {
+    id: string;
+    code: string;
+    type: CouponType;
+    value: Prisma.Decimal;
+    status: CouponStatus;
+    expires_at: Date;
     usage_count: number;
 };
 
@@ -13,29 +19,19 @@ export const couponUsageSelect = {
     id: true,
     guest_email: true,
     created_at: true,
-    coupon_id: true,
-    order_id: true,
-    customer_id: true,
     coupon: {
         select: {
-            id: true,
             code: true,
-            type: true,
-            value: true,
         },
     },
     order: {
         select: {
-            id: true,
             order_number: true,
-            market_id: true,
         },
     },
     customer: {
         select: {
-            id: true,
             name: true,
-            email: true,
         },
     },
 } as const;

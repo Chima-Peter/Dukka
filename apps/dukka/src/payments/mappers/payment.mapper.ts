@@ -57,7 +57,11 @@ export const paymentAttemptSummarySelect = {
     payment_method_name: true,
     expires_at: true,
     created_at: true,
-    order_id: true,
+    order: {
+        select: {
+            order_number: true,
+        },
+    },
 } satisfies Prisma.OrderPaymentAttemptSelect;
 
 export const paymentAttemptDetailSelect = {
@@ -244,7 +248,7 @@ export type PaymentAttemptSummaryView = {
     payment_method_name: string;
     expires_at: Date | null;
     created_at: Date;
-    order_id: string;
+    order_number: string;
 };
 
 export type PaymentAttemptView = {
@@ -382,7 +386,7 @@ export function toPaymentAttemptSummaryView(
         payment_method_name: row.payment_method_name,
         expires_at: row.expires_at,
         created_at: row.created_at,
-        order_id: row.order_id,
+        order_number: row.order.order_number,
     };
 }
 
