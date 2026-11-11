@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { GeneralQueueService } from '@app/queues';
 import { ShipmentsRepository } from './shipments.repository.js';
 import { ShipmentsService } from './shipments.service.js';
 
@@ -16,6 +17,12 @@ describe('ShipmentsService', () => {
                         findLocationOrThrow: jest.fn(),
                         findActivePartnerOrThrow: jest.fn(),
                         move: jest.fn(),
+                    },
+                },
+                {
+                    provide: GeneralQueueService,
+                    useValue: {
+                        enqueue: jest.fn(),
                     },
                 },
             ],

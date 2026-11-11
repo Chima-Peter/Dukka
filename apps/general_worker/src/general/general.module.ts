@@ -17,6 +17,7 @@ import { ExpireStaffInvitationService } from './handlers/expire-staff-invitation
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { MarketDeletedService } from './handlers/market-deleted.service.js';
+import { OrderCompletionService } from './handlers/order-completion.service.js';
 import { OrderProcessingService } from './handlers/order-processing.service.js';
 import { ReviewReminderService } from './handlers/review-reminder.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
@@ -35,6 +36,7 @@ import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js
         ExpiredReservationsService,
         CancelOrderService,
         OrderProcessingService,
+        OrderCompletionService,
         CustomerRegisteredService,
         InventoryStockReminderService,
         CustomerAccountDeletedService,

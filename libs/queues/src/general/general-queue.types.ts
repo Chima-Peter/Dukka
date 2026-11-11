@@ -69,3 +69,7 @@ export type ExpireStaffInvitationJobPayload = {
 export type ReviewReminderJobPayload = {
     order_id: string;
 };
+
+export type OrderCompletionJobPayload = {
+    order_id: string;
+};

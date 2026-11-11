@@ -1,0 +1,35 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Thanks for your order
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Delivered
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  We are glad to confirm that your order <strong>#{{order_number}}</strong> has been delivered. Thank you for shopping with Dukka — we hope you enjoy your purchase.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Status" value="Delivered"}}
+  {{#if points_earned}}
+  {{> detail-row label="Points earned" value=points_earned}}
+  {{/if}}
+{{/details}}
+
+{{#if points_earned}}
+{{#> tip title="Points added"}}
+  You earned {{points_earned}} points for completing this order. They are already in your Dukka account balance.
+{{/tip}}
+{{/if}}
+
+{{#> tip title="How was it?"}}
+  Your feedback helps other shoppers. When you have a moment, leave a quick review from your orders page.
+{{/tip}}
+
+<p style="margin:0;">
+  Thanks again for choosing Dukka. If anything is wrong with your delivery, reply to this email and we will help.
+</p>

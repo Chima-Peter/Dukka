@@ -14,6 +14,7 @@ import {
     WarehouseStatus,
     type Prisma,
 } from '@app/common';
+import { GENERAL_JOBS, GeneralQueueService } from '@app/queues';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     ACCESS_CONTROL_ERROR,
@@ -52,7 +53,10 @@ import {
 export class ShipmentsService {
     private readonly logger = new Logger(ShipmentsService.name);
 
-    constructor(private readonly shipmentsRepository: ShipmentsRepository) {}
+    constructor(
+        private readonly shipmentsRepository: ShipmentsRepository,
+        private readonly generalQueueService: GeneralQueueService,
+    ) {}
 
     async findAll(
         query: FindShipmentsDto,
@@ -263,6 +267,12 @@ export class ShipmentsService {
                         metadata: data.metadata as Prisma.InputJsonValue,
                     }),
                 },
+            );
+
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.ORDER_COMPLETION,
+                { order_id: result.shipment.order_id },
+                { jobId: `order-completion-${result.shipment.order_id}` },
             );
 
             this.logger.log(`Delivered shipment ${shipmentId} to customer`);

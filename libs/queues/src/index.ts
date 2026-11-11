@@ -30,6 +30,7 @@ export {
     type InventoryStockReminderKind,
     type CustomerRegisteredJobPayload,
     type MarketDeletedJobPayload,
+    type OrderCompletionJobPayload,
     type OrderProcessingJobPayload,
     type ReviewReminderJobPayload,
     type StaffDeactivatedJobPayload,

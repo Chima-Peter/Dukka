@@ -25,6 +25,7 @@ export const GENERAL_JOBS = {
     EXPIRE_COUPON: 'expire-coupon',
     EXPIRE_STAFF_INVITATION: 'expire-staff-invitation',
     REVIEW_REMINDER: 'review-reminder',
+    ORDER_COMPLETION: 'order-completion',
 } as const;
 
 export type GeneralJobName =
@@ -77,6 +78,7 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_ORDER_SHIPPED: 'customer.order-shipped',
     CUSTOMER_ORDER_CANCEL_BLOCKED: 'customer.order-cancel-blocked',
     CUSTOMER_ORDER_CANCELLED: 'customer.order-cancelled',
+    CUSTOMER_ORDER_COMPLETED: 'customer.order-completed',
     CUSTOMER_REVIEW_REMINDER: 'customer.review-reminder',
     STAFF_WELCOME: 'staff.welcome',
     STAFF_INVITATION: 'staff.invitation',
