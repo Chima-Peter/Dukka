@@ -33,6 +33,7 @@ import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
+import { toMarketResponse, type MarketResponse } from './mappers/market.mapper.js';
 import { MarketsRepository } from './markets.repository.js';
 import type {
     MarketSearchMatch,
@@ -52,12 +53,12 @@ export class MarketsService {
         private readonly restCountriesIpService: RestCountriesIpService,
     ) {}
 
-    async create(data: CreateMarketDto): Promise<MarketWithCurrency> {
+    async create(data: CreateMarketDto): Promise<MarketResponse> {
         try {
             this.logger.log(`Creating market ${data.code}`);
             const market = await this.marketsRepository.create(data);
             this.logger.log(`Market created ${market.id}`);
-            return market;
+            return toMarketResponse(market);
         } catch (error) {
             this.handleError(error);
         }
@@ -66,7 +67,7 @@ export class MarketsService {
     async findAll(
         market_ids: string[],
         status?: MarketStatus,
-    ): Promise<MarketWithCurrency[]> {
+    ): Promise<MarketResponse[]> {
         try {
             this.logger.log('Fetching markets');
             const markets = await this.marketsRepository.findAll(
@@ -74,7 +75,7 @@ export class MarketsService {
                 status,
             );
             this.logger.log('Fetched markets');
-            return markets;
+            return markets.map(toMarketResponse);
         } catch (error) {
             this.handleError(error);
         }
@@ -83,7 +84,7 @@ export class MarketsService {
     async findOne(
         id: string,
         market_ids: string[],
-    ): Promise<MarketWithCurrency> {
+    ): Promise<MarketResponse> {
         try {
             this.logger.log(`Fetching market ${id}`);
             assertActorBelongsToMarkets(market_ids, [id]);
@@ -92,7 +93,7 @@ export class MarketsService {
                 throw new NotFoundException('Market not found');
             }
             this.logger.log(`Fetched market ${id}`);
-            return market;
+            return toMarketResponse(market);
         } catch (error) {
             this.handleError(error);
         }
@@ -214,7 +215,7 @@ export class MarketsService {
         id: string,
         data: UpdateMarketDto,
         actor: ScopedAccessActor,
-    ): Promise<MarketWithCurrency> {
+    ): Promise<MarketResponse> {
         try {
             this.logger.log(`Updating market ${id}`);
             assertActorHasScopedAccess(actor, { market_id: id });
@@ -232,7 +233,7 @@ export class MarketsService {
                     'A market you access was updated',
                 );
             }
-            return market;
+            return toMarketResponse(market);
         } catch (error) {
             this.handleError(error);
         }
@@ -241,7 +242,7 @@ export class MarketsService {
     async open(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<MarketWithCurrency> {
+    ): Promise<MarketResponse> {
         try {
             this.logger.log(`Opening market ${id}`);
             assertActorHasScopedAccess(actor, { market_id: id });
@@ -258,7 +259,7 @@ export class MarketsService {
                 market,
                 'A market you access was opened',
             );
-            return market;
+            return toMarketResponse(market);
         } catch (error) {
             this.handleError(error);
         }
@@ -267,7 +268,7 @@ export class MarketsService {
     async close(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<MarketWithCurrency> {
+    ): Promise<MarketResponse> {
         try {
             this.logger.log(`Closing market ${id}`);
             assertActorHasScopedAccess(actor, { market_id: id });
@@ -284,7 +285,7 @@ export class MarketsService {
                 market,
                 'A market you access was closed',
             );
-            return market;
+            return toMarketResponse(market);
         } catch (error) {
             this.handleError(error);
         }
