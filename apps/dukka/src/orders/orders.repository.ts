@@ -384,9 +384,9 @@ export class OrdersRepository {
     }
 
     private generateOrderNumber(): string {
-        const min = 10n ** 15n;
-        const range = 9n * 10n ** 15n;
-        const n = min + (BigInt(`0x${randomBytes(8).toString('hex')}`) % range);
-        return `DUKKA-${n.toString()}`;
+        const digits = Array.from(randomBytes(12), (byte) =>
+            (byte % 10).toString(),
+        ).join('');
+        return `DUKKA-${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
     }
 }
