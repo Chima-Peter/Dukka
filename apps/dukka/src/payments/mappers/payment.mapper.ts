@@ -100,6 +100,37 @@ export const paymentAttemptDetailSelect = {
     },
 } satisfies Prisma.OrderPaymentAttemptSelect;
 
+export const orderRefundSummarySelect = {
+    id: true,
+    amount: true,
+    currency: true,
+    status: true,
+    provider: true,
+    payment_reference: true,
+    refunded_at: true,
+    created_at: true,
+    order_id: true,
+    order: {
+        select: {
+            order_number: true,
+            market_id: true,
+            warehouse_id: true,
+            market: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+            warehouse: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    },
+} satisfies Prisma.OrderRefundSelect;
+
 export const orderRefundDetailSelect = {
     id: true,
     amount: true,
@@ -123,6 +154,13 @@ export const orderRefundDetailSelect = {
             customer_id: true,
             market_id: true,
             warehouse_id: true,
+            market: {
+                select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                },
+            },
             warehouse: {
                 select: {
                     id: true,

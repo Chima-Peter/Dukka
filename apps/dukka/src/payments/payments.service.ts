@@ -41,6 +41,8 @@ import {
 } from '../shared/redis.constants.js';
 import type { ApprovePaymentMethodDto } from './dto/approve-payment-method.dto.js';
 import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
+import type { FindOrderRefundDto } from './dto/find-order-refund.dto.js';
+import type { FindOrderRefundsDto } from './dto/find-order-refunds.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import type { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
@@ -59,6 +61,7 @@ import type {
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
     OrderRefundDetail,
+    OrderRefundPage,
     PaymentAttemptDetail,
     PaymentAttemptPage,
     PaymentErrorMessages,
@@ -1161,6 +1164,63 @@ export class PaymentsService {
         }
     }
 
+    async findRefunds(
+        query: FindOrderRefundsDto,
+        actor: ScopedAccessActor,
+    ): Promise<OrderRefundPage> {
+        try {
+            this.logger.log(
+                `Fetching order refunds for market ${query.market_id}`,
+            );
+            assertActorHasScopedAccess(actor, {
+                market_id: query.market_id,
+                ...(query.warehouse_id !== undefined && {
+                    warehouse_id: query.warehouse_id,
+                }),
+            });
+            this.assertAmountRange(query.min_amount, query.max_amount);
+
+            const page = await this.paymentsRepository.findRefunds(query);
+            this.logger.log(
+                `Fetched order refunds for market ${query.market_id}`,
+            );
+            return page;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Order refund not found',
+            });
+        }
+    }
+
+    async findRefund(
+        id: string,
+        query: FindOrderRefundDto,
+        actor: ScopedAccessActor,
+    ): Promise<OrderRefundDetail> {
+        try {
+            this.logger.log(`Fetching order refund ${id}`);
+            const refund = await this.paymentsRepository.findRefundDetailById(
+                id,
+                query.market_id,
+            );
+            if (!refund) {
+                throw new NotFoundException('Order refund not found');
+            }
+
+            assertActorHasScopedAccess(actor, {
+                market_id: refund.order.market_id,
+                warehouse_id: refund.order.warehouse_id,
+            });
+
+            this.logger.log(`Fetched order refund ${id}`);
+            return refund;
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Order refund not found',
+            });
+        }
+    }
+
     async findAttemptByOrderId(
         orderId: string,
     ): Promise<PaymentAttemptDetail | null> {
@@ -1228,6 +1288,18 @@ export class PaymentsService {
         ) {
             throw new BadRequestException(
                 'min_price cannot be greater than max_price',
+            );
+        }
+    }
+
+    private assertAmountRange(minAmount?: number, maxAmount?: number): void {
+        if (
+            minAmount !== undefined &&
+            maxAmount !== undefined &&
+            minAmount > maxAmount
+        ) {
+            throw new BadRequestException(
+                'min_amount cannot be greater than max_amount',
             );
         }
     }

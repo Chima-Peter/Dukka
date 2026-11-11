@@ -27,6 +27,8 @@ import {
 import { toScopedAccessActor } from '../shared/access-control.js';
 import { ApprovePaymentMethodDto } from './dto/approve-payment-method.dto.js';
 import { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
+import { FindOrderRefundDto } from './dto/find-order-refund.dto.js';
+import { FindOrderRefundsDto } from './dto/find-order-refunds.dto.js';
 import { FindPaymentAttemptDto } from './dto/find-payment-attempt.dto.js';
 import { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
@@ -145,6 +147,34 @@ export class PaymentsController {
                 role_id: staff.role_id,
                 role_name: staff.role_name,
             },
+        );
+    }
+
+    @Get('refunds')
+    @RequirePermission(StaffPermission.RefundsManage)
+    @ResponseMessage('Order refunds retrieved successfully')
+    findRefunds(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Query() query: FindOrderRefundsDto,
+    ) {
+        return this.paymentsService.findRefunds(
+            query,
+            toScopedAccessActor(staff),
+        );
+    }
+
+    @Get('refunds/:id')
+    @RequirePermission(StaffPermission.RefundsManage)
+    @ResponseMessage('Order refund retrieved successfully')
+    findRefund(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: FindOrderRefundDto,
+    ) {
+        return this.paymentsService.findRefund(
+            id,
+            query,
+            toScopedAccessActor(staff),
         );
     }
 

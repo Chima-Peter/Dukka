@@ -6,6 +6,7 @@ import type {
 import type {
     marketPaymentMethodSelect,
     orderRefundDetailSelect,
+    orderRefundSummarySelect,
     paymentAttemptDetailSelect,
     paymentAttemptSummarySelect,
     paymentMethodDetailSelect,
@@ -29,6 +30,15 @@ export type PaymentAttemptDetail = Prisma.OrderPaymentAttemptGetPayload<{
 
 export type PaymentAttemptPage = {
     items: PaymentAttemptSummary[];
+    next_cursor: string | null;
+};
+
+export type OrderRefundSummary = Prisma.OrderRefundGetPayload<{
+    select: typeof orderRefundSummarySelect;
+}>;
+
+export type OrderRefundPage = {
+    items: OrderRefundSummary[];
     next_cursor: string | null;
 };
 

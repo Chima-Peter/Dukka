@@ -10,11 +10,13 @@ import {
 import { OrdersRepository } from '../orders/orders.repository.js';
 import type { TransitionOrderStatusResult } from '../orders/types/order.type.js';
 import type { CreatePaymentMethodDto } from './dto/create-payment-method.dto.js';
+import type { FindOrderRefundsDto } from './dto/find-order-refunds.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import {
     marketPaymentMethodSelect,
     orderRefundDetailSelect,
+    orderRefundSummarySelect,
     paymentAttemptDetailSelect,
     paymentAttemptSummarySelect,
     paymentMethodDetailSelect,
@@ -26,6 +28,7 @@ import type {
     MarkRefundStatusInput,
     MarketPaymentMethodDetail,
     OrderRefundDetail,
+    OrderRefundPage,
     PaymentAttemptDetail,
     PaymentAttemptPage,
     PaymentMethodDetail,
@@ -154,6 +157,43 @@ export class PaymentsRepository {
                 order: { market_id: marketId },
             },
             select: paymentAttemptDetailSelect,
+        });
+    }
+
+    async findRefunds(query: FindOrderRefundsDto): Promise<OrderRefundPage> {
+        const limit = query.limit ?? 20;
+        const where = this.buildRefundWhere(query);
+
+        const records = await this.prisma.orderRefund.findMany({
+            where,
+            select: orderRefundSummarySelect,
+            orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            ...(query.cursor !== undefined && {
+                cursor: { id: query.cursor },
+                skip: 1,
+            }),
+        });
+
+        const hasMore = records.length > limit;
+        const page = hasMore ? records.slice(0, limit) : records;
+
+        return {
+            items: page,
+            next_cursor: hasMore ? page[page.length - 1].id : null,
+        };
+    }
+
+    async findRefundDetailById(
+        id: string,
+        marketId: string,
+    ): Promise<OrderRefundDetail | null> {
+        return await this.prisma.orderRefund.findFirst({
+            where: {
+                id,
+                order: { market_id: marketId },
+            },
+            select: orderRefundDetailSelect,
         });
     }
 
@@ -397,6 +437,67 @@ export class PaymentsRepository {
         fromDate?: string,
         toDate?: string,
     ): Pick<Prisma.PaymentMethodWhereInput, 'created_at'> {
+        if (fromDate === undefined && toDate === undefined) {
+            return {};
+        }
+
+        return {
+            created_at: {
+                ...(fromDate !== undefined && { gte: new Date(fromDate) }),
+                ...(toDate !== undefined && { lte: new Date(toDate) }),
+            },
+        };
+    }
+
+    private buildRefundWhere(
+        query: FindOrderRefundsDto,
+    ): Prisma.OrderRefundWhereInput {
+        return {
+            ...(query.status !== undefined && { status: query.status }),
+            ...(query.provider !== undefined && {
+                provider: {
+                    equals: query.provider,
+                    mode: 'insensitive',
+                },
+            }),
+            ...(query.payment_reference !== undefined && {
+                payment_reference: query.payment_reference,
+            }),
+            ...this.refundAmountFilter(query.min_amount, query.max_amount),
+            ...this.refundCreatedAtFilter(query.from_date, query.to_date),
+            order: {
+                market_id: query.market_id,
+                ...(query.order_id !== undefined && { id: query.order_id }),
+                ...(query.warehouse_id !== undefined && {
+                    warehouse_id: query.warehouse_id,
+                }),
+                ...(query.customer_id !== undefined && {
+                    customer_id: query.customer_id,
+                }),
+            },
+        };
+    }
+
+    private refundAmountFilter(
+        minAmount?: number,
+        maxAmount?: number,
+    ): Pick<Prisma.OrderRefundWhereInput, 'amount'> {
+        if (minAmount === undefined && maxAmount === undefined) {
+            return {};
+        }
+
+        return {
+            amount: {
+                ...(minAmount !== undefined && { gte: minAmount }),
+                ...(maxAmount !== undefined && { lte: maxAmount }),
+            },
+        };
+    }
+
+    private refundCreatedAtFilter(
+        fromDate?: string,
+        toDate?: string,
+    ): Pick<Prisma.OrderRefundWhereInput, 'created_at'> {
         if (fromDate === undefined && toDate === undefined) {
             return {};
         }
