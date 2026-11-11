@@ -42,6 +42,60 @@ const GET_OR_LOCK_SCRIPT = `
   return { "busy" }
 `;
 
+/**
+ * Atomically resolve a versioned cache key, return the cached value, or lock.
+ * KEYS[1]=version key, KEYS[2]=lock key
+ * ARGV[1]=key prefix, ARGV[2]=key suffix, ARGV[3]=token, ARGV[4]=lock TTL ms.
+ * Returns { "hit", value, resultKey, version }
+ *      | { "acquired", token, resultKey, version }
+ *      | { "busy", "", resultKey, version }.
+ */
+const GET_VERSIONED_OBJECT_OR_LOCK_SCRIPT = `
+  local version = redis.call("GET", KEYS[1])
+  if not version then
+    version = "0"
+  end
+
+  local resultKey = ARGV[1] .. version .. ARGV[2]
+  local existing = redis.call("GET", resultKey)
+  if existing then
+    return { "hit", existing, resultKey, version }
+  end
+
+  local ok = redis.call("SET", KEYS[2], ARGV[3], "PX", ARGV[4], "NX")
+  if ok then
+    return { "acquired", ARGV[3], resultKey, version }
+  end
+
+  return { "busy", "", resultKey, version }
+`;
+
+/**
+ * Atomically SET a result value and unlock if still owned.
+ * KEYS[1]=result key, KEYS[2]=lock key
+ * ARGV[1]=value, ARGV[2]=TTL seconds, ARGV[3]=token.
+ * Returns 1 if unlocked, else 0.
+ */
+const SET_OBJECT_AND_UNLOCK_SCRIPT = `
+  redis.call("SET", KEYS[1], ARGV[1], "EX", tonumber(ARGV[2]))
+  if redis.call("GET", KEYS[2]) == ARGV[3] then
+    return redis.call("DEL", KEYS[2])
+  end
+  return 0
+`;
+
+/**
+ * Atomically bump one or more version keys.
+ * KEYS=version keys, ARGV[1]=new version.
+ * Returns the number of keys updated.
+ */
+const INVALIDATE_VERSION_KEYS_SCRIPT = `
+  for i = 1, #KEYS do
+    redis.call("SET", KEYS[i], ARGV[1])
+  end
+  return #KEYS
+`;
+
 export type RedisGetOrLockResult =
     | { status: 'hit'; value: string }
     | { status: 'acquired'; token: string }
@@ -51,6 +105,25 @@ export type RedisGetObjectOrLockResult<T> =
     | { status: 'hit'; value: T }
     | { status: 'acquired'; token: string }
     | { status: 'busy' };
+
+export type RedisGetVersionedObjectOrLockResult<T> =
+    | {
+          status: 'hit';
+          value: T;
+          resultKey: string;
+          version: string;
+      }
+    | {
+          status: 'acquired';
+          token: string;
+          resultKey: string;
+          version: string;
+      }
+    | {
+          status: 'busy';
+          resultKey: string;
+          version: string;
+      };
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
@@ -339,6 +412,74 @@ export class RedisService implements OnModuleDestroy {
     }
 
     /**
+     * Atomically read a version key, GET the versioned cache entry, or lock.
+     * Corrupt cached JSON is treated as `busy`.
+     */
+    async getVersionedObjectOrLock<T>(
+        versionKey: string,
+        lockKey: string,
+        keyPrefix: string,
+        keySuffix: string,
+        lockTtlMs: number,
+    ): Promise<RedisGetVersionedObjectOrLockResult<T>> {
+        const token = randomBytes(16).toString('hex');
+        const result = await this.client.eval(
+            GET_VERSIONED_OBJECT_OR_LOCK_SCRIPT,
+            2,
+            versionKey,
+            lockKey,
+            keyPrefix,
+            keySuffix,
+            token,
+            lockTtlMs,
+        );
+
+        return this.parseGetVersionedObjectOrLockResult<T>(result);
+    }
+
+    /**
+     * Atomically SET a JSON value with TTL and unlock if `token` still owns the lock.
+     */
+    async setObjectAndUnlock(
+        resultKey: string,
+        lockKey: string,
+        value: unknown,
+        ttlSeconds: number,
+        token: string,
+    ): Promise<boolean> {
+        const result = await this.client.eval(
+            SET_OBJECT_AND_UNLOCK_SCRIPT,
+            2,
+            resultKey,
+            lockKey,
+            JSON.stringify(value),
+            ttlSeconds,
+            token,
+        );
+        return result === 1;
+    }
+
+    /**
+     * Atomically set one or more version keys to `version` (defaults to now).
+     */
+    async invalidateVersionKeys(
+        versionKeys: string[],
+        version: string = Date.now().toString(),
+    ): Promise<string> {
+        if (versionKeys.length === 0) {
+            return version;
+        }
+
+        await this.client.eval(
+            INVALIDATE_VERSION_KEYS_SCRIPT,
+            versionKeys.length,
+            ...versionKeys,
+            version,
+        );
+        return version;
+    }
+
+    /**
      * Releases a lock only if `token` still owns it (Lua compare-and-delete).
      */
     async unlock(key: string, token: string): Promise<boolean> {
@@ -360,6 +501,43 @@ export class RedisService implements OnModuleDestroy {
         }
 
         return { status: 'busy' };
+    }
+
+    private parseGetVersionedObjectOrLockResult<T>(
+        result: unknown,
+    ): RedisGetVersionedObjectOrLockResult<T> {
+        if (!Array.isArray(result) || result.length < 4) {
+            return { status: 'busy', resultKey: '', version: '0' };
+        }
+
+        const status = result[0];
+        const payload = result[1];
+        const resultKey = typeof result[2] === 'string' ? result[2] : '';
+        const version = typeof result[3] === 'string' ? result[3] : '0';
+
+        if (status === 'hit' && typeof payload === 'string') {
+            try {
+                return {
+                    status: 'hit',
+                    value: JSON.parse(payload) as T,
+                    resultKey,
+                    version,
+                };
+            } catch {
+                return { status: 'busy', resultKey, version };
+            }
+        }
+
+        if (status === 'acquired' && typeof payload === 'string') {
+            return {
+                status: 'acquired',
+                token: payload,
+                resultKey,
+                version,
+            };
+        }
+
+        return { status: 'busy', resultKey, version };
     }
 
     private fieldsToRecord(fields: string[]): Record<string, string> {

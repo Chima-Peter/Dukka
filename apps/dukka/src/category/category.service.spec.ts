@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RedisService } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import { CategoryRepository } from './category.repository.js';
 import { CategoryService } from './category.service.js';
@@ -23,6 +24,7 @@ describe('CategoryService', () => {
                         delete: vi.fn(),
                         addToMarket: vi.fn(),
                         findAllByMarket: vi.fn(),
+                        findMarketIdsByCategoryId: vi.fn(),
                         removeFromMarket: vi.fn(),
                     },
                 },
@@ -30,6 +32,15 @@ describe('CategoryService', () => {
                     provide: CustomerService,
                     useValue: {
                         getActiveMarketId: vi.fn(),
+                    },
+                },
+                {
+                    provide: RedisService,
+                    useValue: {
+                        getVersionedObjectOrLock: vi.fn(),
+                        setObjectAndUnlock: vi.fn(),
+                        invalidateVersionKeys: vi.fn(),
+                        unlock: vi.fn(),
                     },
                 },
             ],

@@ -8,7 +8,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
-import type { Category } from '@app/common';
+import { RedisService, type Category } from '@app/common';
 import { CustomerService } from '../customer/customer.service.js';
 import {
     ACCESS_CONTROL_ERROR,
@@ -18,6 +18,12 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import {
+    CATEGORIES_LIST_LOCK_RETRY_MS,
+    CATEGORIES_LIST_LOCK_TTL_MS,
+    CATEGORIES_LIST_TTL_SECONDS,
+    RedisKeys,
+} from '../shared/redis.constants.js';
 import { resolveMarketId } from '../shared/resolve-market-id.js';
 import { CategoryRepository } from './category.repository.js';
 import type { AddCategoryToMarketDto } from './dto/add-category-to-market.dto.js';
@@ -28,6 +34,11 @@ import type { UpdateCategoryDto } from './dto/update-category.dto.js';
 import type { MarketCategoryItem } from './types/market-category.type.js';
 import type { PrismaErrorMap } from './types/prisma-error.type.js';
 
+type CategoriesPage = {
+    items: MarketCategoryItem[];
+    next_cursor: string | null;
+};
+
 @Injectable()
 export class CategoryService {
     private readonly logger = new Logger(CategoryService.name);
@@ -35,6 +46,7 @@ export class CategoryService {
     constructor(
         private readonly categoryRepository: CategoryRepository,
         private readonly customerService: CustomerService,
+        private readonly redisService: RedisService,
     ) {}
 
     async create(data: CreateCategoryDto): Promise<Category> {
@@ -55,10 +67,13 @@ export class CategoryService {
     async update(id: string, data: UpdateCategoryDto): Promise<Category> {
         try {
             this.logger.log(`Updating category ${id}`);
+            const marketIds =
+                await this.categoryRepository.findMarketIdsByCategoryId(id);
             const category = await this.categoryRepository.update(
                 id,
                 data.name,
             );
+            await this.invalidateCategoriesListCacheForMarkets(marketIds);
             this.logger.log(`Category updated ${id}`);
             return category;
         } catch (error) {
@@ -111,6 +126,7 @@ export class CategoryService {
                 categoryId,
                 data.market_id,
             );
+            await this.invalidateCategoriesListCache(data.market_id);
             this.logger.log(
                 `Category ${categoryId} added to market ${data.market_id}`,
             );
@@ -137,16 +153,81 @@ export class CategoryService {
                 customerId,
                 query.market_id,
             );
-            this.logger.log(`Fetching categories for market ${marketId}`);
-            const page = await this.categoryRepository.findAllByMarket({
-                ...query,
-                market_id: marketId,
-            });
-            this.logger.log(`Fetched categories for market ${marketId}`);
-            return {
-                items: page.items,
-                next_cursor: page.next_cursor,
-            };
+            const limit = query.limit ?? 50;
+            const versionKey = RedisKeys.categoriesListVersion(marketId);
+            const lockKey = RedisKeys.categoriesListLock(
+                marketId,
+                query.cursor,
+                limit,
+            );
+            const keyPrefix = RedisKeys.categoriesListPrefix(marketId);
+            const keySuffix = RedisKeys.categoriesListSuffix(
+                query.cursor,
+                limit,
+            );
+            const waitDeadline = Date.now() + CATEGORIES_LIST_LOCK_TTL_MS;
+
+            while (true) {
+                const outcome =
+                    await this.redisService.getVersionedObjectOrLock<CategoriesPage>(
+                        versionKey,
+                        lockKey,
+                        keyPrefix,
+                        keySuffix,
+                        CATEGORIES_LIST_LOCK_TTL_MS,
+                    );
+
+                if (outcome.status === 'hit') {
+                    this.logger.log(
+                        `Cache hit for categories list market ${marketId}`,
+                    );
+                    return outcome.value;
+                }
+
+                if (outcome.status === 'busy') {
+                    if (Date.now() >= waitDeadline) {
+                        this.logger.warn(
+                            `Cache lock wait timed out for categories list market ${marketId}`,
+                        );
+                        return await this.loadCategoriesPage(
+                            marketId,
+                            query,
+                            limit,
+                        );
+                    }
+
+                    this.logger.log(
+                        `Cache lock busy for categories list market ${marketId}; retrying`,
+                    );
+                    await sleep(CATEGORIES_LIST_LOCK_RETRY_MS);
+                    continue;
+                }
+
+                try {
+                    this.logger.log(
+                        `Fetching categories for market ${marketId}`,
+                    );
+                    const result = await this.loadCategoriesPage(
+                        marketId,
+                        query,
+                        limit,
+                    );
+                    await this.redisService.setObjectAndUnlock(
+                        outcome.resultKey,
+                        lockKey,
+                        result,
+                        CATEGORIES_LIST_TTL_SECONDS,
+                        outcome.token,
+                    );
+                    this.logger.log(
+                        `Fetched categories for market ${marketId}`,
+                    );
+                    return result;
+                } catch (error) {
+                    await this.redisService.unlock(lockKey, outcome.token);
+                    throw error;
+                }
+            }
         } catch (error) {
             this.handleError(error);
         }
@@ -195,6 +276,7 @@ export class CategoryService {
                     categoryId,
                     marketId,
                 );
+            await this.invalidateCategoriesListCache(marketId);
             this.logger.log(
                 `Category ${categoryId} removed from market ${marketId}`,
             );
@@ -214,6 +296,44 @@ export class CategoryService {
                 },
             });
         }
+    }
+
+    private async loadCategoriesPage(
+        marketId: string,
+        query: FindCategoriesDto,
+        limit: number,
+    ): Promise<CategoriesPage> {
+        const page = await this.categoryRepository.findAllByMarket({
+            ...query,
+            market_id: marketId,
+            limit,
+        });
+        return {
+            items: page.items,
+            next_cursor: page.next_cursor,
+        };
+    }
+
+    private async invalidateCategoriesListCache(
+        marketId: string,
+    ): Promise<void> {
+        await this.redisService.invalidateVersionKeys([
+            RedisKeys.categoriesListVersion(marketId),
+        ]);
+    }
+
+    private async invalidateCategoriesListCacheForMarkets(
+        marketIds: string[],
+    ): Promise<void> {
+        if (marketIds.length === 0) {
+            return;
+        }
+
+        await this.redisService.invalidateVersionKeys(
+            marketIds.map((marketId) =>
+                RedisKeys.categoriesListVersion(marketId),
+            ),
+        );
     }
 
     private handleError(error: unknown, messages: PrismaErrorMap = {}): never {
@@ -275,4 +395,8 @@ export class CategoryService {
                 return new NotFoundException('Category not found');
         }
     }
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }

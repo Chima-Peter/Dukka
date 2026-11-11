@@ -78,6 +78,14 @@ export class CategoryRepository {
         });
     }
 
+    async findMarketIdsByCategoryId(categoryId: string): Promise<string[]> {
+        const rows = await this.prisma.marketCategory.findMany({
+            where: { category_id: categoryId },
+            select: { market_id: true },
+        });
+        return rows.map((row) => row.market_id);
+    }
+
     async findAllByMarket(query: FindCategoriesDto & { market_id: string }) {
         const limit = query.limit ?? 50;
         const rows = await this.prisma.marketCategory.findMany({

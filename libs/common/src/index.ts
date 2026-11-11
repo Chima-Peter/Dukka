@@ -55,6 +55,7 @@ export {
     RedisService,
     type RedisGetObjectOrLockResult,
     type RedisGetOrLockResult,
+    type RedisGetVersionedObjectOrLockResult,
     MAX_CONNECTIONS_PER_READER,
     MAX_SSE_CONNECTIONS_PER_USER,
     SSE_READER_COUNTS_KEY,

@@ -9,6 +9,7 @@ export {
     RedisService,
     type RedisGetObjectOrLockResult,
     type RedisGetOrLockResult,
+    type RedisGetVersionedObjectOrLockResult,
 } from './redis.service.js';
 export {
     MAX_CONNECTIONS_PER_READER,
