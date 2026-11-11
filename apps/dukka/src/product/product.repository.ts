@@ -71,19 +71,20 @@ export class ProductRepository {
     }
 
     async findAllPublic(query: FindProductsDto & { market_id: string }) {
-        const nameMatchedIds = await this.findNameMatchedIds(query.name);
-        if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
-            return { items: [], next_cursor: null };
-        }
-
         const limit = query.limit ?? 50;
+        const nameQuery = query.name?.trim();
         const hasPriceFilter =
             query.min_price !== undefined || query.max_price !== undefined;
         const records = await this.prisma.product.findMany({
             where: {
-                ...(nameMatchedIds !== undefined && {
-                    id: { in: nameMatchedIds },
-                }),
+                ...(nameQuery
+                    ? {
+                          name: {
+                              contains: nameQuery,
+                              mode: 'insensitive',
+                          },
+                      }
+                    : {}),
                 ...(query.category_id !== undefined && {
                     category_id: query.category_id,
                 }),
@@ -226,12 +227,8 @@ export class ProductRepository {
     }
 
     async findAll(query: FindStaffProductsDto) {
-        const nameMatchedIds = await this.findNameMatchedIds(query.name);
-        if (nameMatchedIds !== undefined && nameMatchedIds.length === 0) {
-            return { items: [], next_cursor: null };
-        }
-
         const limit = query.limit ?? 50;
+        const nameQuery = query.name?.trim();
         const hasPriceFilter =
             query.min_price !== undefined || query.max_price !== undefined;
         const hasMarketVariantFilter =
@@ -243,9 +240,14 @@ export class ProductRepository {
             hasMarketVariantFilter || query.variant_status !== undefined;
         const records = await this.prisma.product.findMany({
             where: {
-                ...(nameMatchedIds !== undefined && {
-                    id: { in: nameMatchedIds },
-                }),
+                ...(nameQuery
+                    ? {
+                          name: {
+                              contains: nameQuery,
+                              mode: 'insensitive',
+                          },
+                      }
+                    : {}),
                 ...(query.category_id !== undefined && {
                     category_id: query.category_id,
                 }),
@@ -371,23 +373,6 @@ export class ProductRepository {
         }
 
         return toProductDetail(product);
-    }
-
-    private async findNameMatchedIds(name?: string) {
-        const nameQuery = name?.trim();
-        if (!nameQuery) {
-            return undefined;
-        }
-
-        const likePattern = `%${nameQuery.replace(/[%_\\]/g, '\\$&')}%`;
-        const rows = await this.prisma.$queryRaw<{ id: string }[]>`
-            SELECT id
-            FROM "dukka"."Product"
-            WHERE name ILIKE ${likePattern} ESCAPE '\'
-            ORDER BY created_at DESC
-            LIMIT 100
-        `;
-        return rows.map((row) => row.id);
     }
 
     async update(id: string, data: UpdateProductDto): Promise<Product> {
