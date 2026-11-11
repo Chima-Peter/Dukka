@@ -4,6 +4,10 @@ import { CustomerService } from '../customer/customer.service.js';
 import { CategoryRepository } from './category.repository.js';
 import { CategoryService } from './category.service.js';
 
+vi.mock('../customer/customer.service.js', () => ({
+    CustomerService: class CustomerService {},
+}));
+
 describe('CategoryService', () => {
     let service: CategoryService;
 

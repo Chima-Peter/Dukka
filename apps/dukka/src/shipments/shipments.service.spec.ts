@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotificationPublisher } from '@app/common';
 import { GeneralQueueService } from '@app/queues';
 import { ShipmentsRepository } from './shipments.repository.js';
@@ -14,25 +15,25 @@ describe('ShipmentsService', () => {
                 {
                     provide: ShipmentsRepository,
                     useValue: {
-                        findForMoveOrThrow: jest.fn(),
-                        findLocationOrThrow: jest.fn(),
-                        findActivePartnerOrThrow: jest.fn(),
-                        findDetailByTrackingNumber: jest.fn(),
-                        move: jest.fn(),
-                        findStaffIdsForLocation: jest.fn(),
+                        findForMoveOrThrow: vi.fn(),
+                        findLocationOrThrow: vi.fn(),
+                        findActivePartnerOrThrow: vi.fn(),
+                        findDetailByTrackingNumber: vi.fn(),
+                        move: vi.fn(),
+                        findStaffIdsForLocation: vi.fn(),
                     },
                 },
                 {
                     provide: GeneralQueueService,
                     useValue: {
-                        enqueue: jest.fn(),
+                        enqueue: vi.fn(),
                     },
                 },
                 {
                     provide: NotificationPublisher,
                     useValue: {
-                        notifyCustomer: jest.fn(),
-                        notifyStaff: jest.fn(),
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
             ],

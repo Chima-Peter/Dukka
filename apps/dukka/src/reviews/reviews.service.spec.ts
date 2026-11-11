@@ -4,18 +4,37 @@ import { OrdersService } from '../orders/orders.service.js';
 import { ReviewsRepository } from './reviews.repository.js';
 import { ReviewsService } from './reviews.service.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => ({
-    REVIEWS_BUCKET: 'reviews',
-    PRODUCT_BUCKET: 'products',
-    ALLOWED_PRODUCT_CONTENT_TYPES: new Set([
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/webp',
-        'image/gif',
-    ]),
-    SupabaseService: class SupabaseService {},
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual = await importOriginal<
+        typeof import('../../../../libs/common/src/index.ts')
+    >();
+    return {
+        ...actual,
+        Auth: () => () => undefined,
+        CurrentCustomer: () => () => undefined,
+        CurrentStaff: () => () => undefined,
+        OptionalCustomerAuth: () => () => undefined,
+        Public: () => () => undefined,
+        RequirePermission: () => () => undefined,
+        ResponseMessage: () => () => undefined,
+        StaffPermission: new Proxy(
+            {},
+            {
+                get: (_target, property) => String(property),
+            },
+        ),
+        SupabaseService: class SupabaseService {},
+        PRODUCT_BUCKET: 'products',
+        REVIEWS_BUCKET: 'reviews',
+        ALLOWED_PRODUCT_CONTENT_TYPES: new Set([
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+        ]),
+    };
+});
 
 describe('ReviewsService', () => {
     let service: ReviewsService;

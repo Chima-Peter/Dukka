@@ -3,19 +3,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PermissionsController } from './permissions.controller.js';
 import { PermissionsService } from './permissions.service.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => ({
-    Auth: () => () => undefined,
-    CurrentStaff: () => () => undefined,
-    RequirePermission: () => () => undefined,
-    ResponseMessage: () => () => undefined,
-    StaffPermission: new Proxy(
-        {},
-        {
-            get: (_target, property) => String(property),
-        },
-    ),
-    RedisService: class RedisService {},
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual = await importOriginal<
+        typeof import('../../../../libs/common/src/index.ts')
+    >();
+    return {
+        ...actual,
+        Auth: () => () => undefined,
+        CurrentCustomer: () => () => undefined,
+        CurrentStaff: () => () => undefined,
+        OptionalCustomerAuth: () => () => undefined,
+        Public: () => () => undefined,
+        RequirePermission: () => () => undefined,
+        ResponseMessage: () => () => undefined,
+        StaffPermission: new Proxy(
+            {},
+            {
+                get: (_target, property) => String(property),
+            },
+        ),
+        RedisService: class RedisService {},
+    };
+});
 
 describe('PermissionsController', () => {
     let controller: PermissionsController;

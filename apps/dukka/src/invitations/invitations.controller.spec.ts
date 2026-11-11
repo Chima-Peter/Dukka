@@ -1,20 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { commonMock } from '../staff/test/common.mock.js';
+import { createCommonMock } from '../staff/test/common.mock.js';
 import { InvitationsController } from './invitations.controller.js';
 import { InvitationsService } from './invitations.service.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => commonMock);
-vi.mock('../../../../libs/queues/src/index.ts', () => ({
-    MailQueueService: class MailQueueService {},
-    MAIL_QUEUE: 'mail',
-    MAIL_JOBS: { SEND: 'send' },
-    MAIL_TEMPLATES: {
-        STAFF_WELCOME: 'staff.welcome',
-        STAFF_INVITATION: 'staff.invitation',
-    },
-    QueuesModule: class QueuesModule {},
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) =>
+    createCommonMock(importOriginal),
+);
 
 describe('InvitationsController', () => {
     let controller: InvitationsController;

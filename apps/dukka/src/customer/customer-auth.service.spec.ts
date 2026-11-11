@@ -7,48 +7,32 @@ import { CustomerAuthService } from './customer-auth.service.js';
 import { CustomerService } from './customer.service.js';
 import { TokenRepository } from './token.repository.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => ({
-    RedisService: class RedisService {},
-    SupabaseService: class SupabaseService {},
-    AVATAR_BUCKET: 'avatar',
-    MAX_AVATAR_BYTES: 5 * 1024 * 1024,
-    ALLOWED_AVATAR_CONTENT_TYPES: new Set(['image/jpeg']),
-}));
-vi.mock('../../../../libs/queues/src/index.ts', () => ({
-    MailQueueService: class MailQueueService {},
-    GeneralQueueService: class GeneralQueueService {},
-    MAIL_QUEUE: 'mail',
-    GENERAL_QUEUE: 'general',
-    MAIL_JOBS: { SEND: 'send' },
-    GENERAL_JOBS: {
-        EXPIRED_RESERVATIONS: 'expired-reservations',
-        CANCEL_ORDER: 'cancel-order',
-        CUSTOMER_REGISTERED: 'customer-registered',
-        INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
-        CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
-    },
-    MAIL_TEMPLATES: {
-        CUSTOMER_WELCOME: 'customer.welcome',
-        CUSTOMER_PASSWORD_RESET: 'customer.password-reset',
-        CUSTOMER_PASSWORD_CHANGED: 'customer.password-changed',
-        CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
-        CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
-        STAFF_WELCOME: 'staff.welcome',
-        STAFF_INVITATION: 'staff.invitation',
-        STAFF_PASSWORD_RESET: 'staff.password-reset',
-        STAFF_PASSWORD_CHANGED: 'staff.password-changed',
-        STAFF_DEACTIVATED: 'staff.deactivated',
-        STAFF_ACCOUNT_UPDATED: 'staff.account-updated',
-        STAFF_ROLE_ASSIGNED: 'staff.role-assigned',
-        STAFF_ROLE_REVOKED: 'staff.role-revoked',
-        STAFF_ROLE_UPDATED: 'staff.role-updated',
-        STAFF_PERMISSIONS_CHANGED: 'staff.permissions-changed',
-        STAFF_MARKETS_CHANGED: 'staff.markets-changed',
-        MARKET_UPDATED: 'market.updated',
-        MARKET_DELETED: 'market.deleted',
-    },
-    QueuesModule: class QueuesModule {},
-}));
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual = await importOriginal<
+        typeof import('../../../../libs/common/src/index.ts')
+    >();
+    return {
+        ...actual,
+        Auth: () => () => undefined,
+        CurrentCustomer: () => () => undefined,
+        CurrentStaff: () => () => undefined,
+        OptionalCustomerAuth: () => () => undefined,
+        Public: () => () => undefined,
+        RequirePermission: () => () => undefined,
+        ResponseMessage: () => () => undefined,
+        StaffPermission: new Proxy(
+            {},
+            {
+                get: (_target, property) => String(property),
+            },
+        ),
+        RedisService: class RedisService {},
+        SupabaseService: class SupabaseService {},
+        AVATAR_BUCKET: 'avatar',
+        MAX_AVATAR_BYTES: 5 * 1024 * 1024,
+        ALLOWED_AVATAR_CONTENT_TYPES: new Set(['image/jpeg']),
+    };
+});
 
 describe('CustomerAuthService', () => {
     let service: CustomerAuthService;

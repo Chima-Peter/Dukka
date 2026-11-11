@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { commonMock } from '../staff/test/common.mock.js';
+import { createCommonMock } from '../staff/test/common.mock.js';
 import { PermissionsRepository } from './permissions.repository.js';
 import { PermissionsService } from './permissions.service.js';
 
-vi.mock('../../../../libs/common/src/index.ts', () => commonMock);
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) =>
+    createCommonMock(importOriginal),
+);
 
 describe('PermissionsService', () => {
     let service: PermissionsService;

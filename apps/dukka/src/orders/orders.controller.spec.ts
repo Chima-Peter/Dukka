@@ -1,6 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+
+vi.mock('../../../../libs/common/src/index.ts', async (importOriginal) => {
+    const actual = await importOriginal<
+        typeof import('../../../../libs/common/src/index.ts')
+    >();
+    return {
+        ...actual,
+        Auth: () => () => undefined,
+        CurrentCustomer: () => () => undefined,
+        CurrentStaff: () => () => undefined,
+        Public: () => () => undefined,
+        RequirePermission: () => () => undefined,
+        ResponseMessage: () => () => undefined,
+        StaffPermission: new Proxy(
+            {},
+            {
+                get: (_target, property) => String(property),
+            },
+        ),
+    };
+});
 
 describe('OrdersController', () => {
     let controller: OrdersController;

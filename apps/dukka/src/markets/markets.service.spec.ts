@@ -288,12 +288,16 @@ describe('MarketsService', () => {
 
         await service.delete('market-1', 'staff-1');
 
-        expect(generalQueue.enqueue).toHaveBeenCalledWith('market-deleted', {
-            market_id: 'market-1',
-            name: 'Lagos',
-            code: 'LOS',
-            performed_by_staff_id: 'staff-1',
-        });
+        expect(generalQueue.enqueue).toHaveBeenCalledWith(
+            'market-deleted',
+            {
+                market_id: 'market-1',
+                name: 'Lagos',
+                code: 'LOS',
+                performed_by_staff_id: 'staff-1',
+            },
+            { jobId: 'market-deleted-market-1' },
+        );
         expect(marketsRepository.delete).not.toHaveBeenCalled();
     });
 

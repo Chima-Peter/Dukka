@@ -1,33 +1,41 @@
-export const commonMock = {
-    Auth: () => () => undefined,
-    CurrentStaff: () => () => undefined,
-    Public: () => () => undefined,
-    RequirePermission: () => () => undefined,
-    ResponseMessage: () => () => undefined,
-    StaffPermission: new Proxy(
-        {},
-        {
-            get: (_target, property) => String(property),
-        },
-    ),
-    RedisService: class RedisService {},
-    STAFF_JWT_SERVICE: 'STAFF_JWT_SERVICE',
-    REQUEST_USER_KEY: 'user',
-    AUTH_TYPE_KEY: 'authType',
-    IS_PUBLIC_KEY: 'public',
-    REQUIRE_PERMISSION_KEY: 'requirePermission',
-    blacklistedTokenKey: (token: string) => `blacklisted:token:${token}`,
+const staffPermissionProxy = new Proxy(
+    {},
+    {
+        get: (_target, property) => String(property),
+    },
+);
 
-    AVATAR_BUCKET: 'avatar',
-    QUALIFICATIONS_BUCKET: 'qualifications',
-    MAX_AVATAR_BYTES: 5 * 1024 * 1024,
-    MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
-    ALLOWED_AVATAR_CONTENT_TYPES: new Set([
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/webp',
-    ]),
-    ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set(['application/pdf']),
-    SupabaseService: class SupabaseService {},
-};
+/**
+ * Partial mock for @app/common that keeps real exports (PrismaService, enums,
+ * etc.) and only stubs Nest decorators / tokens used in controller wiring.
+ */
+export async function createCommonMock(
+    importOriginal: <T>() => Promise<T>,
+) {
+    const actual = await importOriginal<
+        typeof import('../../../../../libs/common/src/index.ts')
+    >();
+
+    return {
+        ...actual,
+        Auth: () => () => undefined,
+        CurrentCustomer: () => () => undefined,
+        CurrentStaff: () => () => undefined,
+        OptionalCustomerAuth: () => () => undefined,
+        Public: () => () => undefined,
+        RequirePermission: () => () => undefined,
+        ResponseMessage: () => () => undefined,
+        StaffPermission: staffPermissionProxy,
+        AVATAR_BUCKET: 'avatar',
+        QUALIFICATIONS_BUCKET: 'qualifications',
+        MAX_AVATAR_BYTES: 5 * 1024 * 1024,
+        MAX_QUALIFICATION_BYTES: 10 * 1024 * 1024,
+        ALLOWED_AVATAR_CONTENT_TYPES: new Set([
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+        ]),
+        ALLOWED_QUALIFICATION_CONTENT_TYPES: new Set(['application/pdf']),
+    };
+}
