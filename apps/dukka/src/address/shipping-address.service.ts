@@ -13,6 +13,7 @@ import { CustomerService } from '../customer/customer.service.js';
 import { prismaHintIncludes } from '../shared/prisma-relation-error.js';
 import type { CreateAddressDto } from './dto/create-address.dto.js';
 import type { UpdateAddressDto } from './dto/update-address.dto.js';
+import type { AddressSummary } from './mappers/address.mapper.js';
 import { ShippingAddressRepository } from './shipping-address.repository.js';
 
 @Injectable()
@@ -48,7 +49,7 @@ export class ShippingAddressService {
         }
     }
 
-    async findAll(customer_id: string): Promise<ShippingAddress[]> {
+    async findAll(customer_id: string): Promise<AddressSummary[]> {
         try {
             this.logger.log(
                 `Fetching shipping addresses for customer ${customer_id}`,

@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { type ShippingAddress, PrismaService } from '@app/common';
 import type { CreateAddressDto } from './dto/create-address.dto.js';
 import type { UpdateAddressDto } from './dto/update-address.dto.js';
+import {
+    addressSummarySelect,
+    toAddressSummary,
+    type AddressSummary,
+} from './mappers/address.mapper.js';
 
 @Injectable()
 export class ShippingAddressRepository {
@@ -22,11 +27,13 @@ export class ShippingAddressRepository {
         });
     }
 
-    async findAllByCustomerId(customer_id: string): Promise<ShippingAddress[]> {
-        return await this.prisma.shippingAddress.findMany({
+    async findAllByCustomerId(customer_id: string): Promise<AddressSummary[]> {
+        const records = await this.prisma.shippingAddress.findMany({
             where: { customer_id },
+            select: addressSummarySelect,
             orderBy: { created_at: 'desc' },
         });
+        return records.map(toAddressSummary);
     }
 
     async findById(id: string): Promise<ShippingAddress | null> {
