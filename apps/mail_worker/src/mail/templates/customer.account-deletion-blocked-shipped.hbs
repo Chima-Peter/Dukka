@@ -1,7 +1,7 @@
-<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:700;line-height:1.25;color:#0D523F;">
   Your order has been shipped
 </h1>
-<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+<p style="margin:0 0 22px;font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#888B8B;">
   Account deletion paused
 </p>
 
@@ -20,14 +20,14 @@
   {{> detail-row label="Shipping to" value=shipping_address}}
 {{/details}}
 
-<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#031815;">
   Items
 </p>
-<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
+<ul style="margin:0 0 20px;padding-left:20px;color:#4B5555;">
   {{#each items}}
   <li style="margin:0 0 8px;">
     <strong>{{product_name}}</strong> × {{quantity}}
-    <span style="color:#6b6b6b;"> — {{../currency}} {{total}}</span>
+    <span style="color:#6B7373;"> — {{../currency}} {{total}}</span>
   </li>
   {{/each}}
 </ul>
