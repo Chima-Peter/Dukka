@@ -1,16 +1,18 @@
 import type {
-    DistributionPoint,
-    Market,
-    Permission,
     Qualification,
-    Role,
-    RolePermission,
     Staff,
     StaffAudit,
     StaffProfile,
-    StaffScope,
-    Warehouse,
 } from '@app/common';
+import type {
+    StaffDetailsRow,
+    StaffMappedDetails,
+    StaffQualificationSummary,
+    StaffRoleRow,
+    StaffRoleView,
+    StaffScopeRow,
+    StaffScopeView,
+} from '../mappers/staff.mapper.js';
 
 export const STAFF_REPO_ERROR = {
     PERFORMING_STAFF_NOT_FOUND: 'PERFORMING_STAFF_NOT_FOUND',
@@ -29,30 +31,19 @@ export const STAFF_REPO_ERROR = {
     STAFF_INACTIVE: 'STAFF_INACTIVE',
 } as const;
 
-export type StaffRoleDetails = Role & {
-    role_permissions: (RolePermission & { permission: Permission })[];
-};
+export type { StaffQualificationSummary, StaffRoleView, StaffScopeView };
 
-export type StaffQualificationSummary = Omit<Qualification, 'document_url'>;
+export type StaffRoleDetails = StaffRoleRow;
 
-export type StaffScopeDetails = StaffScope & {
-    market: Market | null;
-    warehouse: Warehouse | null;
-    distribution_point: DistributionPoint | null;
-};
+export type StaffScopeDetails = StaffScopeRow;
 
-export type StaffWithDetails = Omit<Staff, 'password'> & {
-    profile: StaffProfile | null;
-    qualifications: StaffQualificationSummary[];
-    role: StaffRoleDetails | null;
-    staff_scopes: StaffScopeDetails[];
-};
+export type StaffWithDetails = StaffDetailsRow;
 
 export type StaffAuthRecord = Staff & {
     profile: StaffProfile | null;
     qualifications: StaffQualificationSummary[];
-    role: StaffRoleDetails | null;
-    staff_scopes: StaffScopeDetails[];
+    role: StaffDetailsRow['role'];
+    staff_scopes: StaffDetailsRow['staff_scopes'];
 };
 
 export type StaffSummary = {
@@ -81,14 +72,7 @@ export type StaffAuditPage = {
     next_cursor: string | null;
 };
 
-export type StaffResponse = Omit<
-    StaffWithDetails,
-    'avatar' | 'staff_scopes'
-> & {
-    scopes: StaffWithDetails['staff_scopes'];
-    /** Public Supabase URL built from the stored avatar path. */
-    avatar: string | null;
-};
+export type StaffResponse = StaffMappedDetails;
 
 export type StaffSummaryResponse = Omit<StaffSummary, 'avatar'> & {
     avatar: string | null;

@@ -48,6 +48,7 @@ import type { UpdateStaffProfileDto } from './dto/update-staff-profile.dto.js';
 import type { AssignStaffScopeDto } from './dto/assign-scope.dto.js';
 import type { RemoveStaffScopeDto } from './dto/remove-scope.dto.js';
 import type { ValidateStaffDto } from './dto/validate-staff.dto.js';
+import { toStaffMappedDetails } from './mappers/staff.mapper.js';
 import { StaffRepository } from './staff.repository.js';
 import {
     STAFF_REPO_ERROR,
@@ -976,14 +977,12 @@ export class StaffService {
     }
 
     private toStaffResponse(staff: StaffWithDetails): StaffResponse {
-        const { avatar: avatar_path, staff_scopes, ...rest } = staff;
-        return {
-            ...rest,
-            scopes: staff_scopes,
-            avatar: avatar_path
-                ? this.supabaseService.getPublicURL(avatar_path, AVATAR_BUCKET)
+        return toStaffMappedDetails(
+            staff,
+            staff.avatar
+                ? this.supabaseService.getPublicURL(staff.avatar, AVATAR_BUCKET)
                 : null,
-        };
+        );
     }
 
     private toStaffSummaryResponse(

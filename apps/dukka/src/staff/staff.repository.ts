@@ -44,38 +44,7 @@ import {
     type StaffWithDetails,
 } from './types/staff.types.js';
 
-const staffQualificationSelect = {
-    id: true,
-    title: true,
-    description: true,
-    created_at: true,
-    updated_at: true,
-    staff_id: true,
-} as const;
-
-const staffDetailsInclude = {
-    profile: true,
-    qualifications: {
-        orderBy: { created_at: 'desc' as const },
-        select: staffQualificationSelect,
-    },
-    staff_scopes: {
-        include: {
-            market: true,
-            warehouse: true,
-            distribution_point: true,
-        },
-        orderBy: { created_at: 'desc' as const },
-    },
-    role: {
-        include: {
-            role_permissions: {
-                include: { permission: true },
-                orderBy: { created_at: 'desc' as const },
-            },
-        },
-    },
-};
+import { staffDetailsInclude } from './mappers/staff.mapper.js';
 
 const staffScopeAccessSelect = {
     market_id: true,
