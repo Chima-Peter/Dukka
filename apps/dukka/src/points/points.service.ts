@@ -15,9 +15,14 @@ import {
 import type { CreatePointsHistoryDto } from './dto/create-points-history.dto.js';
 import type { FindPointsHistoryDto } from './dto/find-points-history.dto.js';
 import {
+    toPointsChangeView,
+    toPointsHistoryView,
+    type PointsChangeView,
+    type PointsHistoryPageView,
+} from './mappers/points.mapper.js';
+import {
     PointsRepository,
     type PointsChangeResult,
-    type PointsHistoryPage,
 } from './points.repository.js';
 
 @Injectable()
@@ -32,7 +37,7 @@ export class PointsService {
     async findHistory(
         customer_id: string,
         query: FindPointsHistoryDto,
-    ): Promise<PointsHistoryPage> {
+    ): Promise<PointsHistoryPageView> {
         try {
             this.logger.log(
                 `Fetching points history for customer ${customer_id}`,
@@ -44,7 +49,10 @@ export class PointsService {
             this.logger.log(
                 `Fetched points history for customer ${customer_id}`,
             );
-            return history;
+            return {
+                items: history.items.map(toPointsHistoryView),
+                next_cursor: history.next_cursor,
+            };
         } catch (error) {
             this.handleError(error, customer_id);
         }
@@ -69,7 +77,7 @@ export class PointsService {
     async earn(
         customer_id: string,
         data: CreatePointsHistoryDto,
-    ): Promise<PointsChangeResult> {
+    ): Promise<PointsChangeView> {
         try {
             this.logger.log(
                 `Earning ${data.count} points for customer ${customer_id}`,
@@ -87,7 +95,7 @@ export class PointsService {
                 text: `You earned ${data.count} points. New balance: ${result.points.balance}.`,
             });
 
-            return result;
+            return toPointsChangeView(result);
         } catch (error) {
             this.handleError(error, customer_id);
         }
@@ -96,8 +104,17 @@ export class PointsService {
     async redeem(
         customer_id: string,
         data: CreatePointsHistoryDto,
+        tx: Prisma.TransactionClient,
+    ): Promise<PointsChangeResult>;
+    async redeem(
+        customer_id: string,
+        data: CreatePointsHistoryDto,
+    ): Promise<PointsChangeView>;
+    async redeem(
+        customer_id: string,
+        data: CreatePointsHistoryDto,
         tx?: Prisma.TransactionClient,
-    ): Promise<PointsChangeResult> {
+    ): Promise<PointsChangeResult | PointsChangeView> {
         try {
             this.logger.log(
                 `Redeeming ${data.count} points for customer ${customer_id}`,
@@ -113,7 +130,7 @@ export class PointsService {
                 `Points redeemed for customer ${customer_id}. New balance: ${result.points.balance}`,
             );
 
-            return result;
+            return tx ? result : toPointsChangeView(result);
         } catch (error) {
             this.handleError(error, customer_id);
         }

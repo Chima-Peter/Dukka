@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Query } from '@nestjs/common';
 import {
     Auth,
     CurrentCustomer,
@@ -21,23 +21,5 @@ export class PointsController {
         @Query() query: FindPointsHistoryDto,
     ) {
         return this.pointsService.findHistory(customer.sub, query);
-    }
-
-    @Post('earn')
-    @ResponseMessage('Points earned successfully')
-    earn(
-        @CurrentCustomer() customer: CustomerJwtPayload,
-        @Body() data: CreatePointsHistoryDto,
-    ) {
-        return this.pointsService.earn(customer.sub, data);
-    }
-
-    @Post('redeem')
-    @ResponseMessage('Points redeemed successfully')
-    redeem(
-        @CurrentCustomer() customer: CustomerJwtPayload,
-        @Body() data: CreatePointsHistoryDto,
-    ) {
-        return this.pointsService.redeem(customer.sub, data);
     }
 }
