@@ -20,4 +20,6 @@ export interface ConfigType {
     PAYSTACK_PUBLIC_KEY: string;
     PAYSTACK_BASE_URL: string;
     CORS_ORIGINS: string;
+    TRUST_PROXY: boolean | number | string;
+    CSRF_EXCLUDE: string;
 }

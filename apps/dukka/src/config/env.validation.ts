@@ -26,4 +26,12 @@ export const envValidationSchema = Joi.object({
         .uri()
         .default('https://api.paystack.co'),
     CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
+    TRUST_PROXY: Joi.alternatives()
+        .try(
+            Joi.number().integer().min(0),
+            Joi.boolean(),
+            Joi.string(),
+        )
+        .default(false),
+    CSRF_EXCLUDE: Joi.string().default('/api/v1/dukka/docs'),
 });

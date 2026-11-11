@@ -1,12 +1,13 @@
 import { ConsoleLogger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import type { ConfigType } from './config/env.interface.js';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule, {
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
         rawBody: true,
         instrument: ObserveInstrument,
         logger: new ConsoleLogger({
@@ -14,6 +15,26 @@ async function bootstrap() {
             colors: true,
             logLevels: ['log', 'warn', 'error', 'fatal'],
         }),
+    });
+    const configService = app.get(ConfigService<ConfigType, true>);
+    const corsOrigins = configService
+        .getOrThrow('CORS_ORIGINS', { infer: true })
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+    const csrfExclude = configService
+        .getOrThrow('CSRF_EXCLUDE', { infer: true })
+        .split(',')
+        .map((path) => path.trim())
+        .filter(Boolean);
+
+    app.set(
+        'trust proxy',
+        configService.getOrThrow('TRUST_PROXY', { infer: true }),
+    );
+    app.enableCsrfProtection({
+        exclude: csrfExclude,
+        trustedOrigins: corsOrigins,
     });
     app.useSecurityHeaders({
         crossOriginEmbedderPolicy: false,
@@ -26,12 +47,6 @@ async function bootstrap() {
         defaultVersion: '1/dukka',
         prefix: 'api/v',
     });
-    const configService = app.get(ConfigService<ConfigType, true>);
-    const corsOrigins = configService
-        .getOrThrow('CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean);
 
     app.enableCors({
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
