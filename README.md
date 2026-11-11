@@ -1,118 +1,195 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Dukka
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS monorepo for the Dukka commerce platform API: multi-market catalog, cart/checkout, orders, payments (Paystack), warehouses, shipments, promotions/coupons, and staff RBAC.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Apps & libraries
 
-## Description
+| Path | Role |
+| --- | --- |
+| `apps/dukka` | HTTP API (default Nest app) |
+| `apps/mail_worker` | BullMQ worker for outbound email |
+| `apps/general_worker` | BullMQ worker for background jobs (orders, inventory, expiries, etc.) |
+| `libs/common` | Prisma, auth guards, Redis, Supabase, shared filters/interceptors |
+| `libs/queues` | Mail + general queue producers/constants |
+| `libs/utils` | Shared utilities |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+API routes are versioned under `/api/v1/dukka`. Swagger UI is at `/docs`. Health checks are at `/health` (unversioned).
 
-## Project setup
+## Prerequisites
+
+- Node.js 24+ (npm)
+- PostgreSQL
+- Redis (BullMQ + caching)
+
+## Setup
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### JWT key pairs
+
+Customer and staff auth use separate RSA key pairs. Generate them once:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+mkdir -p keys
+openssl genrsa -out keys/private.pem 2048
+openssl rsa -in keys/private.pem -pubout -out keys/public.pem
+openssl genrsa -out keys/staff-private.pem 2048
+openssl rsa -in keys/staff-private.pem -pubout -out keys/staff-public.pem
 ```
 
-## Run tests
+Point the JWT path env vars at these files (see below). `keys/` is gitignored.
+
+### Environment
+
+Create a root `.env`. Required variables for the API (`apps/dukka`):
+
+| Variable | Notes |
+| --- | --- |
+| `NODE_ENV` | `development` \| `production` \| `test` |
+| `DUKKA_PORT` | API port (default `3000`) |
+| `DATABASE_URL` | Prisma / app Postgres URL |
+| `DIRECT_URL` | Direct Postgres URL (migrations) |
+| `REDIS_URL` | e.g. `redis://127.0.0.1:6379` |
+| `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` | Customer JWT keys |
+| `STAFF_JWT_PRIVATE_KEY_PATH` / `STAFF_JWT_PUBLIC_KEY_PATH` | Staff JWT keys |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKETS` | Storage (comma-separated buckets) |
+| `STAFF_APP_URL` | Staff app base URL (invites, links) |
+| `CORS_ORIGINS` | Comma-separated origins |
+| `PAYSTACK_SECRET_KEY` / `PAYSTACK_PUBLIC_KEY` / `PAYSTACK_BASE_URL` | Payments |
+| `REST_COUNTRIES_API_KEY` | Countries lookup |
+| `OBSERVE_SERVICE_NAME` / `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` | NestJS Observe |
+| `POSTGRES_PORT` / `RABBITMQ_PORT` / `KAFKA_PORT` | Required by config validation |
+
+**Mail worker** also needs: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, optional `SMTP_USER` / `SMTP_PASS`.
+
+**General worker** shares `DATABASE_URL`, `REDIS_URL`, Supabase, Paystack, and `REST_COUNTRIES_API_KEY`.
+
+### Database (Prisma 7)
+
+Schema and migrations live under `libs/common/prisma`. Config: `libs/common/prisma7.config.ts`.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cd libs/common
+npx prisma generate --config prisma7.config.ts
+npx prisma migrate dev --config prisma7.config.ts
+npx prisma db seed --config prisma7.config.ts
 ```
 
-## Deployment
+Seed creates baseline permissions, currencies, markets, roles, and demo staff/customers.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Run
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# API
+npm run start:dev
+
+# Mail worker
+npm run start:mail_worker:dev
+
+# General worker
+npm run start:general_worker:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Production entrypoints:
 
-## Observability
+```bash
+npm run build
+npm run start:prod
+npm run start:mail_worker:prod
+npm run start:general_worker:prod
+```
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+## Scripts
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+| Script | Description |
+| --- | --- |
+| `npm run start:dev` | API in watch mode |
+| `npm run build` | Compile all apps |
+| `npm run lint` | Oxlint (type-aware) |
+| `npm run test` | Vitest unit tests |
+| `npm run test:watch` | Vitest watch |
+| `npm run test:cov` | Coverage |
+| `npm run test:e2e` | E2E suite |
+| `npm run format` | Prettier on `apps/**` and `libs/**` |
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+## Features
 
-This project is already instrumented. Create a free account at [observe.nestjs.com](https://observe.nestjs.com), add an application, and paste the generated app key and secret into the `ObserveModule.forRoot()` call in `src/app.module.ts`.
+### Auth & access
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+- **Dual JWT auth** — separate RSA key pairs and guards for customers and staff (`CustomerJwtAuthGuard`, `StaffJwtAuthGuard`), plus `StaffPermissionsGuard` for RBAC.
+- **Customer auth** — register, login, refresh, logout, password reset; profile update, change password, set **active market**, account deletion (initiate + verify).
+- **Staff auth** — login, refresh, logout, password reset; self profile (avatar, qualifications).
+- **RBAC** — roles and permissions CRUD; assign/revoke roles and scopes (global / market / warehouse / distribution point); staff audit history; deactivate staff.
+- **Invitations** — create, list, cancel, resend staff invites; public accept flow; scheduled expiry via the general worker.
 
-## Resources
+### Multi-market commerce
 
-Check out a few resources that may come in handy when working with NestJS:
+- **Markets** — provision, open/close, update, delete; staff listing; public **IP-based market search**; ID validation.
+- **Currencies** — manage currencies; public list/get.
+- **Service states** — geographic service coverage; open/close; assign warehouses; public list.
+- Customer commerce is scoped by **active market**; staff operations are often scoped by assigned `market_ids` / scopes.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Catalog & merchandising
 
-## Support
+- **Categories** — public browse; staff manage and attach/detach to markets.
+- **Products & variants** — public catalog; staff create/update/archive, images via Supabase upload URLs, market-variants.
+- **Approval workflow** — product and variant **pending updates** with approve/reject (`products:review` / `products:manage`).
+- **Reviews** — public list; customers create reviews (with image uploads), like/dislike, delete; post-delivery **review reminder** emails.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Inventory & fulfillment network
 
-## Stay in touch
+- **Inventory** — stock create/update; public availability by product/variant; staff reads by warehouse / market-variant.
+- **Reservations** — checkout holds stock; general worker releases **expired reservations** on a schedule.
+- **Low / finished stock reminders** — scheduled jobs fan out to mail templates for ops.
+- **Warehouses** — create, open/close, assign manager/staff, scoped listing.
+- **Distribution points** — create, open/close, assign staff, scoped listing.
+- **Logistics partners** — CRUD plus activate/deactivate.
+- **Shipments** — staff move / deliver / acknowledge / cancel movement; public **track by tracking number**.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Cart, checkout & orders
 
-## License
+- **Cart** — authenticated customer cart (items, totals) and **guest cart** (`@Public`).
+- **Checkout** — guest or authenticated precheckout/checkout; optional **points redeem** (customers only); Paystack initialize or cash; supports `X-Idempotency-Key`.
+- **Orders** — customer list/get/cancel; staff internal list/get/by number (market-scoped).
+- Background lifecycle jobs: awaiting payment, processing, shipped, completion, cancel (with mail + side effects).
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Payments
+
+- **Payment methods** — staff create; public list/get; approve for a market; remove from market.
+- **Paystack** — customer checkout init; staff can start Paystack pay for cash orders; **webhook** at `POST /payments/webhooks/paystack` (raw body + signature).
+- **Refunds & attempts** — staff list/retry refunds (including retry with customer details); payment attempt history.
+
+### Promotions & coupons
+
+- **Promotions** — CRUD; discount definitions; attach to markets; activate/deactivate per market; target variants; usage history.
+- **Coupons** — CRUD; activate/deactivate; usage history.
+- Scheduled **expire-promotion-market** and **expire-coupon** jobs in the general worker.
+
+### Loyalty & messaging
+
+- **Points** — customer points history; redeem at checkout.
+- **Notifications** — list and mark read for customers and staff; **SSE streams** (`/notifications/stream`, `/notifications/internal/stream`) with `Last-Event-ID` resume.
+- **Mail worker** — Handlebars SMTP templates for welcome, password flows, account deletion, order lifecycle, review reminders, staff invite/role/market changes, inventory alerts, and more.
+
+### Background workers
+
+| Worker | Queue | Responsibilities |
+| --- | --- | --- |
+| `mail_worker` | `mail` | Templated email send; inventory stock reminder mail |
+| `general_worker` | `general` | Order lifecycle, reservation expiry, promo/coupon/invitation expiry, stock reminders, review reminders, customer/staff/market teardown; embeds Paystack verify/refund helpers |
+
+Schedulers (general worker) include reservation expiry, promo/coupon/invitation expiry, review reminders, and low/finished stock sweeps.
+
+### Platform cross-cutting
+
+- URI versioning → `/api/v1/dukka/...`; Swagger at `/docs` (Bearer).
+- Global validation pipe, response transform interceptor, unified exception filter.
+- Health (`GET /health`): disk, memory, Postgres, Redis, mail + general queues.
+- NestJS Observe instrumentation (HTTP, DB, jobs, runtime metrics).
+- Supabase Storage for avatars, product/review images, staff qualifications.
+
+## Stack
+
+NestJS 12 · Prisma 7 (PostgreSQL) · BullMQ / Redis · Supabase Storage · Paystack · Swagger · Vitest · Oxlint · Rspack
