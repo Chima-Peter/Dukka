@@ -293,7 +293,7 @@ export class ProductRepository {
 
         const rows = await this.prisma.$queryRaw<{ id: string }[]>`
             SELECT id
-            FROM "Product"
+            FROM "dukka"."Product"
             WHERE to_tsvector('english', name)
                 @@ websearch_to_tsquery('english', ${nameQuery})
         `;
