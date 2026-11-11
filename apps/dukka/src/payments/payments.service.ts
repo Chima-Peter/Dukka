@@ -516,12 +516,18 @@ export class PaymentsService {
 
         const orderNumber = refund.order.order_number;
         const warehouseName = refund.order.warehouse?.name;
+        const orderLabel = warehouseName
+            ? `order #${orderNumber} (${warehouseName})`
+            : `order #${orderNumber}`;
+        const systemNote =
+            actor?.type !== 'staff'
+                ? ' This refund was initiated by the system automatically.'
+                : '';
+
         await this.notificationPublisher.notifyStaff(staffId, {
             title: 'Refund needs attention',
             type: NotificationType.ORDER,
-            text: warehouseName
-                ? `Paystack needs the customer's bank account details to complete the refund for order #${orderNumber} (${warehouseName}). Retry with account number and bank ID.`
-                : `Paystack needs the customer's bank account details to complete the refund for order #${orderNumber}. Retry with account number and bank ID.`,
+            text: `Paystack needs the customer's bank account details to complete the refund for ${orderLabel}. Retry with account number and bank ID.${systemNote}`,
         });
     }
 
