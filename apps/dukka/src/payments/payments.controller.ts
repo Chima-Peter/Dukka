@@ -33,6 +33,7 @@ import { FindPaymentAttemptDto } from './dto/find-payment-attempt.dto.js';
 import { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
+import { RetryRefundWithCustomerDetailsDto } from './dto/retry-refund-with-customer-details.dto.js';
 import { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsService } from './payments.service.js';
 
@@ -147,6 +148,22 @@ export class PaymentsController {
                 role_id: staff.role_id,
                 role_name: staff.role_name,
             },
+        );
+    }
+
+    @Post('refunds/:id/retry-with-customer-details')
+    @RequirePermission(StaffPermission.RefundsManage)
+    @HttpCode(HttpStatus.OK)
+    @ResponseMessage('Refund retried with customer details successfully')
+    retryRefundWithCustomerDetails(
+        @CurrentStaff() staff: StaffJwtPayload,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() data: RetryRefundWithCustomerDetailsDto,
+    ) {
+        return this.paymentsService.retryRefundWithCustomerDetails(
+            id,
+            data,
+            toScopedAccessActor(staff),
         );
     }
 

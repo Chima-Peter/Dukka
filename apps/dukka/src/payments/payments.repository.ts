@@ -393,10 +393,13 @@ export class PaymentsRepository {
     async markRefundStatusIfPending(
         input: MarkRefundStatusInput,
     ): Promise<OrderRefundDetail | null> {
+        const fromStatuses = input.from_statuses ?? [
+            OrderRefundStatus.PENDING,
+        ];
         const updated = await this.prisma.orderRefund.updateManyAndReturn({
             where: {
                 id: input.id,
-                status: OrderRefundStatus.PENDING,
+                status: { in: fromStatuses },
             },
             data: {
                 status: input.status,

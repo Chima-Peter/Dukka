@@ -46,6 +46,7 @@ import type { FindOrderRefundsDto } from './dto/find-order-refunds.dto.js';
 import type { FindPaymentAttemptsDto } from './dto/find-payment-attempts.dto.js';
 import type { FindPaymentMethodsDto } from './dto/find-payment-methods.dto.js';
 import type { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
+import type { RetryRefundWithCustomerDetailsDto } from './dto/retry-refund-with-customer-details.dto.js';
 import type { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsRepository } from './payments.repository.js';
 import {
@@ -422,23 +423,53 @@ export class PaymentsService {
             return { received: true };
         }
 
+        if (event.event === 'refund.needs-attention') {
+            if (
+                refund.status !== OrderRefundStatus.PENDING &&
+                refund.status !== OrderRefundStatus.NEEDS_ATTENTION
+            ) {
+                this.logger.log(
+                    `OrderRefund ${refund.id} already ${refund.status}; acknowledging needs-attention webhook`,
+                );
+                return { received: true };
+            }
+
+            const updated =
+                await this.paymentsRepository.markRefundStatusIfPending({
+                    id: refund.id,
+                    status: OrderRefundStatus.NEEDS_ATTENTION,
+                    from_statuses: [OrderRefundStatus.PENDING],
+                });
+
+            if (updated) {
+                await this.notifyRefundNeedsAttention(updated);
+                this.logger.log(
+                    `Paystack refund.needs-attention processed for OrderRefund ${updated.id} order ${updated.order_id}`,
+                );
+            } else {
+                this.logger.log(
+                    `OrderRefund ${refund.id} already ${refund.status}; acknowledging needs-attention webhook`,
+                );
+            }
+            return { received: true };
+        }
+
         const nextStatus =
             PAYSTACK_REFUND_TERMINAL_STATUS[
                 event.event as PaystackRefundTerminalWebhookEventName
             ];
 
         if (!nextStatus) {
-            if (event.event === 'refund.needs-attention') {
-                await this.notifyRefundNeedsAttention(refund);
-            }
-
             this.logger.log(
                 `Acknowledged non-terminal Paystack refund event=${event.event} for OrderRefund ${refund.id} (local status=${refund.status})`,
             );
             return { received: true };
         }
 
-        if (refund.status !== OrderRefundStatus.PENDING) {
+        if (
+            refund.status !== OrderRefundStatus.PENDING &&
+            refund.status !== OrderRefundStatus.NEEDS_ATTENTION
+        ) {
             this.logger.log(
                 `OrderRefund ${refund.id} already ${refund.status}; acknowledging webhook`,
             );
@@ -448,13 +479,17 @@ export class PaymentsService {
         const updated = await this.paymentsRepository.markRefundStatusIfPending({
             id: refund.id,
             status: nextStatus,
+            from_statuses: [
+                OrderRefundStatus.PENDING,
+                OrderRefundStatus.NEEDS_ATTENTION,
+            ],
             refunded_at:
                 nextStatus === OrderRefundStatus.PROCESSED ? new Date() : null,
         });
 
         if (!updated) {
             this.logger.log(
-                `OrderRefund ${refund.id} was no longer PENDING; acknowledging webhook`,
+                `OrderRefund ${refund.id} was no longer open; acknowledging webhook`,
             );
             return { received: true };
         }
@@ -485,8 +520,8 @@ export class PaymentsService {
             title: 'Refund needs attention',
             type: NotificationType.ORDER,
             text: warehouseName
-                ? `Paystack needs bank details to complete the refund for order #${orderNumber} (${warehouseName}).`
-                : `Paystack needs bank details to complete the refund for order #${orderNumber}.`,
+                ? `Paystack needs the customer's bank account details to complete the refund for order #${orderNumber} (${warehouseName}). Retry with account number and bank ID.`
+                : `Paystack needs the customer's bank account details to complete the refund for order #${orderNumber}. Retry with account number and bank ID.`,
         });
     }
 
@@ -577,6 +612,98 @@ export class PaymentsService {
                 text: warehouseName
                     ? `Refund failed for order #${orderNumber} (${warehouseName}). Staff retry may be required.`
                     : `Refund failed for order #${orderNumber}. Staff retry may be required.`,
+            });
+        }
+    }
+
+    async retryRefundWithCustomerDetails(
+        refundId: string,
+        data: RetryRefundWithCustomerDetailsDto,
+        actor: ScopedAccessActor,
+    ): Promise<StaffRetryRefundResult> {
+        try {
+            this.logger.log(
+                `Retrying OrderRefund ${refundId} with customer bank details`,
+            );
+
+            const [refund] = await Promise.all([
+                this.paymentsRepository.findRefundDetailById(
+                    refundId,
+                    data.market_id,
+                ),
+                this.requireOpenMarket(data.market_id),
+            ]);
+
+            if (!refund) {
+                throw new NotFoundException('Order refund not found');
+            }
+
+            assertActorHasScopedAccess(actor, {
+                market_id: refund.order.market_id,
+                warehouse_id: refund.order.warehouse_id,
+            });
+
+            if (refund.status !== OrderRefundStatus.NEEDS_ATTENTION) {
+                throw new BadRequestException(
+                    'Only refunds that need attention can be retried with customer details',
+                );
+            }
+
+            if (refund.provider.toLowerCase() !== 'paystack') {
+                throw new BadRequestException(
+                    'Only Paystack refunds can be retried with customer details',
+                );
+            }
+
+            const providerRefundId = refund.provider_refund_id?.trim();
+            if (!providerRefundId) {
+                throw new BadRequestException(
+                    'Refund is missing Paystack refund ID and cannot be retried',
+                );
+            }
+
+            try {
+                await this.paystackService.retryRefund({
+                    id: providerRefundId,
+                    refund_account_details: {
+                        currency: refund.currency,
+                        account_number: data.account_number,
+                        bank_id: data.bank_id,
+                    },
+                });
+            } catch (error) {
+                this.logger.error(
+                    `Paystack retry with customer details failed for OrderRefund ${refund.id}: ${error}`,
+                );
+                if (error instanceof HttpException) {
+                    throw error;
+                }
+                throw new InternalServerErrorException(
+                    'Paystack refund retry failed. Try again later',
+                );
+            }
+
+            const updated =
+                (await this.paymentsRepository.markRefundStatusIfPending({
+                    id: refund.id,
+                    status: OrderRefundStatus.PENDING,
+                    from_statuses: [OrderRefundStatus.NEEDS_ATTENTION],
+                })) ?? refund;
+
+            this.logger.log(
+                `Retried OrderRefund ${updated.id} with customer details via Paystack refund id=${providerRefundId}; waiting for webhook`,
+            );
+
+            return {
+                refund_id: updated.id,
+                order_id: updated.order_id,
+                provider_refund_id: updated.provider_refund_id,
+                payment_reference: updated.payment_reference,
+                status: updated.status,
+            };
+        } catch (error) {
+            this.handleError(error, {
+                notFound: 'Order refund not found',
             });
         }
     }
@@ -728,11 +855,13 @@ export class PaymentsService {
     ): void {
         if (
             refunds.some(
-                (refund) => refund.status === OrderRefundStatus.PENDING,
+                (refund) =>
+                    refund.status === OrderRefundStatus.PENDING ||
+                    refund.status === OrderRefundStatus.NEEDS_ATTENTION,
             )
         ) {
             throw new ConflictException(
-                'A pending refund already exists for this payment',
+                'A pending refund or one that needs attention already exists for this payment',
             );
         }
 

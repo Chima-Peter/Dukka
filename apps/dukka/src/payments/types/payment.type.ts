@@ -50,7 +50,10 @@ export type MarkRefundStatusInput = {
     id: string;
     status: Extract<
         OrderRefundStatus,
-        'PROCESSED' | 'FAILED'
+        'NEEDS_ATTENTION' | 'PENDING' | 'PROCESSED' | 'FAILED'
+    >;
+    from_statuses?: Array<
+        Extract<OrderRefundStatus, 'PENDING' | 'NEEDS_ATTENTION'>
     >;
     refunded_at?: Date | null;
 };

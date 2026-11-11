@@ -929,6 +929,7 @@ model OrderPaymentAttempt {
 
 enum OrderRefundStatus {
   PENDING
+  NEEDS_ATTENTION
   PROCESSED
   FAILED
 }

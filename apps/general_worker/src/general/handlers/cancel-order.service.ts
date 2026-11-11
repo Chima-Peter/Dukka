@@ -66,6 +66,7 @@ type CancelResult =
 const ACTIVE_REFUND_STATUSES = new Set([
     'pending',
     'processing',
+    'needs-attention',
     'processed',
     'success',
 ]);
@@ -290,11 +291,13 @@ export class CancelOrderService {
 
         if (
             localRefunds.some(
-                (refund) => refund.status === OrderRefundStatus.PENDING,
+                (refund) =>
+                    refund.status === OrderRefundStatus.PENDING ||
+                    refund.status === OrderRefundStatus.NEEDS_ATTENTION,
             )
         ) {
             this.logger.log(
-                `Local pending OrderRefund already exists for order ${input.id}; skipping create`,
+                `Local open OrderRefund already exists for order ${input.id}; skipping create`,
             );
             return 'pending';
         }
