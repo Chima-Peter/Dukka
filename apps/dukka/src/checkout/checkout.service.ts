@@ -44,6 +44,10 @@ import {
 import { CheckoutRepository } from './checkout.repository.js';
 import { DISCOUNT_CHECKOUT_GRACE_MS } from './constants/checkout.constants.js';
 import type { CheckoutDto } from './dto/checkout.dto.js';
+import {
+    toCheckoutResultView,
+    toPrecheckoutPaymentMethods,
+} from './mappers/checkout.mapper.js';
 import type {
     BillBreakdown,
     CheckoutResult,
@@ -339,11 +343,11 @@ export class CheckoutService {
 
         this.logger.log(`Checkout completed for order ${placed.order.id}`);
 
-        return {
+        return toCheckoutResultView({
             order: placed.order,
             payment_attempt: placed.payment_attempt,
             authorization_url: authorizationUrl,
-        };
+        });
     }
 
     private requireIdempotencyKey(header?: string): string {
@@ -458,11 +462,11 @@ export class CheckoutService {
             );
         }
 
-        return {
+        return toCheckoutResultView({
             order,
             payment_attempt: paymentAttempt,
             authorization_url: paymentAttempt.payment_intent_url ?? null,
-        };
+        });
     }
 
     private toCreateOrderBase(
@@ -756,7 +760,7 @@ export class CheckoutService {
                 shipping_addresses: shipping_addresses ?? [],
                 billing_addresses: billing_addresses ?? [],
                 points_balance,
-                payment_methods,
+                payment_methods: toPrecheckoutPaymentMethods(payment_methods),
                 cash_limit,
                 cart,
             };
@@ -791,7 +795,7 @@ export class CheckoutService {
                 shipping_addresses: [],
                 billing_addresses: [],
                 points_balance: 0,
-                payment_methods,
+                payment_methods: toPrecheckoutPaymentMethods(payment_methods),
                 cash_limit,
                 cart,
             };

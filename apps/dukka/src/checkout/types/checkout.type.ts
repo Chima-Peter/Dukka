@@ -5,12 +5,16 @@ import type {
 } from '@app/common';
 import type { CreateOrderItemInput } from '../../orders/types/create-order.type.js';
 import type { PaymentAttemptDetail } from '../../payments/types/payment.type.js';
+import type { CheckoutResultView } from '../mappers/checkout.mapper.js';
 
-export type CheckoutResult = {
+/** Internal checkout payload before API mapping. */
+export type CheckoutResultRaw = {
     order: Order;
     payment_attempt: PaymentAttemptDetail;
     authorization_url: string | null;
 };
+
+export type CheckoutResult = CheckoutResultView;
 
 export type ResolvedAddresses = {
     shipping: ShippingAddress;
