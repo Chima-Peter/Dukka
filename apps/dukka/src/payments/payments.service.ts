@@ -60,6 +60,7 @@ import {
 import type {
     CreatePaymentAttemptInput,
     MarketPaymentMethodDetail,
+    OrderRefundActorMetadata,
     OrderRefundDetail,
     OrderRefundPage,
     PaymentAttemptDetail,
@@ -469,20 +470,48 @@ export class PaymentsService {
     private async notifyRefundNeedsAttention(
         refund: OrderRefundDetail,
     ): Promise<void> {
-        const managerId = refund.order.warehouse?.manager_id;
-        if (!managerId) {
+        const actor = this.getRefundActor(refund);
+        const staffId =
+            actor?.type === 'staff' && actor.id
+                ? actor.id
+                : refund.order.warehouse?.manager_id;
+        if (!staffId) {
             return;
         }
 
         const orderNumber = refund.order.order_number;
         const warehouseName = refund.order.warehouse?.name;
-        await this.notificationPublisher.notifyStaff(managerId, {
+        await this.notificationPublisher.notifyStaff(staffId, {
             title: 'Refund needs attention',
             type: NotificationType.ORDER,
             text: warehouseName
                 ? `Paystack needs bank details to complete the refund for order #${orderNumber} (${warehouseName}).`
                 : `Paystack needs bank details to complete the refund for order #${orderNumber}.`,
         });
+    }
+
+    private getRefundActor(
+        refund: OrderRefundDetail,
+    ): Pick<OrderRefundActorMetadata['actor'], 'type' | 'id'> | null {
+        const metadata = refund.metadata;
+        if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+            return null;
+        }
+
+        const actor = (metadata as Record<string, unknown>).actor;
+        if (!actor || typeof actor !== 'object' || Array.isArray(actor)) {
+            return null;
+        }
+
+        const typed = actor as Partial<OrderRefundActorMetadata['actor']>;
+        if (typed.type !== 'staff' && typed.type !== 'system') {
+            return null;
+        }
+
+        return {
+            type: typed.type,
+            ...(typeof typed.id === 'string' ? { id: typed.id } : {}),
+        };
     }
 
     private async notifyRefund(
