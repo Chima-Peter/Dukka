@@ -13,6 +13,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     PRODUCT_BUCKET,
     Prisma,
+    RedisService,
     SupabaseService,
     ProductPendingUpdateStatus,
     ProductStatus,
@@ -23,6 +24,12 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import {
+    PRODUCT_SUGGESTIONS_LOCK_RETRY_MS,
+    PRODUCT_SUGGESTIONS_LOCK_TTL_MS,
+    PRODUCT_SUGGESTIONS_TTL_SECONDS,
+    RedisKeys,
+} from '../shared/redis.constants.js';
 import { resolveMarketId } from '../shared/resolve-market-id.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { FindProductDto } from './dto/find-product.dto.js';
@@ -45,6 +52,12 @@ import { toProductStatusView } from './mappers/product.mapper.js';
 import { ProductRepository } from './product.repository.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
 
+type ProductSuggestionsPage = {
+    items: Awaited<
+        ReturnType<ProductRepository['findSuggestionsPublic']>
+    >['items'];
+};
+
 @Injectable()
 export class ProductService {
     private readonly logger = new Logger(ProductService.name);
@@ -53,6 +66,7 @@ export class ProductService {
         private readonly productRepository: ProductRepository,
         private readonly supabaseService: SupabaseService,
         private readonly customerService: CustomerService,
+        private readonly redisService: RedisService,
     ) {}
 
     async getImageUploadURLs(data: UploadFileDto): Promise<ImageUploadUrls> {
@@ -166,21 +180,80 @@ export class ProductService {
         query: FindProductSuggestionsDto,
     ) {
         try {
-            this.logger.log(`Fetching product suggestions for "${query.q}"`);
             const marketId = await resolveMarketId(
                 this.customerService,
                 customerId,
                 query.market_id,
             );
-            const page = await this.productRepository.findSuggestionsPublic({
-                market_id: marketId,
-                q: query.q.trim(),
-                limit: query.limit ?? 8,
-            });
-            this.logger.log(
-                `Fetched ${page.items.length} product suggestion(s)`,
-            );
-            return { items: page.items };
+            const q = query.q.trim().toLowerCase();
+            const limit = query.limit ?? 10;
+            const versionKey = RedisKeys.productSuggestionsVersion(marketId);
+            const lockKey = RedisKeys.productSuggestionsLock(marketId, q, limit);
+            const keyPrefix = RedisKeys.productSuggestionsPrefix(marketId);
+            const keySuffix = RedisKeys.productSuggestionsSuffix(q, limit);
+            const waitDeadline = Date.now() + PRODUCT_SUGGESTIONS_LOCK_TTL_MS;
+
+            while (true) {
+                const outcome =
+                    await this.redisService.getVersionedObjectOrLock<ProductSuggestionsPage>(
+                        versionKey,
+                        lockKey,
+                        keyPrefix,
+                        keySuffix,
+                        PRODUCT_SUGGESTIONS_LOCK_TTL_MS,
+                    );
+
+                if (outcome.status === 'hit') {
+                    this.logger.log(
+                        `Cache hit for product suggestions market ${marketId} q "${q}"`,
+                    );
+                    return outcome.value;
+                }
+
+                if (outcome.status === 'busy') {
+                    if (Date.now() >= waitDeadline) {
+                        this.logger.warn(
+                            `Cache lock wait timed out for product suggestions market ${marketId}`,
+                        );
+                        return await this.loadProductSuggestions(
+                            marketId,
+                            q,
+                            limit,
+                        );
+                    }
+
+                    this.logger.log(
+                        `Cache lock busy for product suggestions market ${marketId}; retrying`,
+                    );
+                    await sleep(PRODUCT_SUGGESTIONS_LOCK_RETRY_MS);
+                    continue;
+                }
+
+                try {
+                    this.logger.log(
+                        `Fetching product suggestions for "${q}"`,
+                    );
+                    const result = await this.loadProductSuggestions(
+                        marketId,
+                        q,
+                        limit,
+                    );
+                    await this.redisService.setObjectAndUnlock(
+                        outcome.resultKey,
+                        lockKey,
+                        result,
+                        PRODUCT_SUGGESTIONS_TTL_SECONDS,
+                        outcome.token,
+                    );
+                    this.logger.log(
+                        `Fetched ${result.items.length} product suggestion(s)`,
+                    );
+                    return result;
+                } catch (error) {
+                    await this.redisService.unlock(lockKey, outcome.token);
+                    throw error;
+                }
+            }
         } catch (error) {
             this.handleError(error);
         }
@@ -459,6 +532,11 @@ export class ProductService {
             await this.safeDeleteProductImages(
                 removedImages.map((image) => image.image_url),
             );
+            const marketIds =
+                await this.productRepository.findMarketIdsByProductIds(
+                    pendingUpdates.map((update) => update.product_id),
+                );
+            await this.invalidateProductSuggestionsCacheForMarkets(marketIds);
             this.logger.log(
                 `Approved ${pendingUpdateIds.length} product pending update(s)`,
             );
@@ -651,7 +729,12 @@ export class ProductService {
                     'Product is already archived. Cannot be archived from its current status.',
                 );
             }
+            const marketIds =
+                existing.status === ProductStatus.ACTIVE
+                    ? await this.productRepository.findMarketIdsByProductId(id)
+                    : [];
             const product = await this.productRepository.archiveProduct(id);
+            await this.invalidateProductSuggestionsCacheForMarkets(marketIds);
             this.logger.log(`Product archived ${id}`);
             return toProductStatusView(product);
         } catch (error) {
@@ -692,11 +775,48 @@ export class ProductService {
                 id,
                 nextStatus,
             );
+            if (
+                nextStatus === ProductStatus.ACTIVE ||
+                existing.status === ProductStatus.ACTIVE
+            ) {
+                const marketIds =
+                    await this.productRepository.findMarketIdsByProductId(id);
+                await this.invalidateProductSuggestionsCacheForMarkets(
+                    marketIds,
+                );
+            }
             this.logger.log(`Product ${doneLog} ${id}`);
             return toProductStatusView(product);
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private async loadProductSuggestions(
+        marketId: string,
+        q: string,
+        limit: number,
+    ): Promise<ProductSuggestionsPage> {
+        const page = await this.productRepository.findSuggestionsPublic({
+            market_id: marketId,
+            q,
+            limit,
+        });
+        return { items: page.items };
+    }
+
+    private async invalidateProductSuggestionsCacheForMarkets(
+        marketIds: string[],
+    ): Promise<void> {
+        if (marketIds.length === 0) {
+            return;
+        }
+
+        await this.redisService.invalidateVersionKeys(
+            marketIds.map((marketId) =>
+                RedisKeys.productSuggestionsVersion(marketId),
+            ),
+        );
     }
 
     private handleError(
@@ -775,4 +895,8 @@ export class ProductService {
         }
         return null;
     }
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }

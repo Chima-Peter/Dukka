@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RedisService } from '@app/common';
+import { ProductRepository } from './product.repository.js';
 import { ProductVariantRepository } from './product-variant.repository.js';
 import { ProductVariantService } from './product-variant.service.js';
 
@@ -93,6 +95,18 @@ describe('ProductVariantService', () => {
                     useValue: {
                         findOne: vi.fn(),
                         validateIds: vi.fn(),
+                    },
+                },
+                {
+                    provide: ProductRepository,
+                    useValue: {
+                        findMarketIdsByProductId: vi.fn(),
+                    },
+                },
+                {
+                    provide: RedisService,
+                    useValue: {
+                        invalidateVersionKeys: vi.fn(),
                     },
                 },
             ],

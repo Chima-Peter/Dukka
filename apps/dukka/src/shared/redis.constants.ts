@@ -14,6 +14,9 @@ export const ORDER_IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 export const CATEGORIES_LIST_TTL_SECONDS = 60 * 60;
 export const CATEGORIES_LIST_LOCK_TTL_MS = 10 * 1000;
 export const CATEGORIES_LIST_LOCK_RETRY_MS = 100;
+export const PRODUCT_SUGGESTIONS_TTL_SECONDS = 15 * 60;
+export const PRODUCT_SUGGESTIONS_LOCK_TTL_MS = 10 * 1000;
+export const PRODUCT_SUGGESTIONS_LOCK_RETRY_MS = 100;
 
 export const RedisKeys = {
     passwordResetToken: (email: string) => `password_reset:token:${email}`,
@@ -44,4 +47,11 @@ export const RedisKeys = {
         `categories:list:${marketId}:`,
     categoriesListSuffix: (cursor: string | undefined, limit: number) =>
         `:${cursor ?? '_'}:${limit}`,
+    productSuggestionsVersion: (marketId: string) =>
+        `products:suggestions:version:${marketId}`,
+    productSuggestionsLock: (marketId: string, q: string, limit: number) =>
+        `products:suggestions:lock:${marketId}:${q}:${limit}`,
+    productSuggestionsPrefix: (marketId: string) =>
+        `products:suggestions:${marketId}:`,
+    productSuggestionsSuffix: (q: string, limit: number) => `:${q}:${limit}`,
 } as const;

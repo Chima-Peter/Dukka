@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RedisService } from '@app/common';
 import { ProductRepository } from './product.repository.js';
 import { ProductService } from './product.service.js';
 
@@ -91,6 +92,15 @@ describe('ProductService', () => {
                     provide: CustomerService,
                     useValue: {
                         getActiveMarketId: vi.fn(),
+                    },
+                },
+                {
+                    provide: RedisService,
+                    useValue: {
+                        getVersionedObjectOrLock: vi.fn(),
+                        setObjectAndUnlock: vi.fn(),
+                        invalidateVersionKeys: vi.fn(),
+                        unlock: vi.fn(),
                     },
                 },
             ],

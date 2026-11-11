@@ -200,7 +200,7 @@ export class ProductRepository {
                 INNER JOIN "dukka"."MarketVariant" mv
                     ON mv.variant_id = v.id
                     AND mv.status = 'ACTIVE'
-                    AND mv.market_id = ${query.market_id}::uuid
+                    AND mv.market_id = ${query.market_id}
                 INNER JOIN "dukka"."Market" m
                     ON m.id = mv.market_id
                     AND m.status = 'OPEN'
@@ -373,6 +373,28 @@ export class ProductRepository {
         }
 
         return toProductDetail(product);
+    }
+
+    async findMarketIdsByProductId(productId: string): Promise<string[]> {
+        const rows = await this.prisma.marketVariant.findMany({
+            where: { variant: { product_id: productId } },
+            select: { market_id: true },
+            distinct: ['market_id'],
+        });
+        return rows.map((row) => row.market_id);
+    }
+
+    async findMarketIdsByProductIds(productIds: string[]): Promise<string[]> {
+        if (productIds.length === 0) {
+            return [];
+        }
+
+        const rows = await this.prisma.marketVariant.findMany({
+            where: { variant: { product_id: { in: productIds } } },
+            select: { market_id: true },
+            distinct: ['market_id'],
+        });
+        return rows.map((row) => row.market_id);
     }
 
     async update(id: string, data: UpdateProductDto): Promise<Product> {

@@ -11,6 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
     PRODUCT_BUCKET,
+    RedisService,
     SupabaseService,
     MarketStatus,
     ProductStatus,
@@ -29,6 +30,7 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import { RedisKeys } from '../shared/redis.constants.js';
 import type { CreateMarketVariantDto } from './dto/create-market-variant.dto.js';
 import type { CreateVariantDto } from './dto/create-variant.dto.js';
 import type { FindMarketVariantsDto } from './dto/find-market-variants.dto.js';
@@ -39,6 +41,7 @@ import {
     toMarketVariantDetailView,
     toMarketVariantView,
 } from './mappers/product.mapper.js';
+import { ProductRepository } from './product.repository.js';
 import { ProductVariantRepository } from './product-variant.repository.js';
 
 @Injectable()
@@ -47,8 +50,10 @@ export class ProductVariantService {
 
     constructor(
         private readonly productVariantRepository: ProductVariantRepository,
+        private readonly productRepository: ProductRepository,
         private readonly supabaseService: SupabaseService,
         private readonly marketsService: MarketsService,
+        private readonly redisService: RedisService,
     ) {}
 
     async addVariant(productId: string, data: CreateVariantDto) {
@@ -360,6 +365,7 @@ export class ProductVariantService {
                         price: data.price,
                         currency: market.currency.code,
                     });
+                await this.invalidateProductSuggestionsCache(data.market_id);
                 this.logger.log(
                     `Market variant created ${marketVariant.id} for variant ${variantId}`,
                 );
@@ -379,6 +385,9 @@ export class ProductVariantService {
                             },
                         );
                     if (reopened) {
+                        await this.invalidateProductSuggestionsCache(
+                            data.market_id,
+                        );
                         this.logger.log(
                             `Market variant reopened ${reopened.id} for variant ${variantId}`,
                         );
@@ -412,6 +421,7 @@ export class ProductVariantService {
                     marketId,
                     data.price,
                 );
+            await this.invalidateProductSuggestionsCache(marketId);
             this.logger.log(
                 `Market variant updated for variant ${variantId} in market ${marketId}`,
             );
@@ -650,6 +660,7 @@ export class ProductVariantService {
                 'One or more variants are already archived or cannot be archived from their current status',
             );
             await this.productVariantRepository.archiveVariants(productId, variantIds);
+            await this.invalidateProductSuggestionsCacheForProduct(productId);
             this.logger.log(
                 `Archived ${variantIds.length} variant(s) on product ${productId}`,
             );
@@ -700,12 +711,45 @@ export class ProductVariantService {
                 variantIds,
                 nextStatus,
             );
+            if (
+                nextStatus === VariantStatus.ACTIVE ||
+                nextStatus === VariantStatus.ARCHIVED ||
+                nextStatus === VariantStatus.REJECTED
+            ) {
+                await this.invalidateProductSuggestionsCacheForProduct(
+                    productId,
+                );
+            }
             this.logger.log(
                 `${variantIds.length} variant(s) ${doneLog} on product ${productId}`,
             );
         } catch (error) {
             this.handleError(error, 'Variant not found');
         }
+    }
+
+    private async invalidateProductSuggestionsCache(
+        marketId: string,
+    ): Promise<void> {
+        await this.redisService.invalidateVersionKeys([
+            RedisKeys.productSuggestionsVersion(marketId),
+        ]);
+    }
+
+    private async invalidateProductSuggestionsCacheForProduct(
+        productId: string,
+    ): Promise<void> {
+        const marketIds =
+            await this.productRepository.findMarketIdsByProductId(productId);
+        if (marketIds.length === 0) {
+            return;
+        }
+
+        await this.redisService.invalidateVersionKeys(
+            marketIds.map((marketId) =>
+                RedisKeys.productSuggestionsVersion(marketId),
+            ),
+        );
     }
 
     private handleError(
