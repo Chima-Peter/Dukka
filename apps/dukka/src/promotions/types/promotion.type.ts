@@ -1,5 +1,6 @@
 import type {
     Discount,
+    Prisma,
     Promotion,
     PromotionMarket,
     PromotionMarketStatus,
@@ -70,8 +71,30 @@ export type DiscountSummary = Discount & {
     }[];
 };
 
-export type PromotionTargetPage = {
-    items: unknown[];
+export type PromotionTargetRow = {
+    id: string;
+    created_at: Date;
+    variant: {
+        id: string;
+        price: Prisma.Decimal;
+        currency: string;
+        sold_out: boolean;
+        status: string;
+        variant: {
+            id: string;
+            variant_code: string;
+            color: string | null;
+            size: string | null;
+            product: {
+                id: string;
+                name: string;
+            };
+        };
+    };
+};
+
+export type PromotionTargetRowPage = {
+    items: PromotionTargetRow[];
     next_cursor: string | null;
 };
 
@@ -131,7 +154,11 @@ export const promotionUsageSelect = {
     },
 } as const;
 
-export type PromotionUsagePage = {
-    items: unknown[];
+export type PromotionUsageRow = Prisma.PromotionUsageGetPayload<{
+    select: typeof promotionUsageSelect;
+}>;
+
+export type PromotionUsageRowPage = {
+    items: PromotionUsageRow[];
     next_cursor: string | null;
 };

@@ -27,8 +27,8 @@ import {
     type PromotionMarketDetail,
     type PromotionMarketStatusRecord,
     type PromotionSummary,
-    type PromotionTargetPage,
-    type PromotionUsagePage,
+    type PromotionTargetRowPage,
+    type PromotionUsageRowPage,
     type PromotionWithDiscount,
 } from './types/promotion.type.js';
 
@@ -78,7 +78,7 @@ export class PromotionsRepository {
     async findUsages(
         query: FindPromotionUsagesDto,
         marketIds: string[],
-    ): Promise<PromotionUsagePage> {
+    ): Promise<PromotionUsageRowPage> {
         const limit = query.limit ?? 20;
         const where: Prisma.PromotionUsageWhereInput = {
             promotion_market: { market_id: { in: marketIds } },
@@ -375,7 +375,7 @@ export class PromotionsRepository {
     async findMarketTargets(
         promotionMarketId: string,
         query: FindPromotionMarketTargetsDto,
-    ): Promise<PromotionTargetPage> {
+    ): Promise<PromotionTargetRowPage> {
         let limit = query.limit ?? TARGET_PAGE_SIZE;
         limit = Math.max(limit, TARGET_PAGE_SIZE);
 
@@ -395,7 +395,7 @@ export class PromotionsRepository {
     private toTargetPage<T extends { id: string }>(
         records: T[],
         limit: number,
-    ): PromotionTargetPage {
+    ): { items: T[]; next_cursor: string | null } {
         const hasMore = records.length > limit;
         const items = hasMore ? records.slice(0, limit) : records;
         return {

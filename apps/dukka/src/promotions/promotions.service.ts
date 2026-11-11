@@ -10,9 +10,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import {
-    type Discount,
     DiscountType,
-    type Promotion,
     PromotionMarketStatus,
     PromotionStatus,
 } from '@app/common';
@@ -37,15 +35,26 @@ import {
     prismaHintIncludes,
     prismaMissingRecordModel,
 } from '../shared/prisma-relation-error.js';
+import {
+    toDiscountView,
+    toPromotionDetail,
+    toPromotionMarketView,
+    toPromotionTargetView,
+    toPromotionUsageView,
+    toPromotionView,
+    toPromotionWithDiscountView,
+    type DiscountView,
+    type PromotionDetailView,
+    type PromotionMarketView,
+    type PromotionTargetPage,
+    type PromotionUsagePage,
+    type PromotionView,
+    type PromotionWithDiscountView,
+} from './mappers/promotion.mapper.js';
 import { PromotionsRepository } from './promotions.repository.js';
 import type {
     DiscountSummary,
-    PromotionDetail,
-    PromotionMarketDetail,
     PromotionSummary,
-    PromotionTargetPage,
-    PromotionUsagePage,
-    PromotionWithDiscount,
 } from './types/promotion.type.js';
 
 @Injectable()
@@ -59,13 +68,13 @@ export class PromotionsService {
     async create(
         data: CreatePromotionDto,
         actor: ScopedAccessActor,
-    ): Promise<PromotionWithDiscount> {
+    ): Promise<PromotionWithDiscountView> {
         try {
             this.logger.log(`Creating promotion ${data.code}`);
             assertActorHasGlobalScope(actor);
             const promotion = await this.promotionsRepository.create(data);
             this.logger.log(`Promotion created ${promotion.id}`);
-            return promotion;
+            return toPromotionWithDiscountView(promotion);
         } catch (error) {
             this.handleError(error);
         }
@@ -74,7 +83,7 @@ export class PromotionsService {
     async createDiscount(
         data: CreateDiscountDto,
         actor: ScopedAccessActor,
-    ): Promise<Discount> {
+    ): Promise<DiscountView> {
         try {
             this.logger.log('Creating discount');
             assertActorHasGlobalScope(actor);
@@ -83,7 +92,7 @@ export class PromotionsService {
             const discount =
                 await this.promotionsRepository.createDiscount(data);
             this.logger.log(`Discount created ${discount.id}`);
-            return discount;
+            return toDiscountView(discount);
         } catch (error) {
             this.handleError(error);
         }
@@ -134,7 +143,10 @@ export class PromotionsService {
             this.logger.log(
                 `Fetched promotion usages for ${marketIds.length} market(s)`,
             );
-            return usages;
+            return {
+                items: usages.items.map(toPromotionUsageView),
+                next_cursor: usages.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
@@ -159,7 +171,7 @@ export class PromotionsService {
         promotionId: string,
         data: AddPromotionMarketDto,
         staffMarketIds: string[],
-    ): Promise<PromotionMarketDetail> {
+    ): Promise<PromotionMarketView> {
         try {
             this.logger.log(
                 `Adding market ${data.market_id} to promotion ${promotionId}`,
@@ -179,7 +191,7 @@ export class PromotionsService {
             this.logger.log(
                 `Market ${data.market_id} added to promotion ${promotionId}`,
             );
-            return promotionMarket;
+            return toPromotionMarketView(promotionMarket);
         } catch (error) {
             this.handleError(error);
         }
@@ -188,7 +200,7 @@ export class PromotionsService {
     async findOne(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<PromotionDetail> {
+    ): Promise<PromotionDetailView> {
         try {
             this.logger.log(`Fetching promotion ${id}`);
             assertActorHasGlobalScope(actor);
@@ -197,7 +209,7 @@ export class PromotionsService {
                 throw new NotFoundException('Promotion not found');
             }
             this.logger.log(`Fetched promotion ${id}`);
-            return promotion;
+            return toPromotionDetail(promotion);
         } catch (error) {
             this.handleError(error);
         }
@@ -207,13 +219,13 @@ export class PromotionsService {
         id: string,
         data: UpdatePromotionDto,
         actor: ScopedAccessActor,
-    ): Promise<Promotion> {
+    ): Promise<PromotionView> {
         try {
             this.logger.log(`Updating promotion ${id}`);
             assertActorHasGlobalScope(actor);
             const promotion = await this.promotionsRepository.update(id, data);
             this.logger.log(`Promotion updated ${id}`);
-            return promotion;
+            return toPromotionView(promotion);
         } catch (error) {
             this.handleError(error);
         }
@@ -223,7 +235,7 @@ export class PromotionsService {
         id: string,
         data: UpdateDiscountDto,
         actor: ScopedAccessActor,
-    ): Promise<Discount> {
+    ): Promise<DiscountView> {
         try {
             this.logger.log(`Updating discount ${id}`);
             assertActorHasGlobalScope(actor);
@@ -245,7 +257,7 @@ export class PromotionsService {
                 data,
             );
             this.logger.log(`Discount updated ${id}`);
-            return discount;
+            return toDiscountView(discount);
         } catch (error) {
             this.handleError(error);
         }
@@ -256,7 +268,7 @@ export class PromotionsService {
         promotionMarketId: string,
         data: UpdatePromotionMarketDto,
         staffMarketIds: string[],
-    ): Promise<PromotionMarketDetail> {
+    ): Promise<PromotionMarketView> {
         try {
             this.logger.log(
                 `Updating promotion market ${promotionMarketId}`,
@@ -278,7 +290,7 @@ export class PromotionsService {
                     data,
                 );
             this.logger.log(`Promotion market updated ${promotionMarketId}`);
-            return promotionMarket;
+            return toPromotionMarketView(promotionMarket);
         } catch (error) {
             this.handleError(error);
         }
@@ -289,7 +301,7 @@ export class PromotionsService {
         promotionMarketId: string,
         data: PromotionMarketVariantsDto,
         staffMarketIds: string[],
-    ): Promise<PromotionMarketDetail> {
+    ): Promise<PromotionMarketView> {
         try {
             this.logger.log(
                 `Adding ${data.variant_ids.length} variant(s) to promotion market ${promotionMarketId}`,
@@ -331,7 +343,7 @@ export class PromotionsService {
             this.logger.log(
                 `Added variants to promotion market ${promotionMarketId}`,
             );
-            return promotionMarket;
+            return toPromotionMarketView(promotionMarket);
         } catch (error) {
             this.handleError(error);
         }
@@ -391,7 +403,7 @@ export class PromotionsService {
     async activate(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<Promotion> {
+    ): Promise<PromotionView> {
         try {
             this.logger.log(`Activating promotion ${id}`);
             assertActorHasGlobalScope(actor);
@@ -414,7 +426,7 @@ export class PromotionsService {
                     PromotionStatus.ACTIVE,
                 );
             this.logger.log(`Promotion activated ${id}`);
-            return promotion;
+            return toPromotionView(promotion);
         } catch (error) {
             this.handleError(error);
         }
@@ -423,7 +435,7 @@ export class PromotionsService {
     async deactivate(
         id: string,
         actor: ScopedAccessActor,
-    ): Promise<Promotion> {
+    ): Promise<PromotionView> {
         try {
             this.logger.log(`Deactivating promotion ${id}`);
             assertActorHasGlobalScope(actor);
@@ -443,7 +455,7 @@ export class PromotionsService {
             const promotion =
                 await this.promotionsRepository.deactivateWithMarkets(id);
             this.logger.log(`Promotion deactivated ${id}`);
-            return promotion;
+            return toPromotionView(promotion);
         } catch (error) {
             this.handleError(error);
         }
@@ -453,7 +465,7 @@ export class PromotionsService {
         promotionId: string,
         promotionMarketId: string,
         staffMarketIds: string[],
-    ): Promise<PromotionMarketDetail> {
+    ): Promise<PromotionMarketView> {
         try {
             this.logger.log(
                 `Activating promotion market ${promotionMarketId}`,
@@ -493,7 +505,7 @@ export class PromotionsService {
                     PromotionMarketStatus.ACTIVE,
                 );
             this.logger.log(`Promotion market activated ${promotionMarketId}`);
-            return promotionMarket;
+            return toPromotionMarketView(promotionMarket);
         } catch (error) {
             this.handleError(error);
         }
@@ -503,7 +515,7 @@ export class PromotionsService {
         promotionId: string,
         promotionMarketId: string,
         staffMarketIds: string[],
-    ): Promise<PromotionMarketDetail> {
+    ): Promise<PromotionMarketView> {
         try {
             this.logger.log(
                 `Deactivating promotion market ${promotionMarketId}`,
@@ -535,7 +547,7 @@ export class PromotionsService {
             this.logger.log(
                 `Promotion market deactivated ${promotionMarketId}`,
             );
-            return promotionMarket;
+            return toPromotionMarketView(promotionMarket);
         } catch (error) {
             this.handleError(error);
         }
@@ -569,7 +581,10 @@ export class PromotionsService {
             this.logger.log(
                 `Fetched targets for promotion market ${promotionMarketId}`,
             );
-            return targets;
+            return {
+                items: targets.items.map(toPromotionTargetView),
+                next_cursor: targets.next_cursor,
+            };
         } catch (error) {
             this.handleError(error);
         }
