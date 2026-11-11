@@ -18,6 +18,15 @@ export type OrderProcessingJobPayload = {
     order_id: string;
 };
 
+export type OrderShippedJobPayload = {
+    order_id: string;
+    tracking_number?: string;
+};
+
+export type OrderAwaitingPaymentJobPayload = {
+    order_id: string;
+};
+
 export type CustomerRegisteredJobPayload = {
     customer_id: string;
     email: string;
@@ -73,3 +82,4 @@ export type ReviewReminderJobPayload = {
 export type OrderCompletionJobPayload = {
     order_id: string;
 };
+

@@ -44,6 +44,7 @@ export type ShipmentForMove = Shipment & {
     order: {
         id: string;
         status: OrderStatus;
+        order_number: string;
         market_id: string;
         customer_id: string | null;
         warehouse_id: string;
@@ -239,6 +240,7 @@ export const shipmentForMoveInclude = {
         select: {
             id: true,
             status: true,
+            order_number: true,
             market_id: true,
             customer_id: true,
             warehouse_id: true,

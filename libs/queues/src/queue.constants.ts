@@ -16,6 +16,8 @@ export const GENERAL_JOBS = {
     EXPIRED_RESERVATIONS: 'expired-reservations',
     CANCEL_ORDER: 'cancel-order',
     ORDER_PROCESSING: 'order-processing',
+    ORDER_SHIPPED: 'order-shipped',
+    ORDER_AWAITING_PAYMENT: 'order-awaiting-payment',
     CUSTOMER_REGISTERED: 'customer-registered',
     INVENTORY_STOCK_REMINDER: 'inventory-stock-reminder',
     CUSTOMER_ACCOUNT_DELETED: 'customer-account-deleted',
@@ -74,6 +76,12 @@ export const MAIL_TEMPLATES = {
     CUSTOMER_PASSWORD_CHANGED: 'customer.password-changed',
     CUSTOMER_ACCOUNT_DELETION: 'customer.account-deletion',
     CUSTOMER_ACCOUNT_DELETED: 'customer.account-deleted',
+    CUSTOMER_ACCOUNT_DELETION_BLOCKED_PROCESSING:
+        'customer.account-deletion-blocked-processing',
+    CUSTOMER_ACCOUNT_DELETION_BLOCKED_SHIPPED:
+        'customer.account-deletion-blocked-shipped',
+    CUSTOMER_ORDER_AWAITING_PAYMENT: 'customer.order-awaiting-payment',
+    CUSTOMER_ORDER_PAYMENT_EXPIRED: 'customer.order-payment-expired',
     CUSTOMER_ORDER_PROCESSING: 'customer.order-processing',
     CUSTOMER_ORDER_SHIPPED: 'customer.order-shipped',
     CUSTOMER_ORDER_CANCEL_BLOCKED: 'customer.order-cancel-blocked',

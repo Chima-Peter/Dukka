@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
+    LogisticsLocationType,
     OrderInventoryStatus,
     OrderStatus,
     Prisma,
     PrismaService,
+    ScopeType,
     ShipmentMovementType,
     ShipmentStatus,
 } from '@app/common';
@@ -622,5 +624,48 @@ export class ShipmentsRepository {
         }
 
         return {};
+    }
+
+    async findWarehouseManagerId(
+        warehouseId: string,
+    ): Promise<string | null> {
+        const warehouse = await this.prisma.warehouse.findUnique({
+            where: { id: warehouseId },
+            select: { manager_id: true },
+        });
+        return warehouse?.manager_id ?? null;
+    }
+
+    async findStaffIdsForLocation(
+        location: Pick<
+            ShipmentLocationSummary,
+            'type' | 'warehouse_id' | 'distribution_point_id'
+        >,
+    ): Promise<string[]> {
+        if (
+            location.type === LogisticsLocationType.WAREHOUSE &&
+            location.warehouse_id
+        ) {
+            const managerId = await this.findWarehouseManagerId(
+                location.warehouse_id,
+            );
+            return managerId ? [managerId] : [];
+        }
+
+        if (
+            location.type === LogisticsLocationType.DISTRIBUTION_POINT &&
+            location.distribution_point_id
+        ) {
+            const scopes = await this.prisma.staffScope.findMany({
+                where: {
+                    distribution_point_id: location.distribution_point_id,
+                    scope_type: ScopeType.DISTRIBUTION_POINT,
+                },
+                select: { staff_id: true },
+            });
+            return scopes.map((scope) => scope.staff_id);
+        }
+
+        return [];
     }
 }

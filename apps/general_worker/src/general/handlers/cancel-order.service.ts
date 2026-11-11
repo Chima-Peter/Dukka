@@ -24,6 +24,7 @@ type LockedOrder = {
     total_amount: Prisma.Decimal;
     inventory_id: string | null;
     warehouse_id: string | null;
+    order_warehouse_id: string | null;
     inventory_status: OrderInventoryStatus | null;
     status: OrderStatus;
     payment_method_name: string | null;
@@ -42,6 +43,7 @@ type CancelResult =
           is_paystack: boolean;
           currency: string;
           total_amount: Prisma.Decimal;
+          order_warehouse_id: string | null;
           payment_attempt_id: string | null;
           payment_intent_id: string | null;
           payment_status: OrderPaymentAttemptStatus | null;
@@ -55,6 +57,7 @@ type CancelResult =
           is_paystack: boolean;
           currency: string;
           total_amount: Prisma.Decimal;
+          order_warehouse_id: string | null;
           payment_attempt_id: string | null;
           payment_intent_id: string | null;
           payment_status: OrderPaymentAttemptStatus | null;
@@ -85,6 +88,7 @@ export class CancelOrderService {
                        o.order_number,
                        o.currency,
                        o.total_amount,
+                       o.warehouse_id AS order_warehouse_id,
                        oi.id AS inventory_id,
                        oi.warehouse_id,
                        oi.status AS inventory_status,
@@ -127,6 +131,7 @@ export class CancelOrderService {
                     is_paystack: isPaystack,
                     currency: order.currency,
                     total_amount: order.total_amount,
+                    order_warehouse_id: order.order_warehouse_id,
                     payment_attempt_id: order.payment_attempt_id,
                     payment_intent_id: order.payment_intent_id,
                     payment_status: order.payment_status,
@@ -177,6 +182,7 @@ export class CancelOrderService {
                 is_paystack: isPaystack,
                 currency: order.currency,
                 total_amount: order.total_amount,
+                order_warehouse_id: order.order_warehouse_id,
                 payment_attempt_id: order.payment_attempt_id,
                 payment_intent_id: order.payment_intent_id,
                 payment_status: order.payment_status,
@@ -203,15 +209,27 @@ export class CancelOrderService {
         );
 
         let refundPending = false;
+        let refundFailed = false;
         if (result.is_paystack) {
-            const refund = await this.issuePaystackRefundIfNeeded(result);
-            refundPending = refund === 'issued' || refund === 'pending';
+            try {
+                const refund = await this.issuePaystackRefundIfNeeded(result);
+                refundPending = refund === 'issued' || refund === 'pending';
+            } catch (error) {
+                refundFailed = true;
+                this.logger.error(
+                    `Refund failed after cancel for order ${result.id}: ${error}`,
+                );
+            }
         }
 
         await this.notifyCancelled({
             ...result,
             refund_pending: refundPending,
         });
+
+        if (refundFailed) {
+            await this.notifyRefundFailed(result);
+        }
     }
 
     private async issuePaystackRefundIfNeeded(input: {
@@ -508,6 +526,7 @@ export class CancelOrderService {
         status: OrderStatus;
         is_cash: boolean;
         refund_pending: boolean;
+        order_warehouse_id: string | null;
     }): Promise<void> {
         const recipient = await this.resolveRecipient(order.id);
         if (!recipient.email || !recipient.name) {
@@ -539,6 +558,63 @@ export class CancelOrderService {
                 },
             );
         }
+
+        await this.notifyWarehouseManager(
+            order.order_warehouse_id,
+            {
+                title: 'Order cancelled',
+                type: NotificationType.ORDER,
+                text: `Order #${order.order_number} was cancelled and no longer needs fulfillment.`,
+            },
+        );
+    }
+
+    private async notifyRefundFailed(order: {
+        id: string;
+        order_number: string;
+        order_warehouse_id: string | null;
+    }): Promise<void> {
+        const recipient = await this.resolveRecipient(order.id);
+        if (recipient.customer_id) {
+            await this.notificationPublisher.notifyCustomer(
+                recipient.customer_id,
+                {
+                    title: 'Refund failed',
+                    type: NotificationType.ORDER,
+                    text: `We cancelled order #${order.order_number} but could not complete the refund currently. Please contact support if this is not resolved within 48 hours.`,
+                },
+            );
+        }
+
+        await this.notifyWarehouseManager(order.order_warehouse_id, {
+            title: 'Refund failed',
+            type: NotificationType.ORDER,
+            text: `Refund failed for cancelled order #${order.order_number}. Staff retry may be required.`,
+        });
+    }
+
+    private async notifyWarehouseManager(
+        warehouseId: string | null,
+        input: {
+            title: string;
+            type: NotificationType;
+            text: string;
+        },
+    ): Promise<void> {
+        if (!warehouseId) {
+            return;
+        }
+
+        const warehouse = await this.prisma.warehouse.findUnique({
+            where: { id: warehouseId },
+            select: { manager_id: true },
+        });
+
+        if (!warehouse?.manager_id) {
+            return;
+        }
+
+        await this.notificationPublisher.notifyStaff(warehouse.manager_id, input);
     }
 
     private async notifyCancelBlocked(order: {

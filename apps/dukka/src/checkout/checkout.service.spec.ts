@@ -23,6 +23,8 @@ vi.mock('../../../../libs/queues/src/index.ts', () => ({
     GENERAL_JOBS: {
         CANCEL_ORDER: 'cancel-order',
         ORDER_PROCESSING: 'order-processing',
+        ORDER_AWAITING_PAYMENT: 'order-awaiting-payment',
+        ORDER_SHIPPED: 'order-shipped',
     },
     MAIL_TEMPLATES: {},
     QueuesModule: class QueuesModule {},

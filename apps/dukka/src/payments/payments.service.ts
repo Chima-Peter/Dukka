@@ -47,7 +47,10 @@ import type { RetryOrderRefundDto } from './dto/retry-order-refund.dto.js';
 import type { StaffPaystackPayDto } from './dto/staff-paystack-pay.dto.js';
 import { PaymentsRepository } from './payments.repository.js';
 import {
+    PAYSTACK_REFUND_EVENTS,
+    PAYSTACK_REFUND_TERMINAL_STATUS,
     PaystackService,
+    type PaystackRefundTerminalWebhookEventName,
     type PaystackWebhookChargeData,
     type PaystackWebhookEvent,
     type PaystackWebhookRefundData,
@@ -64,11 +67,6 @@ import type {
     StaffRetryRefundResult,
     UpdatePaymentIntentInput,
 } from './types/payment.type.js';
-
-const PAYSTACK_REFUND_TERMINAL_EVENTS = new Set([
-    'refund.processed',
-    'refund.failed',
-]);
 
 @Injectable()
 export class PaymentsService {
@@ -327,7 +325,7 @@ export class PaymentsService {
                 return await this.handleChargeSuccessWebhook(event);
             }
 
-            if (PAYSTACK_REFUND_TERMINAL_EVENTS.has(event.event)) {
+            if (PAYSTACK_REFUND_EVENTS.has(event.event)) {
                 return await this.handleRefundWebhook(event);
             }
 
@@ -403,11 +401,6 @@ export class PaymentsService {
         event: PaystackWebhookEvent,
     ): Promise<{ received: true }> {
         const data = this.asRefundData(event.data);
-        const nextStatus =
-            event.event === 'refund.processed'
-                ? OrderRefundStatus.PROCESSED
-                : OrderRefundStatus.FAILED;
-
         const refundId = data.refund_reference?.trim();
         if (!refundId) {
             this.logger.warn(
@@ -421,6 +414,22 @@ export class PaymentsService {
         if (!refund) {
             this.logger.warn(
                 `No OrderRefund for Paystack refund event=${event.event} refund_id=${refundId}`,
+            );
+            return { received: true };
+        }
+
+        const nextStatus =
+            PAYSTACK_REFUND_TERMINAL_STATUS[
+                event.event as PaystackRefundTerminalWebhookEventName
+            ];
+
+        if (!nextStatus) {
+            if (event.event === 'refund.needs-attention') {
+                await this.notifyRefundNeedsAttention(refund);
+            }
+
+            this.logger.log(
+                `Acknowledged non-terminal Paystack refund event=${event.event} for OrderRefund ${refund.id} (local status=${refund.status})`,
             );
             return { received: true };
         }
@@ -446,7 +455,7 @@ export class PaymentsService {
             return { received: true };
         }
 
-        await this.notifyCustomerRefund(updated, nextStatus);
+        await this.notifyRefund(updated, nextStatus);
 
         this.logger.log(
             `Paystack ${event.event} processed for OrderRefund ${updated.id} order ${updated.order_id}`,
@@ -454,33 +463,90 @@ export class PaymentsService {
         return { received: true };
     }
 
-    private async notifyCustomerRefund(
+    private async notifyRefundNeedsAttention(
         refund: OrderRefundDetail,
-        status: Extract<OrderRefundStatus, 'PROCESSED' | 'FAILED'>,
     ): Promise<void> {
-        const customerId = refund.order.customer_id;
-        if (!customerId) {
-            this.logger.log(
-                `OrderRefund ${refund.id} has no customer to notify`,
-            );
+        const managerId = refund.order.warehouse?.manager_id;
+        if (!managerId) {
             return;
         }
 
         const orderNumber = refund.order.order_number;
+        const warehouseName = refund.order.warehouse?.name;
+        await this.notificationPublisher.notifyStaff(managerId, {
+            title: 'Refund needs attention',
+            type: NotificationType.ORDER,
+            text: warehouseName
+                ? `Paystack needs bank details to complete the refund for order #${orderNumber} (${warehouseName}).`
+                : `Paystack needs bank details to complete the refund for order #${orderNumber}.`,
+        });
+    }
+
+    private async notifyRefund(
+        refund: OrderRefundDetail,
+        status: Extract<OrderRefundStatus, 'PROCESSED' | 'FAILED'>,
+        options?: { audience?: 'all' | 'staff' },
+    ): Promise<void> {
+        const audience = options?.audience ?? 'all';
+        const orderNumber = refund.order.order_number;
+        const customerId = refund.order.customer_id;
+        const managerId = refund.order.warehouse?.manager_id ?? null;
+        const warehouseName = refund.order.warehouse?.name;
+        const notifyCustomer = audience === 'all';
+
         if (status === OrderRefundStatus.PROCESSED) {
-            await this.notificationPublisher.notifyCustomer(customerId, {
-                title: 'Refund processed',
-                type: NotificationType.ORDER,
-                text: `Your refund for order #${orderNumber} has been processed.`,
-            });
+            if (notifyCustomer) {
+                if (customerId) {
+                    await this.notificationPublisher.notifyCustomer(
+                        customerId,
+                        {
+                            title: 'Refund processed',
+                            type: NotificationType.ORDER,
+                            text: `Your refund for order #${orderNumber} has been processed.`,
+                        },
+                    );
+                } else {
+                    this.logger.log(
+                        `OrderRefund ${refund.id} has no customer to notify`,
+                    );
+                }
+            }
+
+            if (managerId) {
+                await this.notificationPublisher.notifyStaff(managerId, {
+                    title: 'Refund processed',
+                    type: NotificationType.ORDER,
+                    text: warehouseName
+                        ? `Refund processed for order #${orderNumber} (${warehouseName}).`
+                        : `Refund processed for order #${orderNumber}.`,
+                });
+            }
             return;
         }
 
-        await this.notificationPublisher.notifyCustomer(customerId, {
-            title: 'Refund failed',
-            type: NotificationType.ORDER,
-            text: `We could not process the refund for order #${orderNumber}. Please contact support.`,
-        });
+        if (notifyCustomer) {
+            if (customerId) {
+                await this.notificationPublisher.notifyCustomer(customerId, {
+                    title: 'Refund failed',
+                    type: NotificationType.ORDER,
+                    text: `We could not process the refund for order #${orderNumber}. Please contact support.`,
+                });
+            } else {
+                this.logger.log(
+                    `OrderRefund ${refund.id} has no customer to notify`,
+                );
+            }
+        }
+
+        if (managerId) {
+            await this.notificationPublisher.notifyStaff(managerId, {
+                title: 'Refund failed',
+                type: NotificationType.ORDER,
+                text: warehouseName
+                    ? `Refund failed for order #${orderNumber} (${warehouseName}). Staff retry may be required.`
+                    : `Refund failed for order #${orderNumber}. Staff retry may be required.`,
+            });
+        }
     }
 
     async retryFailedRefund(
@@ -582,10 +648,16 @@ export class PaymentsService {
                         : {}),
                 });
             } catch (error) {
-                await this.paymentsRepository.markRefundStatusIfPending({
-                    id: created.id,
-                    status: OrderRefundStatus.FAILED,
-                });
+                const failed =
+                    await this.paymentsRepository.markRefundStatusIfPending({
+                        id: created.id,
+                        status: OrderRefundStatus.FAILED,
+                    });
+                if (failed) {
+                    await this.notifyRefund(failed, OrderRefundStatus.FAILED, {
+                        audience: 'staff',
+                    });
+                }
                 this.logger.error(
                     `Paystack refund retry failed for new OrderRefund ${created.id} on order ${orderId}: ${error}`,
                 );

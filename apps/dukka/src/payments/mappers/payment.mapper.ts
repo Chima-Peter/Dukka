@@ -122,6 +122,14 @@ export const orderRefundDetailSelect = {
             order_number: true,
             customer_id: true,
             market_id: true,
+            warehouse_id: true,
+            warehouse: {
+                select: {
+                    id: true,
+                    name: true,
+                    manager_id: true,
+                },
+            },
         },
     },
 } satisfies Prisma.OrderRefundSelect;

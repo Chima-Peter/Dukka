@@ -329,6 +329,12 @@ export class CheckoutService {
                 { order_id: placed.order.id },
                 { jobId: `order-processing-${placed.order.id}` },
             );
+        } else {
+            await this.generalQueueService.enqueue(
+                GENERAL_JOBS.ORDER_AWAITING_PAYMENT,
+                { order_id: placed.order.id },
+                { jobId: `order-awaiting-payment-${placed.order.id}` },
+            );
         }
 
         this.logger.log(`Checkout completed for order ${placed.order.id}`);

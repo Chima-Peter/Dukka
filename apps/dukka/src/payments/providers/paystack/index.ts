@@ -1,4 +1,9 @@
 export { PaystackService } from './paystack.service.js';
+export {
+    PAYSTACK_REFUND_EVENT_NAMES,
+    PAYSTACK_REFUND_EVENTS,
+    PAYSTACK_REFUND_TERMINAL_STATUS,
+} from './types/index.js';
 export type {
     CreateRefundInput,
     CreateRefundResult,
@@ -11,6 +16,8 @@ export type {
     ListTransactionsInput,
     ListTransactionsResult,
     PaystackApiResponse,
+    PaystackRefundTerminalWebhookEventName,
+    PaystackRefundWebhookEventName,
     PaystackWebhookChargeData,
     PaystackWebhookEvent,
     PaystackWebhookRefundData,

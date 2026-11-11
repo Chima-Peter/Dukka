@@ -23,7 +23,14 @@ export type {
     RetryRefundInput,
     RetryRefundResult,
 } from './retry-refund.type.js';
+export {
+    PAYSTACK_REFUND_EVENT_NAMES,
+    PAYSTACK_REFUND_EVENTS,
+    PAYSTACK_REFUND_TERMINAL_STATUS,
+} from './webhook.type.js';
 export type {
+    PaystackRefundTerminalWebhookEventName,
+    PaystackRefundWebhookEventName,
     PaystackWebhookChargeData,
     PaystackWebhookEvent,
     PaystackWebhookRefundData,

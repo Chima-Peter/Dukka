@@ -14,8 +14,10 @@ import {
     type ExpireStaffInvitationJobPayload,
     type InventoryStockReminderJobPayload,
     type MarketDeletedJobPayload,
+    type OrderAwaitingPaymentJobPayload,
     type OrderCompletionJobPayload,
     type OrderProcessingJobPayload,
+    type OrderShippedJobPayload,
     type ReviewReminderJobPayload,
     type StaffDeactivatedJobPayload,
 } from '@app/queues';
@@ -28,8 +30,10 @@ import { ExpireStaffInvitationService } from './handlers/expire-staff-invitation
 import { ExpiredReservationsService } from './handlers/expired-reservations.service.js';
 import { InventoryStockReminderService } from './handlers/inventory-stock-reminder.service.js';
 import { MarketDeletedService } from './handlers/market-deleted.service.js';
+import { OrderAwaitingPaymentService } from './handlers/order-awaiting-payment.service.js';
 import { OrderCompletionService } from './handlers/order-completion.service.js';
 import { OrderProcessingService } from './handlers/order-processing.service.js';
+import { OrderShippedService } from './handlers/order-shipped.service.js';
 import { ReviewReminderService } from './handlers/review-reminder.service.js';
 import { StaffDeactivatedService } from './handlers/staff-deactivated.service.js';
 
@@ -41,6 +45,8 @@ export class GeneralProcessor extends WorkerHost {
         private readonly expiredReservationsService: ExpiredReservationsService,
         private readonly cancelOrderService: CancelOrderService,
         private readonly orderProcessingService: OrderProcessingService,
+        private readonly orderShippedService: OrderShippedService,
+        private readonly orderAwaitingPaymentService: OrderAwaitingPaymentService,
         private readonly orderCompletionService: OrderCompletionService,
         private readonly customerRegisteredService: CustomerRegisteredService,
         private readonly inventoryStockReminderService: InventoryStockReminderService,
@@ -74,6 +80,16 @@ export class GeneralProcessor extends WorkerHost {
             case GENERAL_JOBS.ORDER_PROCESSING:
                 await this.orderProcessingService.process(
                     job.data as OrderProcessingJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.ORDER_SHIPPED:
+                await this.orderShippedService.process(
+                    job.data as OrderShippedJobPayload,
+                );
+                return;
+            case GENERAL_JOBS.ORDER_AWAITING_PAYMENT:
+                await this.orderAwaitingPaymentService.process(
+                    job.data as OrderAwaitingPaymentJobPayload,
                 );
                 return;
             case GENERAL_JOBS.ORDER_COMPLETION:

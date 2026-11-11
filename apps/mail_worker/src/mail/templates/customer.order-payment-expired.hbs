@@ -1,0 +1,26 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Payment window expired
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Reservation released
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  The payment window for order <strong>#{{order_number}}</strong> expired, so we released the reserved items. No charge was completed for this order. If you want to purchase these items again, please place a new order. However, if you already paid for this order, we'll either process it or refund your payment.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Status" value="Payment expired"}}
+{{/details}}
+
+{{#> tip title="Want these items?"}}
+  You can place a new order anytime from Dukka. Stock availability may have changed since this reservation ended.
+{{/tip}}
+
+<p style="margin:0;">
+  Reply to this email if you believe you already paid for this order.
+</p>

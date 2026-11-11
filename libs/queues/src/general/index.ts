@@ -11,8 +11,10 @@ export type {
     InventoryStockReminderKind,
     CustomerRegisteredJobPayload,
     MarketDeletedJobPayload,
+    OrderAwaitingPaymentJobPayload,
     OrderCompletionJobPayload,
     OrderProcessingJobPayload,
+    OrderShippedJobPayload,
     ReviewReminderJobPayload,
     StaffDeactivatedJobPayload,
 } from './general-queue.types.js';

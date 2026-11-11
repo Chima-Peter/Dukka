@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import {
     LogisticsLocationType,
+    NotificationPublisher,
+    NotificationType,
     OrderPaymentAttemptStatus,
     ShipmentStatus,
     WarehouseStatus,
@@ -56,6 +58,7 @@ export class ShipmentsService {
     constructor(
         private readonly shipmentsRepository: ShipmentsRepository,
         private readonly generalQueueService: GeneralQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async findAll(
@@ -160,6 +163,7 @@ export class ShipmentsService {
                 ? new Date(data.occurred_at)
                 : new Date();
 
+            const markAsShipped = shipment.status === ShipmentStatus.PENDING;
             const result = await this.shipmentsRepository.move(shipmentId, {
                 from_location_id: shipment.current_location_id,
                 to_location_id: data.to_location_id,
@@ -168,10 +172,36 @@ export class ShipmentsService {
                 expected_arrival_date: expectedArrival,
                 occurred_at: occurredAt,
                 performed_by: performedBy,
-                mark_as_shipped: shipment.status === ShipmentStatus.PENDING,
+                mark_as_shipped: markAsShipped,
                 ...(data.metadata !== undefined && {
                     metadata: data.metadata as Prisma.InputJsonValue,
                 }),
+            });
+
+            if (markAsShipped) {
+                await this.generalQueueService.enqueue(
+                    GENERAL_JOBS.ORDER_SHIPPED,
+                    {
+                        order_id: shipment.order.id,
+                        tracking_number: result.shipment.tracking_number,
+                    },
+                    { jobId: `order-shipped-${shipment.order.id}` },
+                );
+            } else if (shipment.order.customer_id) {
+                await this.notificationPublisher.notifyCustomer(
+                    shipment.order.customer_id,
+                    {
+                        title: 'Order in transit',
+                        type: NotificationType.LOGISTICS,
+                        text: `Your order #${shipment.order.order_number} is in transit to ${result.to_location.name}.`,
+                    },
+                );
+            }
+
+            await this.notifyLocationStaff(result.to_location, {
+                title: 'Incoming shipment',
+                type: NotificationType.LOGISTICS,
+                text: `Shipment ${result.shipment.tracking_number} for order #${shipment.order.order_number} is incoming at ${result.to_location.name}.`,
             });
 
             this.logger.log(
@@ -329,6 +359,23 @@ export class ShipmentsService {
                 },
             );
 
+            if (shipment.order.customer_id) {
+                await this.notificationPublisher.notifyCustomer(
+                    shipment.order.customer_id,
+                    {
+                        title: 'Shipment received',
+                        type: NotificationType.LOGISTICS,
+                        text: `Your order #${shipment.order.order_number} arrived at ${result.to_location.name}.`,
+                    },
+                );
+            }
+
+            await this.notifyLocationStaff(result.from_location, {
+                title: 'Shipment acknowledged',
+                type: NotificationType.LOGISTICS,
+                text: `Shipment ${result.shipment.tracking_number} for order #${shipment.order.order_number} was acknowledged at ${result.to_location.name}.`,
+            });
+
             this.logger.log(
                 `Acknowledged shipment ${shipmentId} at ${result.to_location.type}`,
             );
@@ -385,11 +432,45 @@ export class ShipmentsService {
                 },
             );
 
+            if (shipment.order.customer_id) {
+                await this.notificationPublisher.notifyCustomer(
+                    shipment.order.customer_id,
+                    {
+                        title: 'Shipment movement cancelled',
+                        type: NotificationType.LOGISTICS,
+                        text: `A movement for order #${shipment.order.order_number} was cancelled; it remains at ${result.from_location.name}.`,
+                    },
+                );
+            }
+
+            await this.notifyLocationStaff(result.to_location, {
+                title: 'Incoming shipment cancelled',
+                type: NotificationType.LOGISTICS,
+                text: `Incoming shipment ${result.shipment.tracking_number} for order #${shipment.order.order_number} was cancelled.`,
+            });
+
             this.logger.log(`Cancelled shipment movement ${shipmentId}`);
             return result;
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private async notifyLocationStaff(
+        location: ShipmentLocationSummary,
+        input: {
+            title: string;
+            type: NotificationType;
+            text: string;
+        },
+    ): Promise<void> {
+        const staffIds =
+            await this.shipmentsRepository.findStaffIdsForLocation(location);
+        await Promise.all(
+            staffIds.map((staffId) =>
+                this.notificationPublisher.notifyStaff(staffId, input),
+            ),
+        );
     }
 
     private resolveShipmentListScope(

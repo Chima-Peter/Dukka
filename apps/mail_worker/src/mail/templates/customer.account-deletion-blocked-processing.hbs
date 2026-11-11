@@ -1,0 +1,48 @@
+<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;line-height:1.25;color:#0a0a0a;">
+  Your order is still being processed
+</h1>
+<p style="margin:0 0 22px;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#5ba60b;">
+  Account deletion paused
+</p>
+
+<p style="margin:0 0 16px;">
+  Hi {{name}},
+</p>
+<p style="margin:0 0 16px;">
+  We could not delete your account yet because order <strong>#{{order_number}}</strong> is still being processed. Once this order is complete or cancelled, you can try deleting your account again.
+</p>
+
+{{#> details}}
+  {{> detail-row label="Order number" value=order_number}}
+  {{> detail-row label="Status" value=order_status}}
+  {{> detail-row label="Market" value=market_name}}
+  {{> detail-row label="Placed on" value=created_at}}
+  {{> detail-row label="Shipping to" value=shipping_address}}
+{{/details}}
+
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#0a0a0a;">
+  Items
+</p>
+<ul style="margin:0 0 20px;padding-left:20px;color:#2a2a2a;">
+  {{#each items}}
+  <li style="margin:0 0 8px;">
+    <strong>{{product_name}}</strong> × {{quantity}}
+    <span style="color:#6b6b6b;"> — {{../currency}} {{total}}</span>
+  </li>
+  {{/each}}
+</ul>
+
+{{#> details}}
+  {{> detail-row label="Subtotal" value=subtotal_label}}
+  {{> detail-row label="Shipping" value=shipping_fee_label}}
+  {{> detail-row label="Discounts" value=discount_label}}
+  {{> detail-row label="Total" value=total_label}}
+{{/details}}
+
+{{#> tip title="What to do next"}}
+  Wait for this order to finish processing, or cancel open orders that are still eligible, then request account deletion again.
+{{/tip}}
+
+<p style="margin:0;">
+  If you need help with this order, reply to this email and our support team will assist.
+</p>

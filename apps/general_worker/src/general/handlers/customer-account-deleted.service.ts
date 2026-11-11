@@ -101,7 +101,8 @@ export class CustomerAccountDeletedService {
                     jobId: `customer-account-deleted-${customer_id}-processing-${blocking.id}`,
                     to: email,
                     subject: 'Your order is still being processed',
-                    template: MAIL_TEMPLATES.CUSTOMER_ORDER_PROCESSING,
+                    template:
+                        MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETION_BLOCKED_PROCESSING,
                     context: this.toOrderMailContext(name, email, blocking),
                 });
                 return;
@@ -114,7 +115,8 @@ export class CustomerAccountDeletedService {
                 jobId: `customer-account-deleted-${customer_id}-shipped-${blocking.id}`,
                 to: email,
                 subject: 'Your order has been shipped',
-                template: MAIL_TEMPLATES.CUSTOMER_ORDER_SHIPPED,
+                template:
+                    MAIL_TEMPLATES.CUSTOMER_ACCOUNT_DELETION_BLOCKED_SHIPPED,
                 context: this.toOrderMailContext(name, email, blocking),
             });
             return;

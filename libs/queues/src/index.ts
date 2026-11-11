@@ -30,8 +30,10 @@ export {
     type InventoryStockReminderKind,
     type CustomerRegisteredJobPayload,
     type MarketDeletedJobPayload,
+    type OrderAwaitingPaymentJobPayload,
     type OrderCompletionJobPayload,
     type OrderProcessingJobPayload,
+    type OrderShippedJobPayload,
     type ReviewReminderJobPayload,
     type StaffDeactivatedJobPayload,
 } from './general/index.js';

@@ -1,10 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+    NotificationPublisher,
+    NotificationType,
     OrderInventoryStatus,
     OrderPaymentAttemptStatus,
     PrismaService,
 } from '@app/common';
-import type { ExpiredReservationsJobPayload } from '@app/queues';
+import {
+    MAIL_TEMPLATES,
+    MailQueueService,
+    type ExpiredReservationsJobPayload,
+} from '@app/queues';
 
 type LockedReservation = {
     id: string;
@@ -16,7 +22,11 @@ type LockedReservation = {
 export class ExpiredReservationsService {
     private readonly logger = new Logger(ExpiredReservationsService.name);
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly mailQueueService: MailQueueService,
+        private readonly notificationPublisher: NotificationPublisher,
+    ) {}
 
     async process(
         payload: ExpiredReservationsJobPayload,
@@ -97,5 +107,79 @@ export class ExpiredReservationsService {
         this.logger.log(
             `Reverted expired inventory booking ${expired.id}`,
         );
+
+        await this.notifyPaymentExpired(expired.order_id);
+    }
+
+    private async notifyPaymentExpired(orderId: string): Promise<void> {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            select: {
+                id: true,
+                order_number: true,
+                customer_id: true,
+                guest_email: true,
+                guest_name: true,
+                customer: {
+                    select: { email: true, name: true },
+                },
+                warehouse: {
+                    select: {
+                        manager_id: true,
+                        name: true,
+                    },
+                },
+            },
+        });
+
+        if (!order) {
+            this.logger.warn(
+                `Order ${orderId} not found for payment-expired notice`,
+            );
+            return;
+        }
+
+        const email = order.customer?.email ?? order.guest_email;
+        const name =
+            order.customer?.name ??
+            order.guest_name ??
+            (email ? email.split('@')[0] : null);
+
+        if (!email || !name) {
+            this.logger.warn(
+                `No email for payment-expired notice on order ${order.id}`,
+            );
+        } else {
+            await this.mailQueueService.enqueueSend({
+                jobId: `order-payment-expired-mail-${order.id}`,
+                to: email,
+                subject: `Payment expired for order #${order.order_number}`,
+                template: MAIL_TEMPLATES.CUSTOMER_ORDER_PAYMENT_EXPIRED,
+                context: {
+                    name,
+                    email,
+                    order_number: order.order_number,
+                },
+            });
+        }
+
+        if (order.customer_id) {
+            await this.notificationPublisher.notifyCustomer(order.customer_id, {
+                title: 'Payment expired',
+                type: NotificationType.ORDER,
+                text: `Payment for order #${order.order_number} expired and the reservation was released.`,
+            });
+        }
+
+        if (order.warehouse?.manager_id) {
+            await this.notificationPublisher.notifyStaff(
+                order.warehouse.manager_id,
+                {
+                    title: 'Payment expired',
+                    type: NotificationType.ORDER,
+                    text: `Order #${order.order_number} payment expired; reservation released at ${order.warehouse.name}.`,
+                },
+            );
+        }
     }
 }
