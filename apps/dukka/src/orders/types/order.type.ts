@@ -33,7 +33,6 @@ export type OrderSummary = {
     amount: Prisma.Decimal;
     quantity: number;
     name: string | null;
-    market_id: string;
     created_at: Date;
 };
 

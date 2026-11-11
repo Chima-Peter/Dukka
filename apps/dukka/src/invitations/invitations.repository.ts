@@ -29,6 +29,7 @@ import {
     INVITATION_REPO_ERROR,
     invitationDetailsInclude,
     invitationScopeAccessSelect,
+    invitationSummarySelect,
     type StaffInvitationDetails,
     type StaffInvitationPage,
 } from './types/index.js';
@@ -235,7 +236,7 @@ export class InvitationsRepository {
                 cursor: { id: query.cursor },
                 skip: 1,
             }),
-            include: invitationDetailsInclude,
+            select: invitationSummarySelect,
         });
 
         const hasMore = records.length > limit;

@@ -28,7 +28,9 @@ import type { InviteStaffDto } from './dto/invite-staff.dto.js';
 import { InvitationsRepository } from './invitations.repository.js';
 import {
     toInvitationResponse,
+    toInvitationSummary,
     type InvitationResponse,
+    type InvitationSummary,
 } from './mappers/invitation.mapper.js';
 import {
     INVITATION_REPO_ERROR,
@@ -37,6 +39,7 @@ import {
 } from './types/index.js';
 
 export type StaffInvitationResponse = InvitationResponse;
+export type StaffInvitationSummary = InvitationSummary;
 
 @Injectable()
 export class InvitationsService {
@@ -75,7 +78,7 @@ export class InvitationsService {
         hierarchy: number | null,
         scope_type: ScopeType | null,
     ): Promise<{
-        items: StaffInvitationResponse[];
+        items: StaffInvitationSummary[];
         next_cursor: string | null;
     }> {
         try {
@@ -87,9 +90,7 @@ export class InvitationsService {
                     scope_type,
                 );
             return {
-                items: page.items.map((item) =>
-                    this.toInvitationResponse(item),
-                ),
+                items: page.items.map(toInvitationSummary),
                 next_cursor: page.next_cursor,
             };
         } catch (error) {

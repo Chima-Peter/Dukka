@@ -3,6 +3,10 @@ import { MarketStatus, type Market, PrismaService } from '@app/common';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import {
+    marketSummarySelect,
+    type MarketSummaryRow,
+} from './mappers/market.mapper.js';
+import {
     marketWithCurrency,
     type MarketSearchMatch,
     type MarketWithCurrency,
@@ -29,7 +33,7 @@ export class MarketsRepository {
     async findAll(
         market_ids: string[],
         status?: MarketStatus,
-    ): Promise<MarketWithCurrency[]> {
+    ): Promise<MarketSummaryRow[]> {
         if (market_ids.length === 0) {
             return [];
         }
@@ -39,7 +43,7 @@ export class MarketsRepository {
                 id: { in: market_ids },
                 ...(status !== undefined && { status }),
             },
-            include: marketWithCurrency,
+            select: marketSummarySelect,
             orderBy: { created_at: 'desc' },
         });
     }

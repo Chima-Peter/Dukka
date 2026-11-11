@@ -8,13 +8,11 @@ export const warehouseSummarySelect = {
     address: true,
     status: true,
     created_at: true,
-    updated_at: true,
 } satisfies Prisma.WarehouseSelect;
 
-export const warehouseListSelect = {
+export const warehouseDetailSelect = {
     ...warehouseSummarySelect,
-    market: { select: { id: true, name: true } },
-    manager: { select: { id: true, name: true } },
+    updated_at: true,
 } satisfies Prisma.WarehouseSelect;
 
 export type WarehouseSummary = {
@@ -25,20 +23,18 @@ export type WarehouseSummary = {
     address: string;
     status: WarehouseStatus;
     created_at: Date;
-    updated_at: Date;
 };
 
-export type WarehouseListItem = WarehouseSummary & {
-    market: { id: string; name: string };
-    manager: { id: string; name: string };
+export type WarehouseDetail = WarehouseSummary & {
+    updated_at: Date;
 };
 
 type WarehouseSummaryRow = Prisma.WarehouseGetPayload<{
     select: typeof warehouseSummarySelect;
 }>;
 
-type WarehouseListRow = Prisma.WarehouseGetPayload<{
-    select: typeof warehouseListSelect;
+type WarehouseDetailRow = Prisma.WarehouseGetPayload<{
+    select: typeof warehouseDetailSelect;
 }>;
 
 export function toWarehouseSummary(
@@ -52,14 +48,12 @@ export function toWarehouseSummary(
         address: row.address,
         status: row.status,
         created_at: row.created_at,
-        updated_at: row.updated_at,
     };
 }
 
-export function toWarehouseListItem(row: WarehouseListRow): WarehouseListItem {
+export function toWarehouseDetail(row: WarehouseDetailRow): WarehouseDetail {
     return {
         ...toWarehouseSummary(row),
-        market: row.market,
-        manager: row.manager,
+        updated_at: row.updated_at,
     };
 }

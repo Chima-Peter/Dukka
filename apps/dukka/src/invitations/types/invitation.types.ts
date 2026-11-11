@@ -32,14 +32,22 @@ export const invitationScopeAccessSelect = {
 
 export {
     invitationDetailsInclude,
+    invitationSummarySelect,
     type InvitationResponse,
     type InvitationScopeRow,
+    type InvitationSummary,
+    type InvitationSummaryRow,
     type StaffInvitationDetailsRow,
 } from '../mappers/invitation.mapper.js';
 
-export type StaffInvitationDetails = import('../mappers/invitation.mapper.js').StaffInvitationDetailsRow;
+import type {
+    InvitationSummaryRow,
+    StaffInvitationDetailsRow,
+} from '../mappers/invitation.mapper.js';
+
+export type StaffInvitationDetails = StaffInvitationDetailsRow;
 
 export type StaffInvitationPage = {
-    items: StaffInvitationDetails[];
+    items: InvitationSummaryRow[];
     next_cursor: string | null;
 };

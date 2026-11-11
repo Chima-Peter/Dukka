@@ -33,7 +33,12 @@ import type { StaffMemberSummary } from '../staff/types/staff.types.js';
 import type { CreateMarketDto } from './dto/create-market.dto.js';
 import type { UpdateMarketDto } from './dto/update-market.dto.js';
 import type { ValidateMarketsDto } from './dto/validate-markets.dto.js';
-import { toMarketResponse, type MarketResponse } from './mappers/market.mapper.js';
+import {
+    toMarketResponse,
+    toMarketSummary,
+    type MarketResponse,
+    type MarketSummary,
+} from './mappers/market.mapper.js';
 import { MarketsRepository } from './markets.repository.js';
 import type {
     MarketSearchMatch,
@@ -67,7 +72,7 @@ export class MarketsService {
     async findAll(
         market_ids: string[],
         status?: MarketStatus,
-    ): Promise<MarketResponse[]> {
+    ): Promise<MarketSummary[]> {
         try {
             this.logger.log('Fetching markets');
             const markets = await this.marketsRepository.findAll(
@@ -75,7 +80,7 @@ export class MarketsService {
                 status,
             );
             this.logger.log('Fetched markets');
-            return markets.map(toMarketResponse);
+            return markets.map(toMarketSummary);
         } catch (error) {
             this.handleError(error);
         }

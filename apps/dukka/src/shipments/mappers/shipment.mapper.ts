@@ -16,11 +16,7 @@ export const shipmentSummarySelect = {
     id: true,
     tracking_number: true,
     status: true,
-    estimated_delivery_date: true,
-    actual_delivery_date: true,
-    order_id: true,
     created_at: true,
-    updated_at: true,
     current_location: { select: shipmentLocationBriefSelect },
     order: {
         select: {
@@ -199,14 +195,10 @@ export function toShipmentSummary(row: ShipmentSummaryRow): ShipmentSummary {
         id: row.id,
         tracking_number: row.tracking_number,
         status: row.status,
-        estimated_delivery_date: row.estimated_delivery_date,
-        actual_delivery_date: row.actual_delivery_date,
-        order_id: row.order_id,
-        order_status: row.order.status,
         order_number: row.order.order_number,
+        order_status: row.order.status,
         current_location: row.current_location,
         created_at: row.created_at,
-        updated_at: row.updated_at,
     };
 }
 

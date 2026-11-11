@@ -113,28 +113,11 @@ export const orderRefundSummarySelect = {
     amount: true,
     currency: true,
     status: true,
-    provider: true,
-    payment_reference: true,
     refunded_at: true,
     created_at: true,
-    order_id: true,
     order: {
         select: {
             order_number: true,
-            market_id: true,
-            warehouse_id: true,
-            market: {
-                select: {
-                    id: true,
-                    name: true,
-                },
-            },
-            warehouse: {
-                select: {
-                    id: true,
-                    name: true,
-                },
-            },
         },
     },
 } satisfies Prisma.OrderRefundSelect;
@@ -293,16 +276,9 @@ export type OrderRefundSummaryView = {
     amount: Prisma.Decimal;
     currency: string;
     status: OrderRefundStatus;
-    provider: string;
-    payment_reference: string | null;
-    refunded_at: Date | null;
-    created_at: Date;
-    order_id: string;
     order_number: string;
-    market_id: string;
-    warehouse_id: string;
-    market: { id: string; name: string };
-    warehouse: { id: string; name: string };
+    created_at: Date;
+    refunded_at: Date | null;
 };
 
 export type OrderRefundAuditView = {
@@ -446,16 +422,9 @@ export function toOrderRefundSummaryView(
         amount: row.amount,
         currency: row.currency,
         status: row.status,
-        provider: row.provider,
-        payment_reference: row.payment_reference,
-        refunded_at: row.refunded_at,
-        created_at: row.created_at,
-        order_id: row.order_id,
         order_number: row.order.order_number,
-        market_id: row.order.market_id,
-        warehouse_id: row.order.warehouse_id,
-        market: row.order.market,
-        warehouse: row.order.warehouse,
+        created_at: row.created_at,
+        refunded_at: row.refunded_at,
     };
 }
 

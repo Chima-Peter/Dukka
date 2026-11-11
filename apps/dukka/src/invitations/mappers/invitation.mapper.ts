@@ -16,6 +16,20 @@ import {
     type WarehouseBrief,
 } from '../../staff/mappers/staff.mapper.js';
 
+export const invitationSummarySelect = {
+    id: true,
+    email: true,
+    name: true,
+    status: true,
+    expires_at: true,
+    created_at: true,
+    role: {
+        select: {
+            name: true,
+        },
+    },
+} as const;
+
 export const invitationDetailsInclude = {
     role: {
         select: {
@@ -69,6 +83,26 @@ export type StaffInvitationDetailsRow = StaffInvitation & {
     plain_token?: string;
 };
 
+export type InvitationSummaryRow = {
+    id: string;
+    email: string;
+    name: string;
+    status: StaffInvitationStatus;
+    expires_at: Date;
+    created_at: Date;
+    role: Pick<Role, 'name'>;
+};
+
+export type InvitationSummary = {
+    id: string;
+    email: string;
+    name: string;
+    status: StaffInvitationStatus;
+    expires_at: Date;
+    role_name: string;
+    created_at: Date;
+};
+
 export type InvitationResponse = {
     id: string;
     email: string;
@@ -85,6 +119,20 @@ export type InvitationResponse = {
     created_at: Date;
     updated_at: Date;
 };
+
+export function toInvitationSummary(
+    invitation: InvitationSummaryRow,
+): InvitationSummary {
+    return {
+        id: invitation.id,
+        email: invitation.email,
+        name: invitation.name,
+        status: invitation.status,
+        expires_at: invitation.expires_at,
+        role_name: invitation.role.name,
+        created_at: invitation.created_at,
+    };
+}
 
 export function toInvitationResponse(
     invitation: StaffInvitationDetailsRow,

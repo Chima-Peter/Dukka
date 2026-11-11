@@ -155,14 +155,10 @@ export type ShipmentSummary = {
     id: string;
     tracking_number: string;
     status: ShipmentStatus;
-    estimated_delivery_date: Date | null;
-    actual_delivery_date: Date | null;
-    order_id: string;
-    order_status: OrderStatus;
     order_number: string;
+    order_status: OrderStatus;
     current_location: Pick<LogisticsLocation, 'id' | 'type' | 'name'>;
     created_at: Date;
-    updated_at: Date;
 };
 
 export type ShipmentDetailLeg = ShipmentLegSummary & {

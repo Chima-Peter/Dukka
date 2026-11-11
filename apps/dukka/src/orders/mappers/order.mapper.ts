@@ -15,7 +15,6 @@ export const orderSummarySelect = {
     order_number: true,
     total_amount: true,
     guest_name: true,
-    market_id: true,
     created_at: true,
     customer: {
         select: {
@@ -550,7 +549,6 @@ export function toOrderSummary(row: OrderSummaryRow): OrderSummary {
         amount: row.total_amount,
         quantity: row.order_items.reduce((sum, item) => sum + item.quantity, 0),
         name: row.customer?.name ?? row.guest_name,
-        market_id: row.market_id,
         created_at: row.created_at,
     };
 }

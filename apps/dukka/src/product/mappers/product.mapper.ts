@@ -135,16 +135,12 @@ export function productListSummarySelect(
     return {
         id: true,
         name: true,
-        description: true,
         ...(includeStatus && { status: true }),
-        category_id: true,
         category: {
             select: {
                 name: true,
             },
         },
-        created_at: true,
-        updated_at: true,
         images: {
             orderBy: { sort_order: 'asc' as const },
             take: 1,
@@ -173,7 +169,6 @@ export function productListSummarySelect(
             orderBy: [{ created_at: 'asc' as const }, { id: 'asc' as const }],
             take: 1,
             select: {
-                status: true,
                 market_variants: {
                     where: {
                         status: marketVariantStatus,
@@ -183,7 +178,6 @@ export function productListSummarySelect(
                     },
                     take: 1,
                     select: {
-                        id: true,
                         price: true,
                         currency: true,
                         sold_out: true,
@@ -196,13 +190,35 @@ export function productListSummarySelect(
     } satisfies Prisma.ProductSelect;
 }
 
+export type PublicProductListItem = {
+    id: string;
+    name: string;
+    image_url: string | null;
+    price: unknown | null;
+    currency: string | null;
+    sold_out: boolean;
+    promotion: { promotion_market_id: string; amount: Prisma.Decimal } | null;
+};
+
+export type StaffProductListItem = {
+    id: string;
+    name: string;
+    status: ProductStatus;
+    image_url: string | null;
+    category_name: string;
+    price: unknown | null;
+    currency: string | null;
+};
+
 export function toProductListItem<
     T extends {
+        id: string;
+        name: string;
+        status?: ProductStatus;
         category: { name: string };
         images: Array<{ image_url: string }>;
         variants: Array<{
             market_variants: Array<{
-                id: string;
                 price: unknown;
                 currency: string;
                 sold_out: boolean;
@@ -210,16 +226,30 @@ export function toProductListItem<
             }>;
         }>;
     },
->(product: T) {
-    const { category, images, variants, ...rest } = product;
-    const marketVariant = variants[0]?.market_variants[0];
+>(product: T): PublicProductListItem | StaffProductListItem {
+    const marketVariant = product.variants[0]?.market_variants[0];
+    const image_url = product.images[0]?.image_url ?? null;
+    const price = marketVariant?.price ?? null;
+    const currency = marketVariant?.currency ?? null;
+
+    if (product.status !== undefined) {
+        return {
+            id: product.id,
+            name: product.name,
+            status: product.status,
+            image_url,
+            category_name: product.category.name,
+            price,
+            currency,
+        };
+    }
+
     return {
-        ...rest,
-        category_name: category.name,
-        image_url: images[0]?.image_url ?? null,
-        market_variant_id: marketVariant?.id ?? null,
-        price: marketVariant?.price ?? null,
-        currency: marketVariant?.currency ?? null,
+        id: product.id,
+        name: product.name,
+        image_url,
+        price,
+        currency,
         sold_out: marketVariant?.sold_out ?? false,
         promotion: toVariantPromotion(
             marketVariant?.price,
