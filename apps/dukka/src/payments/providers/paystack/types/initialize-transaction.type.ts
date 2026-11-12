@@ -4,6 +4,7 @@ export type InitializeTransactionInput = {
     amount: number | string;
     currency?: string;
     reference?: string;
+    callback_url?: string;
     metadata?: Record<string, unknown>;
 };
 

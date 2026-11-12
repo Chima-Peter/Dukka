@@ -8,6 +8,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
     OrderPaymentAttemptStatus,
     Prisma,
@@ -21,6 +22,7 @@ import { BillingAddressService } from '../address/billing-address.service.js';
 import { ShippingAddressService } from '../address/shipping-address.service.js';
 import { CartService } from '../cart/cart.service.js';
 import type { CartItemView, CartView } from '../cart/types/cart.type.js';
+import type { ConfigType } from '../config/env.interface.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { MarketsService } from '../markets/markets.service.js';
 import { IDEMPOTENCY_KEY_CONFLICT } from '../orders/constants/order.constants.js';
@@ -73,6 +75,7 @@ export class CheckoutService {
         private readonly redisService: RedisService,
         private readonly ordersService: OrdersService,
         private readonly marketsService: MarketsService,
+        private readonly configService: ConfigService<ConfigType, true>,
     ) {}
 
     async getPrecheckout(
@@ -256,10 +259,14 @@ export class CheckoutService {
         if (isPaystack) {
             let init;
             try {
+                const storeAppUrl = this.configService
+                    .getOrThrow('STORE_APP_URL', { infer: true })
+                    .replace(/\/$/, '');
                 init = await this.paystackService.initializeTransaction({
                     email: input.addresses.shipping.email,
                     amount: Math.round(bill.total_amount * 100),
                     currency: bill.currency,
+                    callback_url: `${storeAppUrl}/cart/checkout/payment/success`,
                     metadata: {
                         market_id: marketId,
                         cart_id: input.cartId,

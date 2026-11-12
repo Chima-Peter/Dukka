@@ -74,6 +74,9 @@ export class PaystackService {
                     ...(input.reference !== undefined && {
                         reference: input.reference,
                     }),
+                    ...(input.callback_url !== undefined && {
+                        callback_url: input.callback_url,
+                    }),
                     ...(input.metadata !== undefined && {
                         metadata: input.metadata,
                     }),

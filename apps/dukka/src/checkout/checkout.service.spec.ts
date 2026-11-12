@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedisService } from '@app/common';
 import { BillingAddressService } from '../address/billing-address.service.js';
@@ -120,6 +121,12 @@ describe('CheckoutService', () => {
                     provide: MarketsService,
                     useValue: {
                         getCashLimit: vi.fn(),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        getOrThrow: vi.fn().mockReturnValue('http://localhost:3000'),
                     },
                 },
             ],
