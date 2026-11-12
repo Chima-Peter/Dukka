@@ -58,6 +58,7 @@ export class InventoryStockReminderService {
             },
             select: {
                 id: true,
+                market_variant_id: true,
                 warehouse: {
                     select: {
                         id: true,
@@ -102,6 +103,25 @@ export class InventoryStockReminderService {
             (row) => row.market_variant.variant.product.name,
         );
         const inventory_ids = inventories.map((row) => row.id);
+
+        if (kind === 'finished') {
+            const marketVariantIds = [
+                ...new Set(inventories.map((row) => row.market_variant_id)),
+            ];
+            const soldOut = await this.prisma.marketVariant.updateMany({
+                where: {
+                    id: { in: marketVariantIds },
+                    sold_out: false,
+                    inventories: {
+                        every: { available_quantity: 0 },
+                    },
+                },
+                data: { sold_out: true },
+            });
+            this.logger.log(
+                `Marked ${soldOut.count} market variant(s) sold out for warehouse ${warehouse_id}`,
+            );
+        }
 
         await this.mailQueueService.enqueueInventoryStockReminder({
             jobId: `inventory-stock-reminder-${warehouse_id}-${kind}-${inventoryBatchFingerprint(inventory_ids)}`,
