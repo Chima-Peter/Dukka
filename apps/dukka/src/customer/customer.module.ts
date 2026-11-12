@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { NotificationPublisherModule } from '@app/common';
 import type { ConfigType } from '../config/env.interface.js';
 import { CartModule } from '../cart/cart.module.js';
 import { PasswordHasher } from '../shared/index.js';
@@ -21,6 +22,7 @@ import { ServiceModule } from '../service/service.module.js';
         forwardRef(() => ServiceModule),
         MarketsModule,
         PaymentsModule,
+        NotificationPublisherModule,
         JwtModule.registerAsync({
             global: true,
             inject: [ConfigService],

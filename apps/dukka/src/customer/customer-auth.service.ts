@@ -20,6 +20,8 @@ import {
 import type { AuthTokens, LoginData, PublicCustomer } from './types/index.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import {
+    NotificationPublisher,
+    NotificationType,
     RedisService,
     type CustomerJwtPayload,
     type JwtPayload,
@@ -54,6 +56,7 @@ export class CustomerAuthService {
         private readonly mailQueueService: MailQueueService,
         private readonly generalQueueService: GeneralQueueService,
         private readonly cartRepository: CartRepository,
+        private readonly notificationPublisher: NotificationPublisher,
     ) {}
 
     async register(
@@ -84,6 +87,11 @@ export class CustomerAuthService {
                     name: customer.name,
                     email: customer.email,
                 },
+            }),
+            this.notificationPublisher.notifyCustomer(customer.id, {
+                title: 'Welcome to Dukka',
+                type: NotificationType.SYSTEM,
+                text: `Hi ${customer.name}, your account is ready. Explore markets and start shopping.`,
             }),
             this.generalQueueService.enqueue(
                 GENERAL_JOBS.CUSTOMER_REGISTERED,

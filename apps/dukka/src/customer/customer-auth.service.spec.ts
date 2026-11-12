@@ -1,6 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NotificationPublisher } from '../../../../libs/common/src/notifications/notification-publisher.service.js';
 import { CartRepository } from '../cart/cart.repository.js';
 import { PasswordHasher } from '../shared/index.js';
 import { CustomerAuthService } from './customer-auth.service.js';
@@ -109,6 +110,13 @@ describe('CustomerAuthService', () => {
                     provide: CartRepository,
                     useValue: {
                         findOrCreateCartIdForCustomer: vi.fn(),
+                    },
+                },
+                {
+                    provide: NotificationPublisher,
+                    useValue: {
+                        notifyCustomer: vi.fn(),
+                        notifyStaff: vi.fn(),
                     },
                 },
             ],
