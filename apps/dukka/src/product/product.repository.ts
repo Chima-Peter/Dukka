@@ -25,6 +25,8 @@ import {
     toProductDetail,
     toProductListItem,
     toStaffProductDetail,
+    type PublicProductListItem,
+    type StaffProductListItem,
 } from './mappers/product.mapper.js';
 import type {
     CreateProductPendingUpdateData,
@@ -130,7 +132,9 @@ export class ProductRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(toProductListItem);
+        const items = page.map(
+            (product) => toProductListItem(product) as PublicProductListItem,
+        );
 
         return {
             items,
@@ -308,7 +312,9 @@ export class ProductRepository {
 
         const hasMore = records.length > limit;
         const page = hasMore ? records.slice(0, limit) : records;
-        const items = page.map(toProductListItem);
+        const items = page.map(
+            (product) => toProductListItem(product) as StaffProductListItem,
+        );
 
         return {
             items,

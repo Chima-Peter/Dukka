@@ -365,7 +365,7 @@ export class ProductVariantService {
                         price: data.price,
                         currency: market.currency.code,
                     });
-                await this.invalidateProductSuggestionsCache(data.market_id);
+                await this.invalidateProductCaches(data.market_id);
                 this.logger.log(
                     `Market variant created ${marketVariant.id} for variant ${variantId}`,
                 );
@@ -385,9 +385,7 @@ export class ProductVariantService {
                             },
                         );
                     if (reopened) {
-                        await this.invalidateProductSuggestionsCache(
-                            data.market_id,
-                        );
+                        await this.invalidateProductCaches(data.market_id);
                         this.logger.log(
                             `Market variant reopened ${reopened.id} for variant ${variantId}`,
                         );
@@ -421,7 +419,7 @@ export class ProductVariantService {
                     marketId,
                     data.price,
                 );
-            await this.invalidateProductSuggestionsCache(marketId);
+            await this.invalidateProductCaches(marketId);
             this.logger.log(
                 `Market variant updated for variant ${variantId} in market ${marketId}`,
             );
@@ -660,7 +658,7 @@ export class ProductVariantService {
                 'One or more variants are already archived or cannot be archived from their current status',
             );
             await this.productVariantRepository.archiveVariants(productId, variantIds);
-            await this.invalidateProductSuggestionsCacheForProduct(productId);
+            await this.invalidateProductCachesForProduct(productId);
             this.logger.log(
                 `Archived ${variantIds.length} variant(s) on product ${productId}`,
             );
@@ -716,9 +714,7 @@ export class ProductVariantService {
                 nextStatus === VariantStatus.ARCHIVED ||
                 nextStatus === VariantStatus.REJECTED
             ) {
-                await this.invalidateProductSuggestionsCacheForProduct(
-                    productId,
-                );
+                await this.invalidateProductCachesForProduct(productId);
             }
             this.logger.log(
                 `${variantIds.length} variant(s) ${doneLog} on product ${productId}`,
@@ -728,15 +724,14 @@ export class ProductVariantService {
         }
     }
 
-    private async invalidateProductSuggestionsCache(
-        marketId: string,
-    ): Promise<void> {
+    private async invalidateProductCaches(marketId: string): Promise<void> {
         await this.redisService.invalidateVersionKeys([
             RedisKeys.productSuggestionsVersion(marketId),
+            RedisKeys.productsListVersion(marketId),
         ]);
     }
 
-    private async invalidateProductSuggestionsCacheForProduct(
+    private async invalidateProductCachesForProduct(
         productId: string,
     ): Promise<void> {
         const marketIds =
@@ -746,9 +741,10 @@ export class ProductVariantService {
         }
 
         await this.redisService.invalidateVersionKeys(
-            marketIds.map((marketId) =>
+            marketIds.flatMap((marketId) => [
                 RedisKeys.productSuggestionsVersion(marketId),
-            ),
+                RedisKeys.productsListVersion(marketId),
+            ]),
         );
     }
 

@@ -17,6 +17,9 @@ export const CATEGORIES_LIST_LOCK_RETRY_MS = 100;
 export const PRODUCT_SUGGESTIONS_TTL_SECONDS = 15 * 60;
 export const PRODUCT_SUGGESTIONS_LOCK_TTL_MS = 10 * 1000;
 export const PRODUCT_SUGGESTIONS_LOCK_RETRY_MS = 100;
+export const PRODUCTS_LIST_TTL_SECONDS = 15 * 60;
+export const PRODUCTS_LIST_LOCK_TTL_MS = 10 * 1000;
+export const PRODUCTS_LIST_LOCK_RETRY_MS = 100;
 
 export const RedisKeys = {
     passwordResetToken: (email: string) => `password_reset:token:${email}`,
@@ -54,4 +57,26 @@ export const RedisKeys = {
     productSuggestionsPrefix: (marketId: string) =>
         `products:suggestions:${marketId}:`,
     productSuggestionsSuffix: (q: string, limit: number) => `:${q}:${limit}`,
+    productsListVersion: (marketId: string) =>
+        `products:list:version:${marketId}`,
+    productsListLock: (
+        marketId: string,
+        categoryId: string | undefined,
+        cursor: string | undefined,
+        limit: number,
+        name: string | undefined,
+        minPrice: number | undefined,
+        maxPrice: number | undefined,
+    ) =>
+        `products:list:lock:${marketId}:${categoryId ?? '_'}:${cursor ?? '_'}:${limit}:${name ?? '_'}:${minPrice ?? '_'}:${maxPrice ?? '_'}`,
+    productsListPrefix: (marketId: string) => `products:list:${marketId}:`,
+    productsListSuffix: (
+        categoryId: string | undefined,
+        cursor: string | undefined,
+        limit: number,
+        name: string | undefined,
+        minPrice: number | undefined,
+        maxPrice: number | undefined,
+    ) =>
+        `:${categoryId ?? '_'}:${cursor ?? '_'}:${limit}:${name ?? '_'}:${minPrice ?? '_'}:${maxPrice ?? '_'}`,
 } as const;

@@ -25,3 +25,33 @@ export type CreateProductPendingUpdateData = {
     category_id?: string;
     images?: ProductImageRecord[];
 };
+
+export type ProductSuggestionItem = {
+    id: string;
+    name: string;
+    image_url: string | null;
+    price: unknown | null;
+    currency: string | null;
+    sold_out: boolean;
+    promotion: null;
+};
+
+export type ProductSuggestionsPage = {
+    items: ProductSuggestionItem[];
+};
+
+export type ProductsListPage = {
+    items: Array<{
+        id: string;
+        name: string;
+        image_url: string | null;
+        price: unknown | null;
+        currency: string | null;
+        sold_out: boolean;
+        promotion: {
+            promotion_market_id: string;
+            amount: unknown;
+        } | null;
+    }>;
+    next_cursor: string | null;
+};

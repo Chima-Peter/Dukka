@@ -28,6 +28,9 @@ import {
     PRODUCT_SUGGESTIONS_LOCK_RETRY_MS,
     PRODUCT_SUGGESTIONS_LOCK_TTL_MS,
     PRODUCT_SUGGESTIONS_TTL_SECONDS,
+    PRODUCTS_LIST_LOCK_RETRY_MS,
+    PRODUCTS_LIST_LOCK_TTL_MS,
+    PRODUCTS_LIST_TTL_SECONDS,
     RedisKeys,
 } from '../shared/redis.constants.js';
 import { resolveMarketId } from '../shared/resolve-market-id.js';
@@ -50,13 +53,11 @@ import {
 } from '../shared/access-control.js';
 import { toProductStatusView } from './mappers/product.mapper.js';
 import { ProductRepository } from './product.repository.js';
+import type {
+    ProductSuggestionsPage,
+    ProductsListPage,
+} from './types/product.type.js';
 import { ImageUploadUrls, SignedUpload } from './types/upload.type.js';
-
-type ProductSuggestionsPage = {
-    items: Awaited<
-        ReturnType<ProductRepository['findSuggestionsPublic']>
-    >['items'];
-};
 
 @Injectable()
 export class ProductService {
@@ -154,22 +155,93 @@ export class ProductService {
 
     async findAll(customerId: string | undefined, query: FindProductsDto) {
         try {
-            this.logger.log('Fetching products');
             this.assertPriceRange(query.min_price, query.max_price);
             const marketId = await resolveMarketId(
                 this.customerService,
                 customerId,
                 query.market_id,
             );
-            const page = await this.productRepository.findAllPublic({
-                ...query,
-                market_id: marketId,
-            });
-            this.logger.log('Fetched products');
-            return {
-                items: page.items,
-                next_cursor: page.next_cursor,
-            };
+
+            const limit = query.limit ?? 50;
+            const name = query.name?.trim().toLowerCase();
+            const versionKey = RedisKeys.productsListVersion(marketId);
+            const lockKey = RedisKeys.productsListLock(
+                marketId,
+                query.category_id,
+                query.cursor,
+                limit,
+                name,
+                query.min_price,
+                query.max_price,
+            );
+            const keyPrefix = RedisKeys.productsListPrefix(marketId);
+            const keySuffix = RedisKeys.productsListSuffix(
+                query.category_id,
+                query.cursor,
+                limit,
+                name,
+                query.min_price,
+                query.max_price,
+            );
+            const waitDeadline = Date.now() + PRODUCTS_LIST_LOCK_TTL_MS;
+
+            while (true) {
+                const outcome =
+                    await this.redisService.getVersionedObjectOrLock<ProductsListPage>(
+                        versionKey,
+                        lockKey,
+                        keyPrefix,
+                        keySuffix,
+                        PRODUCTS_LIST_LOCK_TTL_MS,
+                    );
+
+                if (outcome.status === 'hit') {
+                    this.logger.log(
+                        `Cache hit for products list market ${marketId}`,
+                    );
+                    return outcome.value;
+                }
+
+                if (outcome.status === 'busy') {
+                    if (Date.now() >= waitDeadline) {
+                        this.logger.warn(
+                            `Cache lock wait timed out for products list market ${marketId}`,
+                        );
+                        return await this.loadProductsListPage(
+                            marketId,
+                            query,
+                            limit,
+                        );
+                    }
+
+                    this.logger.log(
+                        `Cache lock busy for products list market ${marketId}; retrying`,
+                    );
+                    await sleep(PRODUCTS_LIST_LOCK_RETRY_MS);
+                    continue;
+                }
+
+                try {
+                    this.logger.log('Fetching products');
+                    const result = await this.loadProductsListPage(
+                        marketId,
+                        query,
+                        limit,
+                    );
+                    await this.redisService.setObjectAndUnlock(
+                        outcome.resultKey,
+                        lockKey,
+                        result,
+                        PRODUCTS_LIST_TTL_SECONDS,
+                        outcome.token,
+                    );
+                    this.logger.log('Fetched products');
+                    return result;
+                } catch (error) {
+                    await this.redisService.unlock(lockKey, outcome.token);
+                    throw error;
+                }
+            }
         } catch (error) {
             this.handleError(error);
         }
@@ -536,7 +608,7 @@ export class ProductService {
                 await this.productRepository.findMarketIdsByProductIds(
                     pendingUpdates.map((update) => update.product_id),
                 );
-            await this.invalidateProductSuggestionsCacheForMarkets(marketIds);
+            await this.invalidateProductCachesForMarkets(marketIds);
             this.logger.log(
                 `Approved ${pendingUpdateIds.length} product pending update(s)`,
             );
@@ -734,7 +806,7 @@ export class ProductService {
                     ? await this.productRepository.findMarketIdsByProductId(id)
                     : [];
             const product = await this.productRepository.archiveProduct(id);
-            await this.invalidateProductSuggestionsCacheForMarkets(marketIds);
+            await this.invalidateProductCachesForMarkets(marketIds);
             this.logger.log(`Product archived ${id}`);
             return toProductStatusView(product);
         } catch (error) {
@@ -781,15 +853,25 @@ export class ProductService {
             ) {
                 const marketIds =
                     await this.productRepository.findMarketIdsByProductId(id);
-                await this.invalidateProductSuggestionsCacheForMarkets(
-                    marketIds,
-                );
+                await this.invalidateProductCachesForMarkets(marketIds);
             }
             this.logger.log(`Product ${doneLog} ${id}`);
             return toProductStatusView(product);
         } catch (error) {
             this.handleError(error);
         }
+    }
+
+    private async loadProductsListPage(
+        marketId: string,
+        query: FindProductsDto,
+        limit: number,
+    ): Promise<ProductsListPage> {
+        return await this.productRepository.findAllPublic({
+            ...query,
+            market_id: marketId,
+            limit,
+        });
     }
 
     private async loadProductSuggestions(
@@ -805,7 +887,7 @@ export class ProductService {
         return { items: page.items };
     }
 
-    private async invalidateProductSuggestionsCacheForMarkets(
+    private async invalidateProductCachesForMarkets(
         marketIds: string[],
     ): Promise<void> {
         if (marketIds.length === 0) {
@@ -813,9 +895,10 @@ export class ProductService {
         }
 
         await this.redisService.invalidateVersionKeys(
-            marketIds.map((marketId) =>
+            marketIds.flatMap((marketId) => [
                 RedisKeys.productSuggestionsVersion(marketId),
-            ),
+                RedisKeys.productsListVersion(marketId),
+            ]),
         );
     }
 
